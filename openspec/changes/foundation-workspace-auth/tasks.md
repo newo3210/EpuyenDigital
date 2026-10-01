@@ -83,10 +83,10 @@
 
 ## 11. Run Unit Tests and Verify Database State (MANDATORY)
 
-- [ ] 11.1 Capture pre-test database baseline (row counts of `organizations`, `profiles`, `error_logs`, `storage.objects` in `avatars`)
-- [ ] 11.2 Run `npm run test` (targeted, then full) and `npm run test:db`
-- [ ] 11.3 Run `npm run typecheck` and `npm run lint`
-- [ ] 11.4 Verify post-test database state matches baseline; restore if needed
+- [x] 11.1 Capture pre-test database baseline (row counts of `organizations`, `profiles`, `error_logs`, `storage.objects` in `avatars`)
+- [x] 11.2 Run `npm run test` (targeted, then full) and `npm run test:db`
+- [x] 11.3 Run `npm run typecheck` and `npm run lint`
+- [x] 11.4 Verify post-test database state matches baseline; restore if needed
 - [ ] 11.5 Create report `openspec/changes/foundation-workspace-auth/reports/YYYY-MM-DD-step-11-unit-test-and-db-verification.md`
 - [ ] 11.6 Mark step complete only after tests pass and report exists
 
