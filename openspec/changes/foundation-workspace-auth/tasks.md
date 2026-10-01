@@ -25,11 +25,11 @@
 
 ## 3. Shared logic (TDD)
 
-- [ ] 3.1 Write failing tests for `redact.ts` (DNI, CUIT, AR phones incl. `+54 9`, emails, tokens/bearer/apikey, nested objects, depth/size truncation)
-- [ ] 3.2 Implement `packages/shared/src/redact.ts` until green
-- [ ] 3.3 Write failing tests for `initials.ts` ("Ana Pérez" → "AP", single name, extra spaces, empty) then implement
-- [ ] 3.4 Write failing tests for `trace.ts` (generate id, short code = first 8 chars) then implement
-- [ ] 3.5 Contracts: `roles.ts`, `profile.ts`, `error-log.ts` with Zod schemas from design; schema tests for valid/invalid samples
+- [x] 3.1 Write failing tests for `redact.ts` (DNI, CUIT, AR phones incl. `+54 9`, emails, tokens/bearer/apikey, nested objects, depth/size truncation)
+- [x] 3.2 Implement `packages/shared/src/redact.ts` until green
+- [x] 3.3 Write failing tests for `initials.ts` ("Ana Pérez" → "AP", single name, extra spaces, empty) then implement
+- [x] 3.4 Write failing tests for `trace.ts` (generate id, short code = first 8 chars) then implement
+- [x] 3.5 Contracts: `roles.ts`, `profile.ts`, `error-log.ts` with Zod schemas from design; schema tests for valid/invalid samples
 
 ## 4. Database foundation (SQL tests first)
 
