@@ -63,7 +63,7 @@ Supabase CLI as a devDependency (`npx supabase`). Scripts set `DOCKER_HOST` to t
 ### D6 — Auth flow
 - `middleware.ts`: refreshes the session via `@supabase/ssr`, sets/propagates `x-trace-id`, redirects anonymous users on `(panel)` paths to `/login?next=<path>`.
 - `(panel)/layout.tsx` calls `requireOperator()` (features/auth): loads the profile; missing → sign out + redirect `/login?reason=no_profile`; inactive → sign out + `/login?reason=inactive`.
-- `requireRole(roles)` used by pages; failure renders `forbidden` with status 403 (`notFound`-style helper via `forbidden()` from Next 15 `authInterrupts` if stable, otherwise a dedicated page + route handler status).
+- `requireRole(roles)` used by pages; failure calls Next's `forbidden()` and renders `app/forbidden.tsx` with HTTP 403. Decision (2026-10-01, user approved): `forbidden()` is still behind `experimental.authInterrupts` in Next 15.5, and we enable that flag in `next.config.ts` instead of a middleware role lookup or a 200 redirect.
 - Login is a server action validated with `loginSchema` (Zod); Supabase error → generic message (no enumeration). `safeNext()` accepts only relative paths starting with `/` and not `//`.
 - Port: `seguros/apps/web/src/lib/auth/*` (guards) adapted to the layer mapping.
 
@@ -98,6 +98,6 @@ No LLM boundary in this change.
 
 - **Supabase CLI on Podman may not work** (named pipe, volume mounts) → timeboxed spike + cloud dev fallback (D3).
 - **Repository lives inside OneDrive** (`...\cursor\Epuyen Bot`, accepted by the user) → `node_modules` sync load, file locks, and bind-mount issues with Podman → keep Supabase data in Podman named volumes (not bind mounts) and watch for EBUSY/EPERM errors during install.
-- **Next 15 `forbidden()` API stability** → fallback to explicit 403 page if the experimental flag is required.
+- **Next 15 `forbidden()` API stability** → accepted: `experimental.authInterrupts` enabled; revisit when upgrading Next (flag may become stable or change shape). `requireRole` takes `forbidden` as an injected port, so swapping the mechanism touches only the server wiring.
 - **`pg_cron` locally** → purge function testable without the scheduler; schedule applied conditionally.
 - **Redaction false positives** (e.g. long numeric ids masked) → accepted; errors lose some detail but never leak personal data.

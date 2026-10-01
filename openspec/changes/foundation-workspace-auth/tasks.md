@@ -57,10 +57,10 @@
 
 ## 7. Presentation: login and panel shell
 
-- [ ] 7.1 `(auth)/login/page.tsx` + form (react-hook-form + `loginSchema`), messages for `reason=inactive|no_profile`, accessible labels and error announcements
-- [ ] 7.2 `(panel)/layout.tsx` with `requireOperator`, sidebar (Mensajería, Pobladores, Tareas, Configuración, Soporte — role-filtered) and top bar (name, avatar/initials, user menu with "Cerrar sesión")
-- [ ] 7.3 Placeholder pages `inbox`, `citizens`, `tasks` with empty states; `forbidden` page with 403
-- [ ] 7.4 Component tests: login form validation, user menu logout, initials avatar fallback
+- [x] 7.1 `(auth)/login/page.tsx` + form (react-hook-form + `loginSchema`), messages for `reason=inactive|no_profile`, accessible labels and error announcements
+- [x] 7.2 `(panel)/layout.tsx` with `requireOperator`, sidebar (Mensajería, Pobladores, Tareas, Configuración, Soporte — role-filtered) and top bar (name, avatar/initials, user menu with "Cerrar sesión")
+- [x] 7.3 Placeholder pages `inbox`, `citizens`, `tasks` with empty states; `forbidden` page with 403
+- [x] 7.4 Component tests: login form validation, user menu logout, initials avatar fallback
 
 ## 8. Operator profile feature
 

@@ -11,11 +11,12 @@ const repoRoot = path.resolve(__dirname, '../..');
 loadEnvConfig(repoRoot, process.env.NODE_ENV !== 'production', console, true);
 parsePublicEnv(process.env);
 
-// Next.js config - compiles the TypeScript-source shared workspace package.
+// Next.js config - compiles the shared workspace package; authInterrupts enables forbidden() (403 page).
 const nextConfig: NextConfig = {
   transpilePackages: ['@epuyen/shared'],
   outputFileTracingRoot: repoRoot,
   turbopack: { root: repoRoot },
+  experimental: { authInterrupts: true },
 };
 
 export default nextConfig;

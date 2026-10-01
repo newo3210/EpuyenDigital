@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+/* Design tokens - institutional Epuyén palette (lake/forest greens) and neutral surfaces. */
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-brand-50: #eef7f4;
+  --color-brand-100: #d5ece4;
+  --color-brand-600: #1f6f5c;
+  --color-brand-700: #185a4b;
+  --color-brand-800: #13463a;
+
+  --color-canvas: #f4f6f5;
+  --color-surface: #ffffff;
+  --color-ink: #1b2522;
+  --color-muted: #56645f;
+  --color-line: #dbe3e0;
+
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
+  --color-notice: #8a5a00;
+  --color-notice-soft: #fff8e6;
+}
+
+/* Numeric data - tabular numerals keep DNI and phone columns aligned. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

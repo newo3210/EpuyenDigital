@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import { esAR } from '@/i18n/es-AR';
 import './globals.css';
 
-// Document metadata - title and description from the es-AR dictionary.
+// Document metadata - "<page> · <app>" titles and description from the es-AR dictionary.
 export const metadata: Metadata = {
-  title: esAR.app.name,
+  title: { default: esAR.app.name, template: `%s · ${esAR.app.name}` },
   description: esAR.app.description,
 };
 
@@ -18,7 +18,7 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es-AR">
-      <body className="min-h-screen bg-white text-neutral-900 antialiased">{children}</body>
+      <body className="min-h-screen bg-canvas font-sans text-ink antialiased">{children}</body>
     </html>
   );
 }
