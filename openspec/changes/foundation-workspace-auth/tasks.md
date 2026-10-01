@@ -33,12 +33,12 @@
 
 ## 4. Database foundation (SQL tests first)
 
-- [ ] 4.1 Write pgTAP tests `supabase/tests/001_org_isolation.test.sql`: two orgs, operators in each; read/write isolation on `profiles`; inactive operator sees zero rows; helpers return null for inactive/no profile
-- [ ] 4.2 Write pgTAP tests `supabase/tests/002_profiles_guard.test.sql`: operator cannot change own `role`/`org_id`/`is_active` (`forbidden_column`); admin can within org; operator can change own name
-- [ ] 4.3 Write pgTAP tests `supabase/tests/003_error_logs.test.sql`: authenticated insert rejected; operator cannot select; support/admin select own org; only `status` updatable; `resolved_by`/`resolved_at` set on resolve; `purge_error_logs()` deletes > 30 days only
-- [ ] 4.4 Write pgTAP tests `supabase/tests/004_avatars_storage.test.sql`: write own folder allowed; other user's folder rejected
-- [ ] 4.5 Implement migration `supabase/migrations/20260930000100_foundation.sql` (extensions, enums, tables, triggers, helpers, RLS, bucket + storage policies, purge function, conditional `pg_cron` schedule) until all SQL tests pass
-- [ ] 4.6 Implement `supabase/seed/seed.ts` (idempotent org + admin); test by running twice and asserting counts
+- [x] 4.1 Write pgTAP tests `supabase/tests/001_org_isolation.test.sql`: two orgs, operators in each; read/write isolation on `profiles`; inactive operator sees zero rows; helpers return null for inactive/no profile
+- [x] 4.2 Write pgTAP tests `supabase/tests/002_profiles_guard.test.sql`: operator cannot change own `role`/`org_id`/`is_active` (`forbidden_column`); admin can within org; operator can change own name
+- [x] 4.3 Write pgTAP tests `supabase/tests/003_error_logs.test.sql`: authenticated insert rejected; operator cannot select; support/admin select own org; only `status` updatable; `resolved_by`/`resolved_at` set on resolve; `purge_error_logs()` deletes > 30 days only
+- [x] 4.4 Write pgTAP tests `supabase/tests/004_avatars_storage.test.sql`: write own folder allowed; other user's folder rejected
+- [x] 4.5 Implement migration `supabase/migrations/20260930000100_foundation.sql` (extensions, enums, tables, triggers, helpers, RLS, bucket + storage policies, purge function, conditional `pg_cron` schedule) until all SQL tests pass
+- [x] 4.6 Implement `supabase/seed/seed.ts` (idempotent org + admin); test by running twice and asserting counts
 
 ## 5. Infrastructure: Supabase clients and repositories
 
