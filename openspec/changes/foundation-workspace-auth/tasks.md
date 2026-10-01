@@ -64,9 +64,9 @@
 
 ## 8. Operator profile feature
 
-- [ ] 8.1 Write failing tests for `features/profile/update-name.ts` (valid, too short, too long, trims) then implement
-- [ ] 8.2 Write failing tests for `features/profile/upload-avatar.ts` (valid PNG; >2 MB rejected; PDF rejected by magic bytes; previous object deleted) then implement
-- [ ] 8.3 `(panel)/settings/profile/page.tsx` with name form and avatar uploader; top bar updates after save
+- [x] 8.1 Write failing tests for `features/profile/update-name.ts` (valid, too short, too long, trims) then implement
+- [x] 8.2 Write failing tests for `features/profile/upload-avatar.ts` (valid PNG; >2 MB rejected; PDF rejected by magic bytes; previous object deleted) then implement
+- [x] 8.3 `(panel)/settings/profile/page.tsx` with name form and avatar uploader; top bar updates after save
 
 ## 9. Error tracking feature
 

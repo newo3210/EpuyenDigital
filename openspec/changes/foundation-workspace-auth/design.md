@@ -68,7 +68,7 @@ Supabase CLI as a devDependency (`npx supabase`). Scripts set `DOCKER_HOST` to t
 - Port: `seguros/apps/web/src/lib/auth/*` (guards) adapted to the layer mapping.
 
 ### D7 — Profile editing
-Server action `updateProfileName` (Zod 2–80 chars, trimmed). Avatar upload: client validates type/size for UX, server action re-validates (MIME sniff by magic bytes, ≤ 2 MB), uploads to `avatars/{org_id}/{user_id}/{uuid}.{ext}`, updates `avatar_path`, deletes the previous object. Top bar refreshes via `revalidatePath('/', 'layout')`. Initials from `packages/shared/src/initials.ts`.
+Server action `updateProfileName` (Zod 2–80 chars, trimmed). Avatar upload: client validates type/size for UX, server action re-validates (MIME sniff by magic bytes, ≤ 2 MB), uploads to `avatars/{org_id}/{user_id}/{uuid}.{ext}`, updates `avatar_path`, deletes the previous object. Top bar refreshes via `revalidatePath('/', 'layout')`. Initials from `packages/shared/src/initials.ts`. Server Actions body limit raised to `3mb` (`experimental.serverActions.bodySizeLimit`; Next default is 1 MB) so a valid 2 MB image reaches the action and oversized files get the spec message instead of a framework error. Upload, link and delete use the user-scoped client so the storage policy (own folder) applies; a failed `avatar_path` update removes the freshly uploaded object.
 
 ### D8 — Error tracking
 - `packages/shared/src/redact.ts`: masks DNI (7–8 digits), CUIT (`\d{2}-?\d{8}-?\d`), AR phones (10–13 digits, optional `+54 9`), emails, `token=|apikey=|authorization:|bearer ` values; applied recursively to `details` (max depth 5, max 8 KB serialized, truncated beyond).

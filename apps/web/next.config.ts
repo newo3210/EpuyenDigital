@@ -11,12 +11,16 @@ const repoRoot = path.resolve(__dirname, '../..');
 loadEnvConfig(repoRoot, process.env.NODE_ENV !== 'production', console, true);
 parsePublicEnv(process.env);
 
-// Next.js config - compiles the shared workspace package; authInterrupts enables forbidden() (403 page).
+// Next.js config - compiles the shared workspace package; authInterrupts enables forbidden() (403 page);
+// 3 MB action bodies let a 2 MB avatar plus multipart overhead reach server-side validation.
 const nextConfig: NextConfig = {
   transpilePackages: ['@epuyen/shared'],
   outputFileTracingRoot: repoRoot,
   turbopack: { root: repoRoot },
-  experimental: { authInterrupts: true },
+  experimental: {
+    authInterrupts: true,
+    serverActions: { bodySizeLimit: '3mb' },
+  },
 };
 
 export default nextConfig;

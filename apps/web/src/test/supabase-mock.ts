@@ -14,6 +14,8 @@ export function createSupabaseMock() {
   let user: MockUser = null;
   let authError: { message: string } | null = null;
   const authCalls: { method: string; args: unknown[] }[] = [];
+  const storageCalls: { bucket: string; method: string; args: unknown[] }[] = [];
+  let storageError: { message: string } | null = null;
 
   // Result queue - each awaited query on a table consumes one result (default: empty success).
   const nextResult = (table: string): MockResult => queues.get(table)?.shift() ?? { data: null, error: null };
@@ -55,6 +57,18 @@ export function createSupabaseMock() {
         return { error: authError };
       },
     },
+    storage: {
+      from: (bucket: string) => ({
+        upload: async (...args: unknown[]) => {
+          storageCalls.push({ bucket, method: 'upload', args });
+          return { data: storageError ? null : { path: args[0] }, error: storageError };
+        },
+        remove: async (...args: unknown[]) => {
+          storageCalls.push({ bucket, method: 'remove', args });
+          return { data: storageError ? null : [], error: storageError };
+        },
+      }),
+    },
   } as unknown as SupabaseClient<Database>;
 
   // Test controls - queue results, set the session user / auth error, inspect recorded calls.
@@ -62,6 +76,10 @@ export function createSupabaseMock() {
     client,
     calls,
     authCalls,
+    storageCalls,
+    setStorageError(next: { message: string } | null) {
+      storageError = next;
+    },
     queue(table: string, ...results: MockResult[]) {
       queues.set(table, [...(queues.get(table) ?? []), ...results]);
     },
