@@ -74,7 +74,9 @@ Server action `updateProfileName` (Zod 2–80 chars, trimmed). Avatar upload: cl
 - `packages/shared/src/redact.ts`: masks DNI (7–8 digits), CUIT (`\d{2}-?\d{8}-?\d`), AR phones (10–13 digits, optional `+54 9`), emails, `token=|apikey=|authorization:|bearer ` values; applied recursively to `details` (max depth 5, max 8 KB serialized, truncated beyond).
 - `features/errors/log-error.ts`: server-only; uses admin client (service role) to insert; never throws (falls back to `console.error`).
 - `POST /api/errors/report`: authenticated; body `{ traceId, message, stack?, url, note? }` validated by Zod (note ≤ 500); rejects if `traceId !== x-trace-id` (400); inserts with source `web`.
-- `app/(panel)/error.tsx` and `global-error.tsx` call the report endpoint and show the 8-char code.
+- `apps/web/src/instrumentation.ts` `onRequestError` (Next 15 hook, Node runtime only) captures unhandled server errors (render, server action, route handler) and calls `logError` with the request's `x-trace-id`; source `api` for route handlers, `web` otherwise; the error digest and route path go to `details`.
+- `app/(panel)/error.tsx` and `global-error.tsx` generate a client trace id, send it both as `x-trace-id` header and body `traceId` (middleware keeps a valid incoming id), and show the 8-char code; the Next error digest is included in the report so it can be matched with the server-side row.
+- Support screen: filters live in the query string (`status`, `source`, `level`, `from`, `to` as `YYYY-MM-DD`, interpreted in America/Argentina/Buenos_Aires) and are parsed with Zod; `?id=<uuid>` opens the detail panel (server-rendered); status changes go through a server action validated by `errorStatusChangeSchema` using the user-scoped client so RLS and the guard trigger apply.
 - Purge: `purge_error_logs()` deletes `created_at < now() - interval '30 days'`; `pg_cron` schedule daily 03:00 America/Argentina/Buenos_Aires (06:00 UTC).
 
 ### D9 — Seed
@@ -88,7 +90,8 @@ All hand-written TS/TSX follow the section-comment rule (`// <Block> - <what it 
 - `loginSchema { email: string().email(), password: string().min(1) }`
 - `profileNameSchema { fullName: string().trim().min(2).max(80) }`
 - `avatarFileSchema { type: enum(['image/jpeg','image/png','image/webp']), size: number().max(2_097_152) }`
-- `errorReportSchema { traceId: string().min(8).max(64), message: string().max(2000), stack: string().max(8000).optional(), url: string().max(500), note: string().max(500).optional() }`
+- `errorReportSchema { traceId: string().min(8).max(64), message: string().max(2000), stack: string().max(8000).optional(), url: string().max(500), note: string().max(500).optional(), digest: string().max(200).optional() }`
+- `errorFiltersSchema { status?, source?, level?, from?: YYYY-MM-DD, to?: YYYY-MM-DD, id?: uuid }` (invalid values are dropped, not rejected)
 - `errorStatusChangeSchema { id: uuid(), status: enum(['acknowledged','resolved','open']) }`
 - `roleSchema = enum(['admin','area_lead','operator','support'])` (shared)
 

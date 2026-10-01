@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSupabaseMock } from '@/test/supabase-mock';
-import { changeErrorLogStatus, insertErrorLog, listErrorLogs } from './error-logs';
+import { changeErrorLogStatus, findErrorLogById, insertErrorLog, listErrorLogs } from './error-logs';
 
 // Fixtures - a stored error row (snake_case) and its domain mapping (camelCase).
 const ORG_ID = '7d3c1f9e-2b4a-4c8d-9e1f-0a2b3c4d5e6f';
@@ -143,6 +143,33 @@ describe('listErrorLogs', () => {
     const mock = createSupabaseMock();
     mock.queue('error_logs', { data: null, error: { message: 'boom' } });
     await expect(listErrorLogs(mock.client, {})).rejects.toMatchObject({ code: 'error_logs.read_failed' });
+  });
+});
+
+// Find by id - detail panel row, null when missing or hidden by RLS.
+describe('findErrorLogById', () => {
+  it('returns the mapped row', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('error_logs', { data: row, error: null });
+
+    await expect(findErrorLogById(mock.client, ERROR_ID)).resolves.toEqual(domain);
+    expect(mock.callsFor('error_logs')).toEqual([
+      { method: 'select', args: [COLUMNS] },
+      { method: 'eq', args: ['id', ERROR_ID] },
+      { method: 'maybeSingle', args: [] },
+    ]);
+  });
+
+  it('returns null when the row is not visible', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('error_logs', { data: null, error: null });
+    await expect(findErrorLogById(mock.client, ERROR_ID)).resolves.toBeNull();
+  });
+
+  it('throws error_logs.read_failed when the query errors', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('error_logs', { data: null, error: { message: 'boom' } });
+    await expect(findErrorLogById(mock.client, ERROR_ID)).rejects.toMatchObject({ code: 'error_logs.read_failed' });
   });
 });
 

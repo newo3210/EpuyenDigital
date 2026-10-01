@@ -70,11 +70,11 @@
 
 ## 9. Error tracking feature
 
-- [ ] 9.1 Write failing tests for `features/errors/log-error.ts` (redacts before insert; never throws when insert fails) then implement
-- [ ] 9.2 Write failing tests for `POST /api/errors/report` handler logic (unauthenticated 401; invalid body 400; trace mismatch 400; valid 201 with redacted content) then implement route handler delegating to feature
-- [ ] 9.3 `(panel)/error.tsx` and `global-error.tsx` reporting and showing the 8-char code
-- [ ] 9.4 `(panel)/support/errors/page.tsx` (roles `admin`, `support`): list with filters (status, source, level, date), detail drawer, status change actions
-- [ ] 9.5 Component tests for the support list filters and status change
+- [x] 9.1 Write failing tests for `features/errors/log-error.ts` (redacts before insert; never throws when insert fails) then implement
+- [x] 9.2 Write failing tests for `POST /api/errors/report` handler logic (unauthenticated 401; invalid body 400; trace mismatch 400; valid 201 with redacted content) then implement route handler delegating to feature
+- [x] 9.3 `(panel)/error.tsx` and `global-error.tsx` reporting and showing the 8-char code
+- [x] 9.4 `(panel)/support/errors/page.tsx` (roles `admin`, `support`): list with filters (status, source, level, date), detail drawer, status change actions
+- [x] 9.5 Component tests for the support list filters and status change
 
 ## 10. Review and Update Existing Unit Tests (MANDATORY)
 

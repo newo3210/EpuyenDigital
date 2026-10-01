@@ -94,6 +94,13 @@ export async function listErrorLogs(client: DbClient, filters: ErrorLogFilters):
   return (data ?? []).map(toErrorLog);
 }
 
+// Find by id - single incident for the detail panel; null when missing or hidden by RLS.
+export async function findErrorLogById(client: DbClient, id: string): Promise<ErrorLog | null> {
+  const { data, error } = await client.from('error_logs').select(ERROR_LOG_COLUMNS).eq('id', id).maybeSingle();
+  if (error) throw new RepositoryError('error_logs.read_failed', error.message);
+  return data ? toErrorLog(data) : null;
+}
+
 // Status change - sends only status; the database trigger stamps resolved_by / resolved_at.
 export async function changeErrorLogStatus(client: DbClient, id: string, status: ErrorStatus): Promise<ErrorLog> {
   const { data, error } = await client
