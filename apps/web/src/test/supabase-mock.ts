@@ -12,6 +12,8 @@ export function createSupabaseMock() {
   const calls: RecordedCall[] = [];
   const queues = new Map<string, MockResult[]>();
   let user: MockUser = null;
+  let authError: { message: string } | null = null;
+  const authCalls: { method: string; args: unknown[] }[] = [];
 
   // Result queue - each awaited query on a table consumes one result (default: empty success).
   const nextResult = (table: string): MockResult => queues.get(table)?.shift() ?? { data: null, error: null };
@@ -36,23 +38,38 @@ export function createSupabaseMock() {
     return proxy;
   };
 
-  // Client surface - from() and auth.getUser() are enough for repositories and guards.
+  // Client surface - from() plus the auth methods used by repositories, gateways and guards.
   const client = {
     from: (table: string) => builder(table),
     auth: {
-      getUser: async () => ({ data: { user }, error: null }),
+      getUser: async () => {
+        authCalls.push({ method: 'getUser', args: [] });
+        return { data: { user: authError ? null : user }, error: authError };
+      },
+      signInWithPassword: async (credentials: unknown) => {
+        authCalls.push({ method: 'signInWithPassword', args: [credentials] });
+        return { data: { user: authError ? null : user, session: null }, error: authError };
+      },
+      signOut: async (options?: unknown) => {
+        authCalls.push({ method: 'signOut', args: [options] });
+        return { error: authError };
+      },
     },
   } as unknown as SupabaseClient<Database>;
 
-  // Test controls - queue results, set the session user, inspect calls of one table.
+  // Test controls - queue results, set the session user / auth error, inspect recorded calls.
   return {
     client,
     calls,
+    authCalls,
     queue(table: string, ...results: MockResult[]) {
       queues.set(table, [...(queues.get(table) ?? []), ...results]);
     },
     setUser(next: MockUser) {
       user = next;
+    },
+    setAuthError(next: { message: string } | null) {
+      authError = next;
     },
     callsFor(table: string) {
       return calls.filter((call) => call.table === table).map(({ method, args }) => ({ method, args }));

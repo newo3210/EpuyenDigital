@@ -48,12 +48,12 @@
 
 ## 6. Auth feature (TDD)
 
-- [ ] 6.1 Write failing tests for `features/auth/safe-next.ts` (relative ok; `//evil`, `https://evil`, empty → `/inbox`) then implement
-- [ ] 6.2 Write failing tests for `features/auth/sign-in.ts` (valid → ok; Supabase error → generic message; invalid input → field errors) then implement
-- [ ] 6.3 Write failing tests for `requireOperator` (no session → redirect login with next; no profile → sign out + `reason=no_profile`; inactive → sign out + `reason=inactive`; active → profile) then implement
-- [ ] 6.4 Write failing tests for `requireRole` (allowed → pass; not allowed → forbidden) then implement
-- [ ] 6.5 `middleware.ts`: session refresh, `x-trace-id` generation/propagation, anonymous redirect on panel paths
-- [ ] 6.6 `features/auth/sign-out.ts` server action
+- [x] 6.1 Write failing tests for `features/auth/safe-next.ts` (relative ok; `//evil`, `https://evil`, empty → `/inbox`) then implement
+- [x] 6.2 Write failing tests for `features/auth/sign-in.ts` (valid → ok; Supabase error → generic message; invalid input → field errors) then implement
+- [x] 6.3 Write failing tests for `requireOperator` (no session → redirect login with next; no profile → sign out + `reason=no_profile`; inactive → sign out + `reason=inactive`; active → profile) then implement
+- [x] 6.4 Write failing tests for `requireRole` (allowed → pass; not allowed → forbidden) then implement
+- [x] 6.5 `middleware.ts`: session refresh, `x-trace-id` generation/propagation, anonymous redirect on panel paths
+- [x] 6.6 `features/auth/sign-out.ts` server action
 
 ## 7. Presentation: login and panel shell
 
