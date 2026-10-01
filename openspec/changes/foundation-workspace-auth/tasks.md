@@ -6,11 +6,11 @@
 
 ## 1. Spike: Local Supabase on Podman (timebox 2 h)
 
-- [ ] 1.1 Verify Podman machine is running and resolve the `DOCKER_HOST` named pipe
-- [ ] 1.2 Run `npx supabase init` and `npx supabase start` with `DOCKER_HOST` set; capture output
-- [ ] 1.3 Run an empty `supabase db reset` and `supabase test db` (sample pgTAP test) to prove migrations and SQL tests work
-- [ ] 1.4 Decide: local (PASS) or cloud fallback (FAIL); if fallback, create the dev cloud project with the user, fill `.env.local`, verify `supabase db push` and `psql` connectivity
-- [ ] 1.5 Write `openspec/changes/foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md` with commands, outputs and decision
+- [x] 1.1 Verify Podman machine is running and resolve the `DOCKER_HOST` named pipe
+- [x] 1.2 Run `npx supabase init` and `npx supabase start` with `DOCKER_HOST` set; capture output
+- [x] 1.3 Run an empty `supabase db reset` and `supabase test db` (sample pgTAP test) to prove migrations and SQL tests work
+- [x] 1.4 Decide: local (PASS) or cloud fallback (FAIL); if fallback, create the dev cloud project with the user, fill `.env.local`, verify `supabase db push` and `psql` connectivity
+- [x] 1.5 Write `openspec/changes/foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md` with commands, outputs and decision
 
 ## 2. Monorepo scaffold
 
