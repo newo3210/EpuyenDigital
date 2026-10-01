@@ -87,16 +87,16 @@
 - [x] 11.2 Run `npm run test` (targeted, then full) and `npm run test:db`
 - [x] 11.3 Run `npm run typecheck` and `npm run lint`
 - [x] 11.4 Verify post-test database state matches baseline; restore if needed
-- [ ] 11.5 Create report `openspec/changes/foundation-workspace-auth/reports/YYYY-MM-DD-step-11-unit-test-and-db-verification.md`
-- [ ] 11.6 Mark step complete only after tests pass and report exists
+- [x] 11.5 Create report `openspec/changes/foundation-workspace-auth/reports/YYYY-MM-DD-step-11-unit-test-and-db-verification.md`
+- [x] 11.6 Mark step complete only after tests pass and report exists
 
 ## 12. Manual Endpoint Testing with curl (MANDATORY - AGENT MUST EXECUTE)
 
-- [ ] 12.1 Ensure local stack and web app are running
-- [ ] 12.2 `POST /api/errors/report` without session → 401
-- [ ] 12.3 `POST /api/errors/report` with session and invalid body → 400; with mismatched trace id → 400
-- [ ] 12.4 `POST /api/errors/report` valid with personal data in message → 201; verify stored row is redacted; delete the row to restore state
-- [ ] 12.5 `GET /inbox` without session → 307 to `/login?next=/inbox`; response carries `x-trace-id`
+- [x] 12.1 Ensure local stack and web app are running
+- [x] 12.2 `POST /api/errors/report` without session → 401
+- [x] 12.3 `POST /api/errors/report` with session and invalid body → 400; with mismatched trace id → 400
+- [x] 12.4 `POST /api/errors/report` valid with personal data in message → 201; verify stored row is redacted; delete the row to restore state
+- [x] 12.5 `GET /inbox` without session → 307 to `/login?next=/inbox`; response carries `x-trace-id`
 - [ ] 12.6 Supabase REST as operator: select `error_logs` → empty; update own `role` → rejected
 - [ ] 12.7 Document all commands and responses in `reports/YYYY-MM-DD-step-12-curl.md`; verify database state equals baseline
 
