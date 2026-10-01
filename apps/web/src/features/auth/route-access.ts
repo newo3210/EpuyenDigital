@@ -10,6 +10,7 @@ const PUBLIC_PREFIXES = ['/login', '/api'] as const;
 export type RouteAccessInput = { pathname: string; search: string; userId: string | null };
 export type RouteAccess = { type: 'allow' } | { type: 'redirect'; location: string };
 
+// Public match - prefix itself or any route nested below it.
 const isPublicPath = (pathname: string) =>
   PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 

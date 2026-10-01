@@ -11,6 +11,7 @@ type SidebarProps = {
   role: Role;
 };
 
+// Active match - exact section path or any nested route below it.
 const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 // Sidebar - role-filtered panel navigation with the current section highlighted.

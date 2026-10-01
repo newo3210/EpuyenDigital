@@ -18,6 +18,7 @@ type ErrorFallbackProps = {
   send?: (report: ErrorReportInput) => Promise<boolean>;
 };
 
+// Note delivery state - drives the note button label and feedback message.
 type NoteState = 'idle' | 'sending' | 'sent' | 'failed';
 
 // Error fallback - reports the crash once, shows the incident code, offers retry and an optional note.

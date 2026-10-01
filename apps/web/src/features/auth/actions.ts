@@ -14,6 +14,7 @@ export type LoginFormState = {
   message?: string;
 };
 
+// Form reader - string field value or undefined for files/missing keys.
 const formText = (formData: FormData, key: string) => {
   const value = formData.get(key);
   return typeof value === 'string' ? value : undefined;

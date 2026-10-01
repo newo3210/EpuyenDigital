@@ -78,8 +78,8 @@
 
 ## 10. Review and Update Existing Unit Tests (MANDATORY)
 
-- [ ] 10.1 Review all tests added in this change for coverage of every spec scenario; add missing ones
-- [ ] 10.2 Remove duplicated or brittle tests; ensure section comments in all new TS/TSX files
+- [x] 10.1 Review all tests added in this change for coverage of every spec scenario; add missing ones
+- [x] 10.2 Remove duplicated or brittle tests; ensure section comments in all new TS/TSX files
 
 ## 11. Run Unit Tests and Verify Database State (MANDATORY)
 

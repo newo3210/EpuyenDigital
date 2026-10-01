@@ -3,6 +3,7 @@ import type { AvatarMimeType } from '@/contracts/profile';
 // Detected image - real MIME type and the storage file extension for it.
 export type SniffedImage = { mime: AvatarMimeType; ext: 'jpg' | 'png' | 'webp' };
 
+// Signature check - true when the bytes at offset match the magic number.
 const startsWith = (bytes: Uint8Array, signature: readonly number[], offset = 0) =>
   bytes.length >= offset + signature.length && signature.every((byte, index) => bytes[offset + index] === byte);
 

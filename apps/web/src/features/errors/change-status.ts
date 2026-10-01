@@ -7,6 +7,7 @@ export type ChangeStatusDeps = {
   saveStatus: (id: string, status: ErrorStatus) => Promise<void>;
 };
 
+// Status outcome - saved, rejected input, or persistence failure.
 export type ChangeStatusResult = { status: 'ok' } | { status: 'invalid' } | { status: 'failed' };
 
 // Status change - validates id/status, then persists; never throws.

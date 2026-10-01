@@ -7,6 +7,7 @@ type ProfileRow = Pick<
   'id' | 'org_id' | 'full_name' | 'avatar_path' | 'role' | 'is_active'
 >;
 
+// Selected columns - must match ProfileRow.
 const PROFILE_COLUMNS = 'id, org_id, full_name, avatar_path, role, is_active';
 
 // Row mapping - snake_case row to validated camelCase domain profile.
