@@ -1,6 +1,7 @@
 import { shortCode, type Profile } from '@epuyen/shared';
 
 import { errorReportSchema } from '@/contracts/errors';
+import { digestRef } from './digest-ref';
 import type { LogErrorInput } from './log-error';
 
 // Report request - raw JSON body plus the trace id resolved by the middleware.
@@ -37,7 +38,7 @@ export async function reportError(request: ReportErrorRequest, deps: ReportError
     source: 'web',
     level: 'error',
     message: report.message,
-    details: { url: report.url, stack: report.stack, note: report.note, digest: report.digest },
+    details: { url: report.url, stack: report.stack, note: report.note, digestRef: digestRef(report.digest) },
     traceId: report.traceId,
     orgId: profile.orgId,
     userId: profile.id,

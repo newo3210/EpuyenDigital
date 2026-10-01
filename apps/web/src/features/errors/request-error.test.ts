@@ -1,3 +1,5 @@
+// @vitest-environment node
+import { digestRef } from './digest-ref';
 import { toRequestErrorLog, type RequestErrorContext, type RequestErrorInfo } from './request-error';
 
 const TRACE_ID = 'f3b1c2d4-0000-4000-8000-000000000001';
@@ -21,7 +23,14 @@ describe('toRequestErrorLog', () => {
     const log = toRequestErrorLog(withDigest('boom', '123'), REQUEST, RENDER);
 
     expect(log).toMatchObject({ source: 'web', level: 'error', message: 'boom', traceId: TRACE_ID });
-    expect(log?.details).toMatchObject({ digest: '123', path: '/inbox?tab=open', method: 'GET', routeType: 'render' });
+    expect(log?.details).toMatchObject({ path: '/inbox?tab=open', method: 'GET', routeType: 'render' });
+  });
+
+  it('stores a digest reference that matches the client report instead of the raw digest', () => {
+    const log = toRequestErrorLog(withDigest('boom', '2945123456'), REQUEST, RENDER);
+
+    expect(log?.details).toMatchObject({ digestRef: digestRef('2945123456') });
+    expect(log?.details).not.toHaveProperty('digest');
   });
 
   it('uses source api for route handlers', () => {

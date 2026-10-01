@@ -1,5 +1,6 @@
 import { TRACE_HEADER, resolveTraceId } from '@epuyen/shared';
 
+import { digestRef } from './digest-ref';
 import type { LogErrorInput } from './log-error';
 
 // Hook payloads - subset of Next's onRequestError request and context arguments.
@@ -37,7 +38,7 @@ export function toRequestErrorLog(
     level: 'error',
     message: error instanceof Error ? error.message : String(error),
     details: {
-      digest,
+      digestRef: digestRef(digest),
       stack: error instanceof Error ? error.stack : undefined,
       path: request.path,
       method: request.method,

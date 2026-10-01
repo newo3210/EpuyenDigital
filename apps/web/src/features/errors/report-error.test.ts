@@ -1,5 +1,6 @@
 import type { Profile } from '@epuyen/shared';
 import type { NewErrorLog } from '@/infrastructure/repositories/error-logs';
+import { digestRef } from './digest-ref';
 import { logError } from './log-error';
 import { reportError, type ReportErrorDeps } from './report-error';
 
@@ -96,7 +97,8 @@ describe('reportError - stored report', () => {
     expect(serialized).not.toContain('30123456');
     expect(serialized).not.toContain('2945123456');
     expect(serialized).not.toContain('token=abc');
-    expect(row?.details).toMatchObject({ url: VALID_BODY.url, digest: '12345' });
+    expect(row?.details).toMatchObject({ url: VALID_BODY.url, digestRef: digestRef('12345') });
+    expect(row?.details).not.toHaveProperty('digest');
   });
 
   it('responds 500 when the row could not be stored', async () => {
