@@ -106,10 +106,10 @@
 - [x] 13.2 Login with wrong password → generic error; with seeded admin → lands on `/inbox` with name in top bar
 - [x] 13.3 Reload keeps session; logout returns to `/login`
 - [x] 13.4 Deactivate a test operator via SQL, attempt login → inactive message; restore
-- [ ] 13.5 Operator opens `/support/errors` → forbidden page
-- [ ] 13.6 Edit name and upload avatar → top bar updates; invalid file → error message; restore original name/avatar
-- [ ] 13.7 Trigger a test UI error → code shown; support user sees and resolves it; delete test rows
-- [ ] 13.8 Document scenarios and outcomes in `reports/YYYY-MM-DD-step-13-e2e.md`
+- [x] 13.5 Operator opens `/support/errors` → forbidden page
+- [x] 13.6 Edit name and upload avatar → top bar updates; invalid file → error message; restore original name/avatar
+- [x] 13.7 Trigger a test UI error → code shown; support user sees and resolves it; delete test rows
+- [x] 13.8 Document scenarios and outcomes in `reports/YYYY-MM-DD-step-13-e2e.md`
 
 ## 14. Update Technical Documentation (MANDATORY)
 
