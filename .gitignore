@@ -26,3 +26,6 @@ tmp/
 .DS_Store
 Thumbs.db
 *.log
+
+# Next.js generated
+next-env.d.ts

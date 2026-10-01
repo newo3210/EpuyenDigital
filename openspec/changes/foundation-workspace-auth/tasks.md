@@ -14,14 +14,14 @@
 
 ## 2. Monorepo scaffold
 
-- [ ] 2.1 Root `package.json` (workspaces `apps/web`, `packages/shared`; scripts `dev`, `build`, `typecheck`, `lint`, `test`, `test:db`, `db:start`, `db:stop`, `db:reset`, `db:push`, `db:seed`), `tsconfig.base.json` strict, `.nvmrc`, `.editorconfig`
-- [ ] 2.2 `packages/shared` package (TypeScript, no runtime deps besides `zod`) with `src/index.ts` and `src/contracts/`
-- [ ] 2.3 `apps/web` Next.js 15 + React 19 + Tailwind v4 + ESLint, `src/` layout per design layer mapping (`app`, `presentation`, `features`, `infrastructure`, `contracts`)
-- [ ] 2.4 Vitest root config with projects for `apps/web` (jsdom) and `packages/shared` (node); Testing Library setup
-- [ ] 2.5 `.env.example` documenting every variable (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `DOCKER_HOST`)
-- [ ] 2.6 Write failing test for `infrastructure/env.ts` (missing variable → error naming it), then implement
-- [ ] 2.7 Root `README.md`: prerequisites, Podman setup, local start, fallback, scripts
-- [ ] 2.8 Verify `npm run typecheck`, `npm run lint`, `npm run test` pass on the empty scaffold
+- [x] 2.1 Root `package.json` (workspaces `apps/web`, `packages/shared`; scripts `dev`, `build`, `typecheck`, `lint`, `test`, `test:db`, `db:start`, `db:stop`, `db:reset`, `db:push`, `db:seed`), `tsconfig.base.json` strict, `.nvmrc`, `.editorconfig`
+- [x] 2.2 `packages/shared` package (TypeScript, no runtime deps besides `zod`) with `src/index.ts` and `src/contracts/`
+- [x] 2.3 `apps/web` Next.js 15 + React 19 + Tailwind v4 + ESLint, `src/` layout per design layer mapping (`app`, `presentation`, `features`, `infrastructure`, `contracts`)
+- [x] 2.4 Vitest root config with projects for `apps/web` (jsdom) and `packages/shared` (node); Testing Library setup
+- [x] 2.5 `.env.example` documenting every variable (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `DOCKER_HOST`)
+- [x] 2.6 Write failing test for `infrastructure/env.ts` (missing variable → error naming it), then implement
+- [x] 2.7 Root `README.md`: prerequisites, Podman setup, local start, fallback, scripts
+- [x] 2.8 Verify `npm run typecheck`, `npm run lint`, `npm run test` pass on the empty scaffold
 
 ## 3. Shared logic (TDD)
 
