@@ -8,7 +8,7 @@ The system SHALL store organizations and operator profiles, where each profile b
 - **THEN** the profile id equals the Supabase Auth user id, `org_id` references the seeded organization, `role` is `admin`, and `is_active` is true
 
 ### Requirement: RLS helper functions
-The database SHALL expose `current_org_id()` and `current_role()` returning the caller's organization and role, and returning null when the caller has no profile or the profile is inactive.
+The database SHALL expose `current_org_id()` and `current_user_role()` (not `current_role()`, which collides with the reserved SQL keyword `CURRENT_ROLE`) returning the caller's organization and role, and returning null when the caller has no profile or the profile is inactive.
 
 #### Scenario: Active operator
 - **WHEN** an authenticated active operator calls `current_org_id()`

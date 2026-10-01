@@ -53,10 +53,10 @@ Supabase CLI as a devDependency (`npx supabase`). Scripts set `DOCKER_HOST` to t
 - `updated_at` trigger on `profiles`.
 
 ### D5 — RLS helpers and policies
-- `current_org_id()` and `current_role()`: `security definer`, `stable`, `set search_path = ''`, return values only when `profiles.is_active` is true; otherwise null. Every policy compares against these helpers, so an inactive user matches nothing.
+- `current_org_id()` and `current_user_role()`: `security definer`, `stable`, `set search_path = ''`, return values only when `profiles.is_active` is true; otherwise null. Every policy compares against these helpers, so an inactive user matches nothing. (Named `current_user_role` because `current_role()` is a syntax error: `CURRENT_ROLE` is a reserved SQL keyword — verified on the local stack during apply.)
 - `organizations`: select where `id = current_org_id()`; no client writes.
 - `profiles`: select where `org_id = current_org_id()`; update self (`id = auth.uid()`) guarded by trigger `profiles_guard_privileged_columns` that raises `P0001 'forbidden_column'` if a non-admin changes `role`, `org_id`, or `is_active`; admins update rows of their org. Insert/delete: service role only.
-- `error_logs`: select/update for `current_role() in ('admin','support')` and `org_id = current_org_id()` (rows with null `org_id` visible to `support` only); insert service role only; trigger `error_logs_guard_update` allows changing only `status`, sets `resolved_by = auth.uid()` / `resolved_at = now()` when status becomes `resolved`, clears them otherwise.
+- `error_logs`: select/update for `current_user_role() in ('admin','support')` and `org_id = current_org_id()` (rows with null `org_id` visible to `support` only); insert service role only; trigger `error_logs_guard_update` allows changing only `status`, sets `resolved_by = auth.uid()` / `resolved_at = now()` when status becomes `resolved`, clears them otherwise.
 - Storage bucket `avatars` (public read); insert/update/delete only where `(storage.foldername(name))[1] = current_org_id()::text and [2] = auth.uid()::text`.
 - Port: `seguros/supabase/migrations/*rls_helpers*` + `*error_logs*` with corrections from `docs/reuse-from-seguros.md` (inactive check inside helpers; no permissive fallback).
 
