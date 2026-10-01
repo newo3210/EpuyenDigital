@@ -1,0 +1,63 @@
+---
+description: Spec-Driven Development orchestration — spec is source of truth; use /director for new features
+globs:
+alwaysApply: true
+---
+
+# SDD Orchestration (OpenSpec)
+
+All agents on this project follow **Spec-Driven Development**. Read `docs/base-standards.md` and `docs/como-incorporar-openspec-a-cursor.md` for full context.
+
+## Default entry point
+
+For new features or unclear scope, prefer **`/director`** over ad-hoc coding. The project-director skill orchestrates OpenSpec end-to-end.
+
+## Non-negotiable rules
+
+1. **Spec before code** — proposal → specs → design → tasks before `/opsx:apply`
+2. **No mid-flight code patches** — if requirements change after apply, update OpenSpec artifacts first, then reset branch or new worktree before re-apply
+3. **Writer ≠ reviewer** — never run `adversarial-review` in the same session as `/opsx:apply`
+4. **Verify ≠ done** — `/opsx:verify` is mechanical; require `acceptance-matrix.md` + adversarial review + human OK
+5. **English artifacts** — specs, tasks, code, commits; Spanish OK for user-facing chat when the user writes in Spanish
+6. **Skills canonical path** — `ai-specs/skills/`; load matching skill before specialized workflows
+
+## Clean Architecture (conceptual — no hard-coded paths)
+
+Map each change to these layers; **concrete folders live in `design.md`**, not in this rule:
+
+| Layer | Responsibility |
+|---|---|
+| Presentation / HTTP thin | Receive, validate schemas, call services — no business/AI logic |
+| Application / services | Business & AI logic (LLM calls, RAG, tools) — never inside UI components |
+| Infrastructure / repositories | Persistence and external I/O only |
+| Contracts / schemas | Explicit Zod (or equivalent) types at API and LLM boundaries |
+
+Enforce strict JSON schemas for LLM output; handle rate-limits, model failures, and streaming errors gracefully. Prefer SOLID, modular, self-documenting code.
+
+Full equivalence table (DDD LTI ↔ Next/AI): `docs/base-standards.md` §9.
+
+## Mandatory root documentation (archive gate)
+
+When a feature, route, or module is built or finalized, generate or update at **repo root**:
+
+1. **`ARCHITECTURE_SDD.md`** (English) — technical flow, schemas, routes, models
+2. **`STUDENT_DECISION_LOG.md`** (Spanish) — data-flow map, clean-architecture justification, output-control explanation, glossary
+
+**No `/opsx:archive` without both files present and updated for the change.** Templates: `ai-specs/skills/project-director/references/`. Detail: `docs/base-standards.md` §10.
+
+## Quick command map
+
+| Intent | Command |
+|---|---|
+| Orchestrate from idea | `/director` |
+| Bootstrap check | `/director init` |
+| New change | `/opsx:new` |
+| Generate plan | `/opsx:ff` |
+| Implement | `/opsx:apply` |
+| Mechanical verify | `/opsx:verify` |
+| Independent review | adversarial-review (new chat) |
+| Close change | `/opsx:archive` |
+
+## When user asks to "just fix it quickly"
+
+Redirect to spec update + apply workflow (base-standards §7). Do not bypass OpenSpec on active changes.

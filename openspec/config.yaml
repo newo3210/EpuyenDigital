@@ -1,0 +1,65 @@
+schema: spec-driven
+
+# Project context shown to AI when creating OpenSpec artifacts.
+context: |
+  Product: "Mesa de Entrada Digital" for the Municipality of Epuyén (Chubut, Argentina).
+  A web messaging panel where citizens (pobladores) write via WhatsApp (Evolution API),
+  an LLM chatbot answers with official information (RAG) and hands off to humans,
+  operators work a triage queue (unassigned-first FIFO, claim, delegation with acceptance,
+  soft handoff), conversations spawn tasks/notes delegable to municipal areas or external
+  WhatsApp contacts, and every movement is traced immutably. A citizens DB grows with use.
+
+  Stack: npm workspaces monorepo — apps/web (Next.js 15 App Router, React 19, TypeScript strict,
+  Tailwind, Radix), worker/ (Node job consumer), packages/shared (pure domain logic + contracts),
+  supabase/ (Postgres + RLS + SQL transition functions + pgvector + pg_cron, Auth, Storage, Realtime),
+  infra/evolution (Evolution API v2 on Podman). Zod at every boundary. Vitest + SQL tests.
+  Current mode: LOCAL ONLY (Podman, Supabase local or dev cloud project, send mode dry_run).
+
+  Domain language (glossary in docs/README.md): citizen/poblador (registered | unregistered),
+  line (WhatsApp number), area (municipal department), queue, claim, delegation with acceptance,
+  external contact, bot handoff, task outcome.
+
+  Language: all technical artifacts in English; UI copy and chatbot voice in Spanish (es-AR);
+  STUDENT_DECISION_LOG.md in Spanish.
+
+  Planning hierarchy: .planning/ROADMAP.md (GSD, 7 phases, requirement IDs in
+  .planning/REQUIREMENTS.md) is the macro plan. Each OpenSpec change delivers part of one
+  roadmap phase and MUST cite the phase and requirement IDs it covers in proposal.md.
+
+  Single source of truth for standards (read when creating or implementing):
+  - docs/base-standards.md — core principles, TDD, language, layer mapping (§9), local env (§12)
+  - docs/backend-standards.md / docs/frontend-standards.md
+  - docs/architecture.md, docs/data-model.md, docs/flows.md — product design (Spanish)
+  - docs/reuse-from-seguros.md — what to port from the reference CRM and the bug to fix in each piece
+  - docs/openspec-tasks-mandatory-steps.md — mandatory tasks.md checklist
+  - ai-specs/agents/ and ai-specs/skills/ — role prompts and operational skills
+
+  Entry point for features: /director (Cursor) or project-director skill.
+  Assisted OpenSpec mode: agents may read/write openspec/changes/ without a global openspec CLI.
+
+# Per-artifact rules (optional). Keep factory rules process-oriented, not product-stack-specific.
+rules:
+  _global:
+    - Before creating any artifact, read and apply docs/base-standards.md (or ai-specs mirrors if present).
+    - Prefer skills under ai-specs/skills/ and agents under ai-specs/agents/ over inventing process.
+    - Spec before code: proposal → specs → design → tasks before implementation.
+    - Writer ≠ reviewer: adversarial review must run in a separate session from apply.
+
+  tasks:
+    - Break tasks into chunks of max 2 hours of focused work.
+    - Every implementation task includes: branch (if using git), tests first (TDD), verification evidence, docs update when contracts change.
+    - Mark tasks [x] only with concrete evidence (test output, report path, or command result).
+
+  spec:
+    - Specs are testable requirements with scenarios; avoid implementation detail that belongs in design.md.
+    - Keep requirement IDs stable within a change when possible.
+
+  design:
+    - Map work to conceptual Clean Architecture layers; declare concrete paths for THIS product in design.md.
+    - Call out risks, migrations, and rollback briefly.
+    - State transitions are SQL functions (expected state + FOR UPDATE + history row in one transaction); list each function and its error codes.
+    - Every new table lists its RLS policies and the SQL test that proves org/area isolation.
+    - When porting from the reference CRM, cite the source file from docs/reuse-from-seguros.md and the correction applied.
+
+  proposal:
+    - Cite the roadmap phase and requirement IDs covered (e.g. "Phase 1 — FND-01, FND-04").

@@ -1,0 +1,13 @@
+change: foundation-workspace-auth
+status: proposed
+created: 2026-09-30
+roadmap_phase: 1
+requirements: [FND-01, FND-06, FND-07, FND-08]
+language: en
+docs_root: .
+canonical:
+  proposal: proposal.md
+  design: design.md
+  tasks: tasks.md
+  enriched_us: ../../../tmp/foundation-workspace-auth-enriched-us.md
+  specs: specs/

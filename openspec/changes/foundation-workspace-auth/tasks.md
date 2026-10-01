@@ -1,0 +1,120 @@
+## 0. Setup: Create Feature Branch (MANDATORY - FIRST STEP)
+
+- [ ] 0.1 Confirm `main` is up to date with `origin/main` and the working tree is clean
+- [ ] 0.2 Create branch `feature/foundation-workspace-auth` from `main` and push it with upstream tracking
+- [ ] 0.3 Verify current branch with `git branch --show-current`
+
+## 1. Spike: Local Supabase on Podman (timebox 2 h)
+
+- [ ] 1.1 Verify Podman machine is running and resolve the `DOCKER_HOST` named pipe
+- [ ] 1.2 Run `npx supabase init` and `npx supabase start` with `DOCKER_HOST` set; capture output
+- [ ] 1.3 Run an empty `supabase db reset` and `supabase test db` (sample pgTAP test) to prove migrations and SQL tests work
+- [ ] 1.4 Decide: local (PASS) or cloud fallback (FAIL); if fallback, create the dev cloud project with the user, fill `.env.local`, verify `supabase db push` and `psql` connectivity
+- [ ] 1.5 Write `openspec/changes/foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md` with commands, outputs and decision
+
+## 2. Monorepo scaffold
+
+- [ ] 2.1 Root `package.json` (workspaces `apps/web`, `packages/shared`; scripts `dev`, `build`, `typecheck`, `lint`, `test`, `test:db`, `db:start`, `db:stop`, `db:reset`, `db:push`, `db:seed`), `tsconfig.base.json` strict, `.nvmrc`, `.editorconfig`
+- [ ] 2.2 `packages/shared` package (TypeScript, no runtime deps besides `zod`) with `src/index.ts` and `src/contracts/`
+- [ ] 2.3 `apps/web` Next.js 15 + React 19 + Tailwind v4 + ESLint, `src/` layout per design layer mapping (`app`, `presentation`, `features`, `infrastructure`, `contracts`)
+- [ ] 2.4 Vitest root config with projects for `apps/web` (jsdom) and `packages/shared` (node); Testing Library setup
+- [ ] 2.5 `.env.example` documenting every variable (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `DOCKER_HOST`)
+- [ ] 2.6 Write failing test for `infrastructure/env.ts` (missing variable → error naming it), then implement
+- [ ] 2.7 Root `README.md`: prerequisites, Podman setup, local start, fallback, scripts
+- [ ] 2.8 Verify `npm run typecheck`, `npm run lint`, `npm run test` pass on the empty scaffold
+
+## 3. Shared logic (TDD)
+
+- [ ] 3.1 Write failing tests for `redact.ts` (DNI, CUIT, AR phones incl. `+54 9`, emails, tokens/bearer/apikey, nested objects, depth/size truncation)
+- [ ] 3.2 Implement `packages/shared/src/redact.ts` until green
+- [ ] 3.3 Write failing tests for `initials.ts` ("Ana Pérez" → "AP", single name, extra spaces, empty) then implement
+- [ ] 3.4 Write failing tests for `trace.ts` (generate id, short code = first 8 chars) then implement
+- [ ] 3.5 Contracts: `roles.ts`, `profile.ts`, `error-log.ts` with Zod schemas from design; schema tests for valid/invalid samples
+
+## 4. Database foundation (SQL tests first)
+
+- [ ] 4.1 Write pgTAP tests `supabase/tests/001_org_isolation.test.sql`: two orgs, operators in each; read/write isolation on `profiles`; inactive operator sees zero rows; helpers return null for inactive/no profile
+- [ ] 4.2 Write pgTAP tests `supabase/tests/002_profiles_guard.test.sql`: operator cannot change own `role`/`org_id`/`is_active` (`forbidden_column`); admin can within org; operator can change own name
+- [ ] 4.3 Write pgTAP tests `supabase/tests/003_error_logs.test.sql`: authenticated insert rejected; operator cannot select; support/admin select own org; only `status` updatable; `resolved_by`/`resolved_at` set on resolve; `purge_error_logs()` deletes > 30 days only
+- [ ] 4.4 Write pgTAP tests `supabase/tests/004_avatars_storage.test.sql`: write own folder allowed; other user's folder rejected
+- [ ] 4.5 Implement migration `supabase/migrations/20260930000100_foundation.sql` (extensions, enums, tables, triggers, helpers, RLS, bucket + storage policies, purge function, conditional `pg_cron` schedule) until all SQL tests pass
+- [ ] 4.6 Implement `supabase/seed/seed.ts` (idempotent org + admin); test by running twice and asserting counts
+
+## 5. Infrastructure: Supabase clients and repositories
+
+- [ ] 5.1 `infrastructure/supabase/{server,browser,admin,middleware}.ts` using `@supabase/ssr`; admin client guarded as server-only
+- [ ] 5.2 Write failing tests for `repositories/profiles.ts` (get current profile, update name, update avatar path) with a mocked client, then implement
+- [ ] 5.3 Write failing tests for `repositories/error-logs.ts` (insert via admin, list with filters, change status) then implement
+
+## 6. Auth feature (TDD)
+
+- [ ] 6.1 Write failing tests for `features/auth/safe-next.ts` (relative ok; `//evil`, `https://evil`, empty → `/inbox`) then implement
+- [ ] 6.2 Write failing tests for `features/auth/sign-in.ts` (valid → ok; Supabase error → generic message; invalid input → field errors) then implement
+- [ ] 6.3 Write failing tests for `requireOperator` (no session → redirect login with next; no profile → sign out + `reason=no_profile`; inactive → sign out + `reason=inactive`; active → profile) then implement
+- [ ] 6.4 Write failing tests for `requireRole` (allowed → pass; not allowed → forbidden) then implement
+- [ ] 6.5 `middleware.ts`: session refresh, `x-trace-id` generation/propagation, anonymous redirect on panel paths
+- [ ] 6.6 `features/auth/sign-out.ts` server action
+
+## 7. Presentation: login and panel shell
+
+- [ ] 7.1 `(auth)/login/page.tsx` + form (react-hook-form + `loginSchema`), messages for `reason=inactive|no_profile`, accessible labels and error announcements
+- [ ] 7.2 `(panel)/layout.tsx` with `requireOperator`, sidebar (Mensajería, Pobladores, Tareas, Configuración, Soporte — role-filtered) and top bar (name, avatar/initials, user menu with "Cerrar sesión")
+- [ ] 7.3 Placeholder pages `inbox`, `citizens`, `tasks` with empty states; `forbidden` page with 403
+- [ ] 7.4 Component tests: login form validation, user menu logout, initials avatar fallback
+
+## 8. Operator profile feature
+
+- [ ] 8.1 Write failing tests for `features/profile/update-name.ts` (valid, too short, too long, trims) then implement
+- [ ] 8.2 Write failing tests for `features/profile/upload-avatar.ts` (valid PNG; >2 MB rejected; PDF rejected by magic bytes; previous object deleted) then implement
+- [ ] 8.3 `(panel)/settings/profile/page.tsx` with name form and avatar uploader; top bar updates after save
+
+## 9. Error tracking feature
+
+- [ ] 9.1 Write failing tests for `features/errors/log-error.ts` (redacts before insert; never throws when insert fails) then implement
+- [ ] 9.2 Write failing tests for `POST /api/errors/report` handler logic (unauthenticated 401; invalid body 400; trace mismatch 400; valid 201 with redacted content) then implement route handler delegating to feature
+- [ ] 9.3 `(panel)/error.tsx` and `global-error.tsx` reporting and showing the 8-char code
+- [ ] 9.4 `(panel)/support/errors/page.tsx` (roles `admin`, `support`): list with filters (status, source, level, date), detail drawer, status change actions
+- [ ] 9.5 Component tests for the support list filters and status change
+
+## 10. Review and Update Existing Unit Tests (MANDATORY)
+
+- [ ] 10.1 Review all tests added in this change for coverage of every spec scenario; add missing ones
+- [ ] 10.2 Remove duplicated or brittle tests; ensure section comments in all new TS/TSX files
+
+## 11. Run Unit Tests and Verify Database State (MANDATORY)
+
+- [ ] 11.1 Capture pre-test database baseline (row counts of `organizations`, `profiles`, `error_logs`, `storage.objects` in `avatars`)
+- [ ] 11.2 Run `npm run test` (targeted, then full) and `npm run test:db`
+- [ ] 11.3 Run `npm run typecheck` and `npm run lint`
+- [ ] 11.4 Verify post-test database state matches baseline; restore if needed
+- [ ] 11.5 Create report `openspec/changes/foundation-workspace-auth/reports/YYYY-MM-DD-step-11-unit-test-and-db-verification.md`
+- [ ] 11.6 Mark step complete only after tests pass and report exists
+
+## 12. Manual Endpoint Testing with curl (MANDATORY - AGENT MUST EXECUTE)
+
+- [ ] 12.1 Ensure local stack and web app are running
+- [ ] 12.2 `POST /api/errors/report` without session → 401
+- [ ] 12.3 `POST /api/errors/report` with session and invalid body → 400; with mismatched trace id → 400
+- [ ] 12.4 `POST /api/errors/report` valid with personal data in message → 201; verify stored row is redacted; delete the row to restore state
+- [ ] 12.5 `GET /inbox` without session → 307 to `/login?next=/inbox`; response carries `x-trace-id`
+- [ ] 12.6 Supabase REST as operator: select `error_logs` → empty; update own `role` → rejected
+- [ ] 12.7 Document all commands and responses in `reports/YYYY-MM-DD-step-12-curl.md`; verify database state equals baseline
+
+## 13. E2E Testing with browser MCP (MANDATORY - AGENT MUST EXECUTE)
+
+- [ ] 13.1 Ensure local stack and web app are running; database seeded
+- [ ] 13.2 Login with wrong password → generic error; with seeded admin → lands on `/inbox` with name in top bar
+- [ ] 13.3 Reload keeps session; logout returns to `/login`
+- [ ] 13.4 Deactivate a test operator via SQL, attempt login → inactive message; restore
+- [ ] 13.5 Operator opens `/support/errors` → forbidden page
+- [ ] 13.6 Edit name and upload avatar → top bar updates; invalid file → error message; restore original name/avatar
+- [ ] 13.7 Trigger a test UI error → code shown; support user sees and resolves it; delete test rows
+- [ ] 13.8 Document scenarios and outcomes in `reports/YYYY-MM-DD-step-13-e2e.md`
+
+## 14. Update Technical Documentation (MANDATORY)
+
+- [ ] 14.1 Update `ARCHITECTURE_SDD.md` (EN): real paths, auth flow, RLS helpers, error tracking, local environment decision
+- [ ] 14.2 Update `STUDENT_DECISION_LOG.md` (ES): flujo de datos del login, por qué RLS con helpers, redacción de datos personales, decisión Podman vs cloud, glosario
+- [ ] 14.3 Update `docs/data-model.md` if the implemented schema diverged from the design
+- [ ] 14.4 Update `.planning/REQUIREMENTS.md` traceability (FND-01, FND-06 org, FND-07, FND-08 → implemented) and `.planning/STATE.md`
+- [ ] 14.5 Update root `README.md` with final commands
