@@ -1,8 +1,8 @@
 ## 0. Setup: Create Feature Branch (MANDATORY - FIRST STEP)
 
-- [ ] 0.1 Confirm `main` is up to date with `origin/main` and the working tree is clean
-- [ ] 0.2 Create branch `feature/foundation-workspace-auth` from `main` and push it with upstream tracking
-- [ ] 0.3 Verify current branch with `git branch --show-current`
+- [x] 0.1 Confirm `main` is up to date with `origin/main` and the working tree is clean
+- [x] 0.2 Create branch `feature/foundation-workspace-auth` from `main` and push it with upstream tracking
+- [x] 0.3 Verify current branch with `git branch --show-current`
 
 ## 1. Spike: Local Supabase on Podman (timebox 2 h)
 
