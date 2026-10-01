@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { MissingEnvError, parsePublicEnv, parseServerEnv } from './env';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MissingEnvError, parsePublicEnv, parseServerEnv, readPublicEnv, readServerEnv } from './env';
 
 // Valid fixtures - minimal complete public and server environments.
 const validPublic = {
@@ -58,5 +58,31 @@ describe('parseServerEnv', () => {
 
   it('throws an error naming SUPABASE_SERVICE_ROLE_KEY when it is missing', () => {
     expect(() => parseServerEnv(validPublic)).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+  });
+});
+
+// Runtime readers - read process.env through literal keys (required for browser inlining).
+describe('readPublicEnv / readServerEnv', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('reads the public variables from process.env', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', validPublic.NEXT_PUBLIC_SUPABASE_URL);
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', validPublic.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    expect(readPublicEnv()).toEqual(validPublic);
+  });
+
+  it('reads public and server-only variables from process.env', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', validServer.NEXT_PUBLIC_SUPABASE_URL);
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', validServer.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', validServer.SUPABASE_SERVICE_ROLE_KEY);
+    expect(readServerEnv()).toEqual(validServer);
+  });
+
+  it('fails naming the variable when process.env lacks it', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', validPublic.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    expect(() => readPublicEnv()).toThrow(/NEXT_PUBLIC_SUPABASE_URL/);
   });
 });

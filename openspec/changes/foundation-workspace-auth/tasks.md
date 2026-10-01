@@ -42,9 +42,9 @@
 
 ## 5. Infrastructure: Supabase clients and repositories
 
-- [ ] 5.1 `infrastructure/supabase/{server,browser,admin,middleware}.ts` using `@supabase/ssr`; admin client guarded as server-only
-- [ ] 5.2 Write failing tests for `repositories/profiles.ts` (get current profile, update name, update avatar path) with a mocked client, then implement
-- [ ] 5.3 Write failing tests for `repositories/error-logs.ts` (insert via admin, list with filters, change status) then implement
+- [x] 5.1 `infrastructure/supabase/{server,browser,admin,middleware}.ts` using `@supabase/ssr`; admin client guarded as server-only
+- [x] 5.2 Write failing tests for `repositories/profiles.ts` (get current profile, update name, update avatar path) with a mocked client, then implement
+- [x] 5.3 Write failing tests for `repositories/error-logs.ts` (insert via admin, list with filters, change status) then implement
 
 ## 6. Auth feature (TDD)
 

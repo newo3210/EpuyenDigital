@@ -47,7 +47,7 @@ The web app refuses to start if a required variable is missing and names it in t
 If `npm run db:start` cannot run on Podman:
 
 1. Create a dedicated Supabase cloud project for **development only** (never production data).
-2. In `.env.local`, point `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to that project, and set `SUPABASE_PROJECT_REF` and `SUPABASE_DB_PASSWORD`.
+2. In `.env.local`, point `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to that project, and set `SUPABASE_PROJECT_REF` and `SUPABASE_CLOUD_DB_PASSWORD`.
 3. Link and apply migrations:
 
    ```powershell

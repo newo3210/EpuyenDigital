@@ -22,6 +22,7 @@
     "db:stop": "node scripts/supabase.mjs stop",
     "db:reset": "node scripts/supabase.mjs db reset",
     "db:push": "node scripts/supabase.mjs db push",
+    "db:types": "node scripts/supabase.mjs gen types typescript --local > packages/shared/src/contracts/database.types.ts",
     "db:seed": "tsx --env-file=.env.local supabase/seed/seed.ts"
   },
   "devDependencies": {

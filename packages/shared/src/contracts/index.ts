@@ -2,3 +2,4 @@
 export * from './roles';
 export * from './profile';
 export * from './error-log';
+export type { Database, Json } from './database.types';

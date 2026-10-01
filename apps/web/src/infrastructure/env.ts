@@ -48,3 +48,19 @@ export function parsePublicEnv(source: EnvSource): PublicEnv {
 export function parseServerEnv(source: EnvSource): ServerEnv {
   return parseEnv(serverEnvSchema, source);
 }
+
+// Runtime readers - literal process.env keys so Next.js inlines NEXT_PUBLIC_* in the browser bundle.
+export function readPublicEnv(): PublicEnv {
+  return parsePublicEnv({
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+}
+
+export function readServerEnv(): ServerEnv {
+  return parseServerEnv({
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+}
