@@ -97,15 +97,15 @@
 - [x] 12.3 `POST /api/errors/report` with session and invalid body → 400; with mismatched trace id → 400
 - [x] 12.4 `POST /api/errors/report` valid with personal data in message → 201; verify stored row is redacted; delete the row to restore state
 - [x] 12.5 `GET /inbox` without session → 307 to `/login?next=/inbox`; response carries `x-trace-id`
-- [ ] 12.6 Supabase REST as operator: select `error_logs` → empty; update own `role` → rejected
-- [ ] 12.7 Document all commands and responses in `reports/YYYY-MM-DD-step-12-curl.md`; verify database state equals baseline
+- [x] 12.6 Supabase REST as operator: select `error_logs` → empty; update own `role` → rejected
+- [x] 12.7 Document all commands and responses in `reports/YYYY-MM-DD-step-12-curl.md`; verify database state equals baseline
 
 ## 13. E2E Testing with browser MCP (MANDATORY - AGENT MUST EXECUTE)
 
-- [ ] 13.1 Ensure local stack and web app are running; database seeded
-- [ ] 13.2 Login with wrong password → generic error; with seeded admin → lands on `/inbox` with name in top bar
-- [ ] 13.3 Reload keeps session; logout returns to `/login`
-- [ ] 13.4 Deactivate a test operator via SQL, attempt login → inactive message; restore
+- [x] 13.1 Ensure local stack and web app are running; database seeded
+- [x] 13.2 Login with wrong password → generic error; with seeded admin → lands on `/inbox` with name in top bar
+- [x] 13.3 Reload keeps session; logout returns to `/login`
+- [x] 13.4 Deactivate a test operator via SQL, attempt login → inactive message; restore
 - [ ] 13.5 Operator opens `/support/errors` → forbidden page
 - [ ] 13.6 Edit name and upload avatar → top bar updates; invalid file → error message; restore original name/avatar
 - [ ] 13.7 Trigger a test UI error → code shown; support user sees and resolves it; delete test rows
