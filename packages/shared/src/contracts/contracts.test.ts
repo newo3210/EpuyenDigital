@@ -96,6 +96,10 @@ describe('fullNameSchema', () => {
     ['vulgar fractions (not letters or decimal digits)', '\u00bd\u00bd'],
     ['a letter followed by an ICU-only blank', 'A\u001c'],
     ['a letter followed by NEL', 'A\u0085'],
+    ['a letter and a supplementary variation selector', 'A\u{e0100}'],
+    ['a letter and Mongolian free variation selectors', 'A\u180b\u180f'],
+    ['a letter and Khmer inherent vowels', 'A\u17b4\u17b5'],
+    ['a letter and reserved/shorthand/musical format controls', 'A\ufff0\u{1bca0}\u{1d173}'],
   ])('rejects %s like the database', (_label, value) => {
     expect(fullNameSchema.safeParse(value).success).toBe(false);
   });

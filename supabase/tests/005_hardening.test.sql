@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(35);
+select plan(39);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): org A (admin, operator), org B (operator), outsider auth user without profile
@@ -143,6 +143,27 @@ select throws_ok(
   $$update public.profiles set full_name = chr(917601) || chr(917602) || chr(65039) where id = '00000000-0000-4000-8000-0000000000a2'$$,
   '23514', null,
   'full_name of tag characters and a variation selector is rejected'
+);
+-- One letter padded with the remaining default-ignorables (design D14, S-5)
+select throws_ok(
+  $$update public.profiles set full_name = 'A' || chr(917760) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of one letter and a supplementary variation selector is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = 'A' || chr(6155) || chr(6159) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of one letter and Mongolian free variation selectors is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = 'A' || chr(6068) || chr(6069) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of one letter and Khmer inherent vowels is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = 'A' || chr(65520) || chr(113824) || chr(119155) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of one letter and reserved/shorthand/musical format controls is rejected'
 );
 select lives_ok(
   $$update public.profiles set full_name = 'José Pérez' where id = '00000000-0000-4000-8000-0000000000a2'$$,

@@ -6,9 +6,9 @@ export const FULL_NAME_MIN = 2;
 export const FULL_NAME_MAX = 80;
 
 // Invisible characters - blanks, zero-width/bidi marks, soft hyphen, Hangul fillers, braille blank,
-// variation selectors and tag characters; mirrors the profiles_full_name_trimmed_length check (D13),
-// plus the blanks ICU [[:space:]] adds over JS \s (U+001C-U+001F, U+0085) per D14.
-const INVISIBLE_CHARS = String.raw`\s\u001c-\u001f\u0085\u00a0\u00ad\u034f\u061c\u115f\u1160\u1680\u180e\u2000-\u200f\u2028-\u202f\u205f-\u2064\u2066-\u206f\u2800\u3000\u3164\ufe00-\ufe0f\ufeff\uffa0\u{e0000}-\u{e007f}`;
+// variation selectors, tag characters and the remaining default-ignorables; mirrors the
+// profiles_full_name_trimmed_length check (D14), plus the blanks ICU [[:space:]] adds over JS \s.
+const INVISIBLE_CHARS = String.raw`\s\u001c-\u001f\u0085\u00a0\u00ad\u034f\u061c\u115f\u1160\u1680\u17b4-\u17b5\u180b-\u180f\u2000-\u200f\u2028-\u202f\u205f-\u2064\u2066-\u206f\u2800\u3000\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8\u{1bca0}-\u{1bca3}\u{1d173}-\u{1d17a}\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}`;
 const EDGE_INVISIBLE_RE = new RegExp(`^[${INVISIBLE_CHARS}]+|[${INVISIBLE_CHARS}]+$`, 'gu');
 const ANY_INVISIBLE_RE = new RegExp(`[${INVISIBLE_CHARS}]`, 'gu');
 const LETTER_OR_NUMBER_RE = /[\p{L}\p{Nd}]/u;
