@@ -101,7 +101,7 @@ Source: `reports/2026-10-05-adversarial-review.md` (verdict FAIL, 3 majors). Sco
   - `avatars_select` restricted to the caller's org folder (public URLs are unaffected because the bucket is public).
   - pgTAP covers the cron job, privileges, guards, constraints, cross-user avatar delete, and listing.
   - `avatarPublicUrl` URL-encodes path segments.
-- **Auth config (M-5):** `enable_signup = false` (API and email), `minimum_password_length = 10`; the seed validates `SEED_ADMIN_PASSWORD` with the same minimum. The cloud project must mirror these settings (README).
+- **Auth config (M-5):** `[auth] enable_signup = false` (GoTrue `DISABLE_SIGNUP`), `minimum_password_length = 10`. `[auth.email] enable_signup` stays `true` because it toggles the whole email provider (`EXTERNAL_EMAIL_ENABLED`); turning it off breaks password sign-in (`email_provider_disabled`). Signup is still blocked by the global flag (`signup_disabled`); the seed validates `SEED_ADMIN_PASSWORD` with the same minimum. The cloud project must mirror these settings (README).
 - **Deferred with user approval:**
   - M-2 (one malformed row breaks the list), M-8 (lockout only in the layout), M-9 (direct Storage uploads bypass sniffing), M-11 (trace ids are client hints), M-12 (Auth errors collapsed into "wrong credentials").
   - Q-2 (stale cookies after a layout sign-out; lockout still enforced server-side).
