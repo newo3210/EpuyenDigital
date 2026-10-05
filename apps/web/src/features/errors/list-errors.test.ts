@@ -20,6 +20,17 @@ describe('errorFiltersSchema', () => {
     expect(errorFiltersSchema.parse({ from: date, to: date })).toEqual({});
   });
 
+  it.each([['0000-01-01'], ['1999-12-31'], ['2101-01-01'], ['9999-12-31']])(
+    'drops date %s outside the supported years 2000-2100',
+    (date) => {
+      expect(errorFiltersSchema.parse({ from: date, to: date })).toEqual({});
+    },
+  );
+
+  it.each([['2000-01-01'], ['2100-12-31'], ['2024-02-29']])('keeps supported date %s', (date) => {
+    expect(errorFiltersSchema.parse({ from: date })).toEqual({ from: date });
+  });
+
   it('keeps a real leap day', () => {
     expect(errorFiltersSchema.parse({ from: '2024-02-29' })).toEqual({ from: '2024-02-29' });
   });

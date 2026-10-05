@@ -21,8 +21,14 @@ export const errorStatusChangeSchema = z.object({
 
 export type ErrorStatusChangeInput = z.infer<typeof errorStatusChangeSchema>;
 
-// Calendar check - the date must survive a UTC round trip (rejects 2026-02-31, month 13, etc.).
+// Supported filter years - Postgres rejects year 0 and nothing older or far-future is ever stored.
+const MIN_FILTER_YEAR = 2000;
+const MAX_FILTER_YEAR = 2100;
+
+// Calendar check - supported year and a UTC round trip (rejects 2026-02-31, month 13, 0000-01-01, etc.).
 function isCalendarDate(value: string): boolean {
+  const year = Number(value.slice(0, 4));
+  if (year < MIN_FILTER_YEAR || year > MAX_FILTER_YEAR) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
