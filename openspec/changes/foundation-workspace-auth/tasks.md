@@ -127,7 +127,7 @@
 - [x] 15.4 J-3a/b (TDD): bounded quantifiers, `redactText` input cap, message slice before redaction in `logError`; performance test on 200 KB adversarial inputs (< 200 ms)
 - [x] 15.5 J-3c/d (TDD): `reportError` auth → rate limit (429) → `readBody` (413 over 16 KB) → schema → trace; `countRecentClientReports` repository; route adapter with content-length and text-length checks
 - [x] 15.6 Q-1 (TDD): `attachRequestOperator` resolves org/user from the request cookie header for `onRequestError` rows; never throws
-- [ ] 15.7 M-1 (TDD): calendar-date refine in `errorFiltersSchema`
+- [x] 15.7 M-1 (TDD): calendar-date refine in `errorFiltersSchema`
 - [ ] 15.8 Migration `20261005000100_foundation_hardening.sql` + pgTAP `005_hardening.test.sql`: grants, trigger-function execute, id/created_at guard, name/avatar_path checks, org-scoped `avatars_select`, user index, cron job, cross-user avatar delete and listing
 - [ ] 15.9 M-5/M-7: `config.toml` signup disabled + min password 10, seed minimum 10; `avatarPublicUrl` encodes segments (TDD)
 - [ ] 15.10 Re-run verification: typecheck, lint, test, test:db, `db:reset` + seed; curl (login form method, report 401/413/429, signup rejected); browser smoke (login, support screen); report `reports/2026-10-05-step-15-hardening.md`; restore DB state

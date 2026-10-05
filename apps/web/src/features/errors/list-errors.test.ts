@@ -15,6 +15,14 @@ describe('errorFiltersSchema', () => {
 
     expect(parsed).toEqual({ status: 'resolved', level: 'warn', from: '2026-09-01' });
   });
+
+  it.each([['2026-02-31'], ['2026-13-45'], ['2026-00-10'], ['2025-02-29']])('drops impossible date %s', (date) => {
+    expect(errorFiltersSchema.parse({ from: date, to: date })).toEqual({});
+  });
+
+  it('keeps a real leap day', () => {
+    expect(errorFiltersSchema.parse({ from: '2024-02-29' })).toEqual({ from: '2024-02-29' });
+  });
 });
 
 // Repository filters - day bounds interpreted in Argentina time (UTC-3).
