@@ -8,7 +8,7 @@ Every panel request SHALL carry a trace id (header `x-trace-id`, generated if ab
 - **THEN** a new id is generated and returned in the response header `x-trace-id`
 
 ### Requirement: Redacted error logging
-Server-side errors SHALL be stored in `error_logs` with source, level, message, details, trace id, and status `open`, after redacting personal data and secrets. Redaction SHALL cover at least: emails; CUIT; Argentine phones with optional `+54`, optional `9`, optional `0`-prefixed area code, optional `15` mobile prefix, parentheses around the area code, and space, dot, or hyphen separators; DNI as 7–8 digits plain, dotted, spaced, or hyphenated; secrets as `key=value`, `key: value`, and JSON `"key": "value"` for keys containing `token`, `secret`, or `passw`, or ending in `key` (`key`, `apikey`, `api_key`, `service_key`), plus bare Supabase secret keys (`sb_secret_…`) and JWTs. Inputs SHALL be truncated to a bounded size before redaction, and redaction SHALL run in time linear in the input size. When the failing request has a signed-in active operator, the row SHALL carry that operator's `org_id` and `user_id`.
+Server-side errors SHALL be stored in `error_logs` with source, level, message, details, trace id, and status `open`, after redacting personal data and secrets. Redaction SHALL cover at least: emails; CUIT; Argentine phones with optional `+54`, optional `9`, optional `0`-prefixed area code, optional `15` mobile prefix, parentheses around the area code, and space, dot, or hyphen separators; DNI as 7–8 digits plain, dotted, spaced, or hyphenated; secrets as `key=value`, `key: value`, and JSON `"key": "value"` for keys containing `token`, `secret`, or `passw`, or ending in `key` (`key`, `apikey`, `api_key`, `service_key`), plus bare Supabase secret keys (`sb_secret_…`) and JWTs. Secret values SHALL be masked whether bare, double-quoted, or single-quoted (including escaped quotes), and DNIs SHALL be masked when adjacent to letters, `_`, or `.` (for example file names). Inputs SHALL be truncated to a bounded size before redaction, and redaction SHALL run in time linear in the input size. When the failing request has a signed-in active operator, the row SHALL carry that operator's `org_id` and `user_id`.
 
 #### Scenario: Error with personal data
 - **WHEN** a server error message contains "DNI 30123456, tel 2945123456, token=abc"
@@ -17,6 +17,10 @@ Server-side errors SHALL be stored in `error_logs` with source, level, message, 
 #### Scenario: Argentine formats and JSON secrets
 - **WHEN** a logged text contains `02945-15-123456`, `(02945) 451234`, `+54 (2945) 451234`, `2945.451234`, DNI `30 123 456` or `30-123-456`, and `{"refresh_token":"abc123xyzSECRET"}`
 - **THEN** every phone, DNI, and secret value is masked
+
+#### Scenario: Quoted secrets and glued DNIs
+- **WHEN** a logged text contains `password="hunter2pass"`, `{ password: 'hunter2pass' }`, `token: "abc"`, `{"password":"hun\"ter2"}`, `dni_30123456.pdf`, `30123456_frente.jpg`, `nro.30123456`, or `Doc.30.123.456`
+- **THEN** every secret value and DNI is masked
 
 #### Scenario: Oversized input
 - **WHEN** a 200 KB message or stack is logged
@@ -31,7 +35,7 @@ Server-side errors SHALL be stored in `error_logs` with source, level, message, 
 - **THEN** the insert is rejected (service role only)
 
 ### Requirement: Client error reporting
-The browser SHALL report unhandled UI errors to `POST /api/errors/report` with the trace id and an optional user note (max 500 characters), and show the user a short incident code. The endpoint SHALL authenticate the caller before reading the body, reject bodies larger than 16 KB, and accept at most 10 reports per user per minute. Trace ids are correlation hints chosen by the client, not integrity proofs.
+The browser SHALL report unhandled UI errors to `POST /api/errors/report` with the trace id and an optional user note (max 500 characters), and show the user a short incident code. The endpoint SHALL authenticate the caller before reading the body, reject bodies larger than 16 KB, and accept at most 10 reports per user per minute. The limit SHALL count a dedicated origin column (never a key inside truncatable details) and SHALL be checked and applied atomically in the database, so concurrent requests cannot exceed it. Trace ids are correlation hints chosen by the client, not integrity proofs.
 
 #### Scenario: Anonymous report
 - **WHEN** a request without a valid session posts a report
@@ -44,6 +48,14 @@ The browser SHALL report unhandled UI errors to `POST /api/errors/report` with t
 #### Scenario: Report flood
 - **WHEN** an authenticated operator posts an 11th report within one minute
 - **THEN** the endpoint responds 429 and stores nothing
+
+#### Scenario: Maximum-size reports still count
+- **WHEN** an authenticated operator posts 11 valid reports of about 9.5 KB each (details truncated on storage) within one minute
+- **THEN** the 11th responds 429
+
+#### Scenario: Concurrent flood
+- **WHEN** an authenticated operator sends 50 reports concurrently
+- **THEN** at most 10 are stored and the rest respond 429
 
 #### Scenario: UI crash
 - **WHEN** a panel page throws during render
@@ -65,7 +77,7 @@ Users with role `admin` or `support` SHALL list, filter (status, source, level, 
 - **THEN** the update is rejected
 
 #### Scenario: Impossible filter date
-- **WHEN** a support user opens `/support/errors?from=2026-02-31`
+- **WHEN** a support user opens `/support/errors?from=2026-02-31` or `?to=0000-01-01` (year outside 2000–2100)
 - **THEN** the invalid date is ignored and the list renders without that filter
 
 ### Requirement: Retention

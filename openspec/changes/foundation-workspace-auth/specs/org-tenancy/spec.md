@@ -34,7 +34,7 @@ Row Level Security SHALL be enabled on every business table, and no operator SHA
 - **THEN** zero rows are returned
 
 ### Requirement: Profile self-service limits
-An operator SHALL be able to update only their own `full_name` and `avatar_path`; `role`, `org_id`, and `is_active` SHALL be changeable only by an admin of the same organization; `id` and `created_at` SHALL be changeable by no client. The database SHALL enforce `full_name` as 2–80 characters after trimming and `avatar_path` as null or a path under `{org_id}/{id}/` of the same profile.
+An operator SHALL be able to update only their own `full_name` and `avatar_path`; `role`, `org_id`, and `is_active` SHALL be changeable only by an admin of the same organization; `id` and `created_at` SHALL be changeable by no client. The database SHALL enforce `full_name` as 2–80 characters after trimming Unicode blanks (spaces, tabs, newlines, NBSP, zero-width characters) and `avatar_path` as null or a path under `{org_id}/{id}/` of the same profile.
 
 #### Scenario: Operator tries to escalate role
 - **WHEN** an operator updates their own profile setting `role = 'admin'`
@@ -45,11 +45,11 @@ An operator SHALL be able to update only their own `full_name` and `avatar_path`
 - **THEN** the update is rejected
 
 #### Scenario: Foreign avatar path or blank name
-- **WHEN** an operator updates their own profile through the REST API with another user's avatar path or a name of only spaces
+- **WHEN** an operator updates their own profile through the REST API with another user's avatar path or a name of only spaces, tabs, NBSP, or zero-width characters
 - **THEN** the update is rejected
 
 ### Requirement: Least-privilege table grants
-The `authenticated` role SHALL hold no `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, or `REFERENCES` privilege on `organizations`, `profiles`, or `error_logs`; writes it needs are limited to the `UPDATE` paths governed by RLS.
+The `authenticated` role SHALL hold no `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`, or `MAINTAIN` privilege on `organizations`, `profiles`, or `error_logs`; writes it needs are limited to the `UPDATE` paths governed by RLS.
 
 #### Scenario: Truncate attempt
 - **WHEN** an authenticated operator runs `truncate public.error_logs`

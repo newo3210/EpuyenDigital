@@ -107,6 +107,31 @@ Source: `reports/2026-10-05-adversarial-review.md` (verdict FAIL, 3 majors). Sco
   - Q-2 (stale cookies after a layout sign-out; lockout still enforced server-side).
   - Q-3 (last-admin protection) goes to `areas-operators-admin`. The other deferred items go to the backlog in `.planning/STATE.md`.
 
+### D12 — Fixes after the adversarial re-review (2026-10-05)
+Source: `reports/2026-10-05-adversarial-rereview.md` (verdict FAIL: N-1 Blocker, N-2/N-3/N-4 Major). User-approved scope: N-1..N-4 plus cheap minors N-8, N-9, N-11, N-12, N-14. Rate limit enforced atomically in SQL. Redaction must be a superset of `65eb994`.
+- **Rate limit on a column, enforced atomically (N-1, N-2):**
+  - New migration `20261005000200_report_rate_limit.sql` adds `error_logs.origin text not null default 'server' check (origin in ('server','client'))`. It replaces `error_logs_user_created_idx` with a partial index `(user_id, created_at desc) where origin = 'client'`.
+  - Function `public.insert_client_error_report(p_org_id uuid, p_user_id uuid, p_trace_id text, p_message text, p_details jsonb, p_limit int, p_window_seconds int) returns uuid`: `security invoker`, `search_path = ''`, executable only by `service_role`.
+  - In one transaction it takes `pg_advisory_xact_lock(hashtextextended('client_error_report:' || p_user_id, 0))`, counts that user's `origin = 'client'` rows inside the window, returns null when the count is ≥ `p_limit`, and otherwise inserts with `source 'web'`, `level 'error'`, `origin 'client'` and returns the id.
+  - The count no longer depends on `details`, so truncated details still count.
+- **Report flow:** auth (401), then a cheap advisory pre-check of the count (429, sheds floods before any body read or redaction), then `readBody` (413), then schema (400), then trace (400), then redaction through the shared `buildErrorLogRow`, then the atomic store port.
+  - The atomic store returns `stored` (201), `rate_limited` (429) or `failed` (500).
+  - The body is read before the authoritative check, so the race window no longer depends on how slowly the client sends it.
+  - `details.origin` is dropped; the column replaces it.
+- **Redaction superset (N-3, N-4):**
+  - Secret values may be double- or single-quoted with escapes (`"(?:[^"\\\n]|\\.){0,4096}"`), so `password="x"`, `{ password: 'x' }` (Node inspect) and `token: "x"` are masked.
+  - JSON values accept escaped quotes, so `{"password":"hun\"ter2"}` is masked entirely.
+  - DNI boundaries are digit-based: not preceded by a digit or `digit.`, not followed by a digit or `.digit`, and not the first segment of a UUID (`-hhhh-`). So `dni_30123456.pdf`, `30123456_frente.jpg`, `nro.30123456`, `Doc.30.123.456` and `id30123456` are masked, while dates, IPs and UUIDs stay intact.
+  - Regression tests reproduce every reviewer case and also pass against `65eb994`. Linear time is kept: every quantifier stays bounded.
+- **Filters (N-8):** calendar dates must also have a year between 2000 and 2100.
+- **Database (N-9, N-11):**
+  - Revoke `maintain` (PG 17) from `authenticated` on the three tables.
+  - The name check trims Unicode blanks (`[[:space:]]`, NBSP, zero-width space/joiners, BOM) before measuring length.
+  - pgTAP covers `MAINTAIN`, tab/NBSP/ZWSP names, the `origin` column, the function grants and the limit.
+- **Login SSR test (N-12):** `renderToString(<LoginForm/>)` with a server-reference-shaped action asserts `method="POST"` in the server markup.
+- **Traceability (N-14):** fix the ID labels in the step-15 report; README/ARCHITECTURE describe the limit as atomic per user.
+- **Deferred to backlog:** N-5 (truncation splits a value), N-6 (more phone shapes), N-7 (email/DSN/object-key gaps), N-10 (resolver tests and timeout), N-13 (guards rely on `current_user`; documented rule).
+
 ## Contracts (Zod)
 
 - `loginSchema { email: string().email(), password: string().min(1) }`
