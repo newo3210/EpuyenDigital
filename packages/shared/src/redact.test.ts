@@ -189,46 +189,126 @@ describe('redactText - UUIDs stay intact', () => {
     expect(redactText(`trace=${id};tel 2945451234`)).toBe(`trace=${id};tel [phone]`);
   });
 
+  it(`leaves ${SAMPLES} random UUIDs glued to underscores or letters unchanged`, () => {
+    const changed: string[] = [];
+    for (let i = 0; i < SAMPLES; i += 1) {
+      const id = crypto.randomUUID();
+      for (const text of [`avatar_${id}.png`, `${id}_v2`, `row${id}`]) {
+        if (redactText(text) !== text) changed.push(text);
+      }
+    }
+    expect(changed.slice(0, 5)).toEqual([]);
+  });
+
   it('still masks an email whose local part is a UUID', () => {
     expect(redactText('550e8400-e29b-41d4-a716-446655440000@epuyen.gob.ar')).toBe('[email]');
   });
 });
 
-// Superset property (design D13) - whatever the 65eb994 redaction removed, the current one removes too.
-describe('redactText - superset of the 65eb994 redaction', () => {
+// Phones next to other numbers (design D14, S-1) - spec scenario "Phones next to other numbers".
+describe('redactText - phones next to other numbers', () => {
+  it.each([
+    ['calle 123 2945 451234', 'calle 123 [phone]'],
+    ['123 294 445 1234', '123 [phone]'],
+    ['500 0351 456-7890', '500 [phone]'],
+    ['nro 12 2945 451234', 'nro 12 [phone]'],
+    ['2026 011 4555-6677', '2026 [phone]'],
+    ['Ruta 40 km 1850 011 4555-6677', 'Ruta 40 km 1850 [phone]'],
+    ['dni 30123456 11 4567 8901', 'dni [dni] [phone]'],
+    ['7123456 11 4567 8901', '[dni] [phone]'],
+    ['30123456\n011 4567 8901', '[dni]\n[phone]'],
+    ['dni 30 123 456 2945 451234', 'dni [dni] [phone]'],
+  ])('masks every phone and DNI in %j', (input, expected) => {
+    expect(redactText(input)).toBe(expected);
+  });
+});
+
+// Secrets with quotes or after a key word (design D14, S-2 a, b) - spec scenario of the same name.
+describe('redactText - secrets with quotes or after a key word', () => {
+  it.each([
+    ["password=Abc'123!xyz", 'password=[redacted]'],
+    ['token=ab"cdefgh', 'token=[redacted]'],
+    ['missing key: token: abc123secret', 'missing key: token=[redacted]'],
+    ['cache key: password: hunter2pass', 'cache key: password=[redacted]'],
+    ['config key: secret = s3cr3tvalue', 'config key: secret=[redacted]'],
+    ['key: password = hunter2pass', 'key: password=[redacted]'],
+  ])('masks the whole secret value in %j', (input, expected) => {
+    expect(redactText(input)).toBe(expected);
+  });
+});
+
+// Redaction contract (design D14) - spec scenario "Redaction contract corpus"; every token masked on its own terms.
+describe('redactText - redaction contract corpus', () => {
   const jwt = ['eyJ' + 'hbGciOiJIUzI1NiJ9', 'eyJzdWIiOiJ0ZXN0In0', 'c2lnbmF0dXJlX3Rlc3Q'].join('.');
-  const tokens: Array<[raw: string, sensitive: string]> = [
-    ['30123456', '30123456'],
-    ['7123456', '7123456'],
-    ['30.123.456', '30.123.456'],
-    ['7.123.456', '7.123.456'],
-    ['30 123 456', '30 123 456'],
-    ['30-123-456', '30-123-456'],
-    ['2945451234', '2945451234'],
-    ['2945 451234', '2945 451234'],
-    ['2945-451234', '2945-451234'],
-    ['11 4567 8901', '11 4567 8901'],
-    ['+54 9 2945 451234', '2945 451234'],
-    ['+5492945451234', '2945451234'],
+
+  // Contract tokens - raw value plus the identifying part that must never survive.
+  const dniTokens: Array<[raw: string, sensitive: string]> = [
+    ['30123456', '123456'],
+    ['7123456', '123456'],
+    ['30.123.456', '123.456'],
+    ['7.123.456', '123.456'],
+    ['30 123 456', '123 456'],
+    ['30-123-456', '123-456'],
+  ];
+  const otherTokens: Array<[raw: string, sensitive: string]> = [
+    ['2945451234', '451234'],
+    ['2945 451234', '451234'],
+    ['2945-451234', '451234'],
+    ['11 4567 8901', '4567 8901'],
+    ['+54 9 2945 451234', '451234'],
+    ['+5492945451234', '451234'],
     ['02945-15-451234', '451234'],
     ['(02945) 451234', '451234'],
-    ['2945.451234', '2945.451234'],
+    ['2945.451234', '451234'],
+    ['011 4555-6677', '4555-6677'],
+    ['(0294) 15-412-3456', '412-3456'],
     ['20-30123456-7', '30123456'],
-    ['20301234567', '20301234567'],
+    ['20301234567', '30123456'],
     ['ana.perez@epuyen.gob.ar', 'ana.perez@epuyen.gob.ar'],
     ['x_y+z@mail.com', 'x_y+z@mail.com'],
     ['password=hunter2pass', 'hunter2pass'],
+    ["password=Abc'123!xyz", "123!xyz"],
+    ['token=ab"cdefgh', 'cdefgh'],
     ['api_key=abcDEF123', 'abcDEF123'],
     ['token: s3cr3tvalue', 's3cr3tvalue'],
+    ['missing key: token: abc123secret', 'abc123secret'],
+    ['config key: secret = s3cr3tvalue', 's3cr3tvalue'],
     ['client_secret=topsecret99', 'topsecret99'],
     ['Bearer abcdefghijkl', 'abcdefghijkl'],
     [`jwt ${jwt}`, jwt],
     ['authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'],
     ['cookie: sid=abc123def', 'abc123def'],
   ];
-  const contexts: Array<[prefix: string, suffix: string]> = [
+  const tokens = [...dniTokens, ...otherTokens];
+
+  // Contract contexts - separated and numeric neighbours for every token; glued ones for DNIs only.
+  const separatedContexts: Array<[prefix: string, suffix: string]> = [
     ['', ''],
     ['DNI ', ' ok'],
+    ['(', ')'],
+    ['"', '"'],
+    ["'", "'"],
+    ['[', ']'],
+    ['tel:', ''],
+    ['/path/', '/x'],
+    ['?q=', '&a=1'],
+    ['\n', '\n'],
+    ['{"v":"', '"}'],
+    ['=', ''],
+    ['#', ''],
+    ['text ', ', more text'],
+    ['calle 123 ', ''],
+    ['nro 12 ', ''],
+    ['2026 ', ''],
+    ['Ruta 40 km 1850 ', ''],
+    ['', ' 123'],
+    ['', ' 2026'],
+    ['30123456 ', ''],
+    ['30123456\n', ''],
+    ['7123456 ', ''],
+    ['', ' 30123456'],
+  ];
+  const gluedContexts: Array<[prefix: string, suffix: string]> = [
     ['dni_', '.pdf'],
     ['', '_frente.jpg'],
     ['nro.', ''],
@@ -239,35 +319,41 @@ describe('redactText - superset of the 65eb994 redaction', () => {
     ['', '.2024.pdf'],
     ['1.', '.9'],
     ['x ', '.89'],
-    ['(', ')'],
-    ['"', '"'],
-    ["'", "'"],
-    ['[', ']'],
-    ['tel:', ''],
-    ['/path/', '/x'],
-    ['?q=', '&a=1'],
-    ['-', ''],
-    ['', '-'],
     ['a-', '-b'],
-    ['\n', '\n'],
-    ['{"v":"', '"}'],
-    ['=', ''],
-    ['#', ''],
-    ['text ', ', more text'],
   ];
+  const pairSeparators = [' ', '\n', ', '];
 
-  it('masks every token the legacy redaction masked, in every context', async () => {
-    const { legacyRedactText } = await import('./redact.legacy.fixture');
-    const leaks: string[] = [];
-    for (const [raw, sensitive] of tokens) {
-      for (const [prefix, suffix] of contexts) {
-        const input = `${prefix}${raw}${suffix}`;
-        if (!legacyRedactText(input).includes(sensitive)) {
-          if (redactText(input).includes(sensitive)) leaks.push(JSON.stringify(input));
-        }
-      }
-    }
-    expect(leaks).toEqual([]);
+  // Leak collector - inputs whose redacted output still holds one of the sensitive parts.
+  function leaksOf(cases: Array<[input: string, sensitive: string[]]>): string[] {
+    return cases
+      .filter(([input, sensitive]) => sensitive.some((part) => redactText(input).includes(part)))
+      .map(([input]) => JSON.stringify(input));
+  }
+
+  it('masks every token in every separated context and next to other numbers', () => {
+    const cases = tokens.flatMap(([raw, sensitive]) =>
+      separatedContexts.map(([prefix, suffix]): [string, string[]] => [`${prefix}${raw}${suffix}`, [sensitive]]),
+    );
+    expect(leaksOf(cases)).toEqual([]);
+  });
+
+  it('masks every DNI glued to letters, underscores, dots or digit-dot sequences', () => {
+    const cases = dniTokens.flatMap(([raw, sensitive]) =>
+      gluedContexts.map(([prefix, suffix]): [string, string[]] => [`${prefix}${raw}${suffix}`, [sensitive]]),
+    );
+    expect(leaksOf(cases)).toEqual([]);
+  });
+
+  it('masks both tokens of every pair', () => {
+    const cases = tokens.flatMap(([first, firstSensitive]) =>
+      tokens.flatMap(([second, secondSensitive]) =>
+        pairSeparators.map((separator): [string, string[]] => [
+          `${first}${separator}${second}`,
+          [firstSensitive, secondSensitive],
+        ]),
+      ),
+    );
+    expect(leaksOf(cases)).toEqual([]);
   });
 });
 
@@ -287,6 +373,8 @@ describe('redactText - performance', () => {
     ['escape runs after a secret key', `secret='${'\\\\'.repeat(SIZE / 2)}`],
     ['glued digit runs', 'a1234567.'.repeat(SIZE / 9)],
     ['UUID runs between digits', '550e8400-e29b-41d4-a716-446655440000 30123456 '.repeat(SIZE / 46)],
+    ['short digit groups rejected as phones', '12 345 '.repeat(SIZE / 7)],
+    ['key words chained before a secret', 'key: '.repeat(SIZE / 5)],
   ])('redacts 200 KB of %s within 200 ms', (_label, input) => {
     const start = performance.now();
     redactText(input);

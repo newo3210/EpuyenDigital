@@ -163,9 +163,9 @@
 - [x] 18.3 S-5 (pgTAP + Vitest first): `A` + U+E0100 / U+180B / U+17B4 rejected; new migration with the completed invisible set; same set in JS
 - [x] 18.4 S-7: pgTAP zero window and negative limit
 - [x] 18.5 User decision Option A (explicit redaction contract): update `design.md` D14, `specs/error-tracking/spec.md`, the brief status, and this section before code
-- [ ] 18.7 Contract corpus test (red first): tokens × separated contexts, numeric neighbours, token pairs; DNIs × glued contexts; replaces the superset property test and the legacy fixture
-- [ ] 18.8 S-1 (TDD): phone `exec` loop resumes at `index + 1` on reject; last group exactly 4 digits
-- [ ] 18.9 S-2 a, b (TDD): bare value keeps quotes; skip a `key` pair whose value is itself a secret key pair
-- [ ] 18.10 S-6 a (TDD): UUID hex lookarounds; `avatar_<uuid>.png` and `<uuid>_v2` unchanged
+- [x] 18.7 Contract corpus test (red first): tokens × separated contexts, numeric neighbours, token pairs; DNIs × glued contexts; replaces the superset property test and the legacy fixture
+- [x] 18.8 S-1 (TDD): phone `exec` loop resumes at `index + 1` on reject; last group exactly 4 digits; DNI pass before phones
+- [x] 18.9 S-2 a, b (TDD): bare value keeps quotes; skip a `key` pair whose value is itself a secret key pair
+- [x] 18.10 S-6 a (TDD): UUID hex lookarounds; `avatar_<uuid>.png` and `<uuid>_v2` unchanged
 - [ ] 18.11 S-3: docs describe the corpus test as the contract and list out-of-contract cases
 - [ ] 18.6 Re-run verification and docs (`ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `docs/data-model.md`, `.planning/STATE.md`); report `reports/2026-10-05-step-18-rereview-3-fixes.md`
