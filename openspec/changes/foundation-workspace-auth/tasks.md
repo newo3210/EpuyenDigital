@@ -139,8 +139,8 @@
 - [x] 16.2 N-3/N-4 (TDD): regression tests for quoted/single-quoted/inspect/escaped secrets and DNIs glued to `_`, `.`, letters (confirmed green against `65eb994`); fix `redact.ts` keeping bounded quantifiers and the 200 KB performance test
 - [x] 16.3 N-1/N-2 DB (TDD, pgTAP): migration `20261005000200_report_rate_limit.sql` with `error_logs.origin`, partial index, `insert_client_error_report` (advisory lock, count, insert; service role only)
 - [x] 16.4 N-1/N-2 app (TDD): `reportError` auth → pre-check (429) → `readBody` (413) → schema → trace → `storeClientReport` (`stored`/`rate_limited`/`failed`); repository `insertClientErrorReport` (rpc) and `countRecentClientReports` on the column; route wiring; regenerate DB types
-- [ ] 16.5 N-8 (TDD): year range 2000–2100 in the calendar-date refine
-- [ ] 16.6 N-9/N-11 (pgTAP first): revoke `maintain`; Unicode-blank-aware name check; tests for MAINTAIN and tab/NBSP/ZWSP names
+- [x] 16.5 N-8 (TDD): year range 2000–2100 in the calendar-date refine
+- [x] 16.6 N-9/N-11 (pgTAP first): revoke `maintain`; Unicode-blank-aware name check; tests for MAINTAIN and tab/NBSP/ZWSP names
 - [ ] 16.7 N-12: SSR `renderToString` test asserting `method="POST"` on the login form
 - [ ] 16.8 Re-run verification: typecheck, lint, test, test:db; concurrent flood probe (50 parallel → ≤ 10 stored) and max-size reports probe against the dev server; report `reports/2026-10-05-step-16-rereview-fixes.md`; restore DB state
 - [ ] 16.9 N-14 + docs: fix ID labels in the step-15 report; update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `README.md`, `docs/data-model.md`, `.planning/STATE.md` (backlog N-5, N-6, N-7, N-10, N-13)

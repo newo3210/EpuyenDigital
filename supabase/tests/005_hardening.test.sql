@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(20);
+select plan(25);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): org A (admin, operator), org B (operator), outsider auth user without profile
@@ -49,6 +49,12 @@ select ok(
   and not has_function_privilege('anon', 'public.error_logs_guard_update()', 'execute'),
   'anon cannot execute trigger functions directly'
 );
+select ok(
+  not has_table_privilege('authenticated', 'public.organizations', 'MAINTAIN')
+  and not has_table_privilege('authenticated', 'public.profiles', 'MAINTAIN')
+  and not has_table_privilege('authenticated', 'public.error_logs', 'MAINTAIN'),
+  'authenticated holds no MAINTAIN privilege on business tables'
+);
 select has_index('public', 'error_logs', 'error_logs_client_reports_idx', 'error_logs has the per-user client-report index');
 
 -- ---------------------------------------------------------------------------
@@ -77,6 +83,25 @@ select throws_ok(
   $$update public.profiles set full_name = '    ' where id = '00000000-0000-4000-8000-0000000000a2'$$,
   '23514', null,
   'full_name of only spaces is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(9) || chr(9) || chr(9) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of only tabs is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(160) || chr(160) || chr(160) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of only NBSP is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(8203) || chr(8203) || ' ' || chr(65279) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of only zero-width characters and BOM is rejected'
+);
+select lives_ok(
+  $$update public.profiles set full_name = chr(9) || 'Ana' || chr(160) || 'María' || chr(8203) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  'full_name with Unicode blanks around real text is accepted'
 );
 select lives_ok(
   $$update public.profiles set avatar_path = 'aaaaaaaa-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000a2/new.webp' where id = '00000000-0000-4000-8000-0000000000a2'$$,
