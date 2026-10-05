@@ -230,6 +230,14 @@ describe('redactText - phones next to other numbers', () => {
     ['tel 2945-451-234.', 'tel [phone].'],
     ['30-123-456 2026', '[dni] 2026'],
     ['30.123.456 2026', '[dni] 2026'],
+    ['+54-9-294-445-7788', '[phone]'],
+    ['54-294-445-7788', '[phone]'],
+    ['9-294-445-7788', '[phone]'],
+    ['+54.9.294.445.7788', '[phone]'],
+    ['DNI 30 123 456 1830hs', 'DNI [dni] 1830hs'],
+    ['30 123 456.2024_frente.jpg', '[dni].2024_frente.jpg'],
+    ['30 123 456 2026_x', '[dni] 2026_x'],
+    ['30 123 456-2026_x', '[dni]-2026_x'],
   ])('masks every phone and DNI in %j', (input, expected) => {
     expect(redactText(input)).toBe(expected);
   });
@@ -240,10 +248,21 @@ describe('redactText - secrets with quotes or after a key word', () => {
   it.each([
     ["password=Abc'123!xyz", 'password=[redacted]'],
     ['token=ab"cdefgh', 'token=[redacted]'],
-    ['missing key: token: abc123secret', 'missing key: token=[redacted]'],
-    ['cache key: password: hunter2pass', 'cache key: password=[redacted]'],
-    ['config key: secret = s3cr3tvalue', 'config key: secret=[redacted]'],
-    ['key: password = hunter2pass', 'key: password=[redacted]'],
+    ['missing key: token: abc123secret', 'missing key=[redacted]'],
+    ['cache key: password: hunter2pass', 'cache key=[redacted]'],
+    ['config key: secret = s3cr3tvalue', 'config key=[redacted]'],
+    ['key: password = hunter2pass', 'key=[redacted]'],
+    ['missing key: service_key: abc123secret', 'missing key=[redacted]'],
+    ['cache key: secret_key: abc123secret', 'cache key=[redacted]'],
+    ['missing key: session: abc123secret', 'missing key=[redacted]'],
+    ['missing key: credential: abc123secret', 'missing key=[redacted]'],
+    ['password_confirmation=hunter2pass', 'password_confirmation=[redacted]'],
+    ['tokenValue=abc123', 'tokenValue=[redacted]'],
+    ['access_tokens=abc123', 'access_tokens=[redacted]'],
+    ['token_value: abc123', 'token_value=[redacted]'],
+    ['{"passwordHash":"h4shvalue"}', '{"passwordHash":"[redacted]"}'],
+    ['{"accessTokenValue":"abc123"}', '{"accessTokenValue":"[redacted]"}'],
+    ["{ password_confirmation: 'hunter2pass', refresh_token_hash: 'abc123hash' }", '{ password_confirmation=[redacted], refresh_token_hash=[redacted] }'],
     ['password=monkey:Zx91', 'password=[redacted]'],
     ['password=whiskey:4ever', 'password=[redacted]'],
     ['password: Turkey=2024!', 'password=[redacted]'],
@@ -251,6 +270,10 @@ describe('redactText - secrets with quotes or after a key word', () => {
     ['token=hockey:Abc123', 'token=[redacted]'],
   ])('masks the whole secret value in %j', (input, expected) => {
     expect(redactText(input)).toBe(expected);
+  });
+
+  it('keeps keys that only start with "key"', () => {
+    expect(redactText('keyboard=qwerty')).toBe('keyboard=qwerty');
   });
 });
 
@@ -266,6 +289,11 @@ describe('redactText - serialized headers and inspected objects', () => {
     ["{ 'x-auth-token': 'abc123opaque' }", 'abc123opaque'],
     ["missing key: 'token': abc123secret", 'abc123secret'],
     ['{"session":"s3ss10nvalue","user":"ana"}', 's3ss10nvalue'],
+    ['{"set-cookie":["sid=abc123def; Path=/","rt=r3fr3sh99"]}', 'abc123def'],
+    ['{"set-cookie":["sid=abc123def; Path=/","rt=r3fr3sh99"]}', 'r3fr3sh99'],
+    ["{ 'set-cookie': [ 'sid=abc123def' ] }", 'abc123def'],
+    ['{"token":["abc123opaque"]}', 'abc123opaque'],
+    ["Map(1) { 'cookie' => 'sid=abc123def' }", 'abc123def'],
   ])('masks the credential in %j', (input, credential) => {
     const result = redactText(input);
     expect(result).not.toContain(credential);
@@ -274,6 +302,8 @@ describe('redactText - serialized headers and inspected objects', () => {
 
   it('keeps the shape of inspected objects', () => {
     expect(redactText("{ 'x-api-key': 'sk_live_abc123', id: 7 }")).toBe("{ 'x-api-key': '[redacted]', id: 7 }");
+    expect(redactText('{"set-cookie":["sid=abc123def"],"id":7}')).toBe('{"set-cookie":"[redacted]","id":7}');
+    expect(redactText("Map(1) { 'cookie' => 'sid=abc123def' }")).toBe("Map(1) { 'cookie' => '[redacted]' }");
   });
 });
 
@@ -331,6 +361,17 @@ describe('redactText - redaction contract corpus', () => {
     ['{"cookie":"sid=abc123def"}', 'abc123def'],
     ["{ 'x-api-key': 'sk_live_abc123' }", 'sk_live_abc123'],
     ["missing key: 'token': abc123secret", 'abc123secret'],
+    ['+54-9-294-445-7788', '7788'],
+    ['+54.9.294.445.7788', '7788'],
+    ['54-294-445-7788', '7788'],
+    ['missing key: service_key: abc123secret', 'abc123secret'],
+    ['missing key: session: abc123secret', 'abc123secret'],
+    ['password_confirmation=hunter2pass', 'hunter2pass'],
+    ['{"passwordHash":"h4shvalue"}', 'h4shvalue'],
+    ["refresh_token_hash: 'abc123hash'", 'abc123hash'],
+    ['{"set-cookie":["sid=abc123def; Path=/"]}', 'abc123def'],
+    ["{ 'set-cookie': [ 'sid=abc123def' ] }", 'abc123def'],
+    ["'cookie' => 'sid=abc123def'", 'abc123def'],
   ];
   const tokens = [...dniTokens, ...otherTokens];
 
@@ -377,6 +418,9 @@ describe('redactText - redaction contract corpus', () => {
     ['1.', '.9'],
     ['x ', '.89'],
     ['a-', '-b'],
+    ['DNI ', ' 1830hs'],
+    ['', '.2024_frente.jpg'],
+    ['', ' 2026_x'],
   ];
   const pairSeparators = [' ', '\n', ', '];
 
@@ -432,6 +476,9 @@ describe('redactText - performance', () => {
     ['UUID runs between digits', '550e8400-e29b-41d4-a716-446655440000 30123456 '.repeat(SIZE / 46)],
     ['short digit groups rejected as phones', '12 345 '.repeat(SIZE / 7)],
     ['key words chained before a secret', 'key: '.repeat(SIZE / 5)],
+    ['key words inside long keys', 'a-token-'.repeat(SIZE / 8)],
+    ['unclosed secret arrays', '"token":['.repeat(SIZE / 9)],
+    ['chained links without a value', 'token: a: b: c: d: e: '.repeat(SIZE / 22)],
   ])('redacts 200 KB of %s within 200 ms', (_label, input) => {
     const start = performance.now();
     redactText(input);

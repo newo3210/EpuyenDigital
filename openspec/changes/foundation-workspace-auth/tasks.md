@@ -183,8 +183,8 @@
 ## 20. Fifth Re-review Fixes (2026-10-05, design D16)
 
 - [x] 20.1 Update `design.md` D16, error-tracking spec, and this section before code
-- [ ] 20.2 Tests first (red): scenario tests and corpus tokens for U-1..U-5 (chained keys, keys containing a key word, hyphen/dot 3-digit-area phones, arrays and Map entries); DNI glued contexts ` 1830hs`, `.2024_frente.jpg`, ` 2026_x`
-- [ ] 20.3 U-1, U-2 (TDD): key rule "contains a key word or ends in `key`"; chained links masked with the value; skip rule removed
-- [ ] 20.4 U-3, U-4 (TDD): DNI lookahead uses the phone end boundary; `9`/`54` hyphen- or dot-joined runs left to the phone pass
-- [ ] 20.5 U-5 (TDD): array values and `=>` separator for JSON / single-quoted keys
+- [x] 20.2 Tests first (red): scenario tests and corpus tokens for U-1..U-5 (chained keys, keys containing a key word, hyphen/dot 3-digit-area phones, arrays and Map entries); DNI glued contexts ` 1830hs`, `.2024_frente.jpg`, ` 2026_x`
+- [x] 20.3 U-1, U-2 (TDD): key rule "contains a key word or ends in `key`"; chained links masked with the value; skip rule removed
+- [x] 20.4 U-3, U-4 (TDD): DNI lookahead uses the phone end boundary; `9`/`54` hyphen- or dot-joined runs left to the phone pass
+- [x] 20.5 U-5 (TDD): array values and `=>` separator for JSON / single-quoted keys
 - [ ] 20.6 U-7 docs and re-run verification; report `reports/2026-10-05-step-20-rereview-5-fixes.md`

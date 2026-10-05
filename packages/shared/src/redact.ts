@@ -15,23 +15,24 @@ const COOKIE_LINE_RE = /\b(cookie)\s{0,10}[:=][^\n]*/gi;
 const BEARER_RE = /\b(bearer)\s{1,10}[^\s,;]{1,4096}/gi;
 const JWT_RE = /\beyJ[\w-]{4,512}\.[\w-]{4,4096}\.[\w-]{4,512}/g;
 const SUPABASE_SECRET_RE = /\bsb_secret_[\w-]{1,200}/g;
-const SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw(?:or)?d|key|authorization|cookie|session|credential)`;
-const STRICT_SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw(?:or)?d|api[_-]?key)`;
+// Secret keys - contain a key word anywhere, or end in `key` (`password_confirmation`, `x-api-key`, D16).
+const SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw|authorization|cookie|session|credential)[\w-]{0,40}|[\w-]{0,40}key`;
 const QUOTED_VALUE = String.raw`"(?:[^"\\\n]|\\.){0,4096}"|'(?:[^'\\\n]|\\.){0,4096}'`;
+const ARRAY_VALUE = String.raw`\[[^\]\n]{0,4096}\]?`;
 const JSON_SECRET_RE = new RegExp(
-  String.raw`\\?"(${SECRET_KEY})\\?"\s{0,10}:\s{0,10}(?:\\?"(?:[^"\\]|\\.){0,4096}\\?"|[^\s,}\]"]{1,4096})`,
+  String.raw`\\?"(${SECRET_KEY})\\?"\s{0,10}:\s{0,10}(?:\\?"(?:[^"\\]|\\.){0,4096}\\?"|${ARRAY_VALUE}|[^\s,}\]"]{1,4096})`,
   'gi',
 );
-// Single-quoted keys - objects printed by util.inspect / console.log (`{ 'x-api-key': '…' }`, D15).
+// Single-quoted keys - objects and Map entries printed by util.inspect (`{ 'x-api-key': '…' }`, `'cookie' => '…'`).
 const QUOTED_KEY_SECRET_RE = new RegExp(
-  String.raw`'(${SECRET_KEY})'\s{0,10}:\s{0,10}(?:${QUOTED_VALUE}|[^\s,}\]]{1,4096})`,
+  String.raw`'(${SECRET_KEY})'(\s{0,10}(?::|=>)\s{0,10})(?:${QUOTED_VALUE}|${ARRAY_VALUE}|[^\s,}\]]{1,4096})`,
   'gi',
 );
-// Bare values keep quotes (passwords may contain them). A pair is skipped only when a blank separates its
-// separator from an inner strict secret pair (`missing key: token: …`), so `password=monkey:Zx91` stays whole
-// (D15). An existing placeholder is never masked again.
+// Bare values keep quotes (passwords may contain them). Up to 4 chained `word:` / `word=` links after the
+// separator are masked with the value (`missing key: service_key: …`, `password: Turkey=2024!`, D16).
+// An existing placeholder is never masked again.
 const KEY_VALUE_SECRET_RE = new RegExp(
-  String.raw`\b(${SECRET_KEY})\s{0,10}[=:](?:\s{1,10}(?!${STRICT_SECRET_KEY}\s{0,10}[=:])|)(?!\[redacted\])(?:${QUOTED_VALUE}|[^\s&,;]{1,4096})`,
+  String.raw`\b(${SECRET_KEY})\s{0,10}[=:]\s{0,10}(?!\[redacted\])(?:[\w-]{1,80}\s{0,10}[=:]\s{0,10}){0,4}(?:${QUOTED_VALUE}|[^\s&,;]{1,4096})`,
   'gi',
 );
 
@@ -40,13 +41,15 @@ const KEY_VALUE_SECRET_RE = new RegExp(
 // underscores, dots or digit-dot sequences match; IPs/decimals may be partially masked. Runs before phones
 // so a DNI is never read as the start of a phone. A blank-separated run is left to the phone pass when a
 // 4-digit group follows it after `-`/`.` (`9 294 445-1234 …`) or after a blank as the last digit group
-// (`nro 12 294 445 1234`), because it is a 3-digit-area phone (D15).
+// (`nro 12 294 445 1234`), because it is a 3-digit-area phone (D15); so is a `9`/`54` run joined by `-`/`.`
+// and followed by the same separator and 4 digits (`+54-9-294-445-7788`). The 4-digit group must end like a
+// phone (no letter, digit, `_` or `-` after it), otherwise the run stays a DNI (`30 123 456 1830hs`, D16).
 // Phones: optional +54, 9, 0-prefixed area code (optionally in parentheses), 15 mobile prefix; space/dot/hyphen
 // separators; last group 3-4 digits. Boundaries exclude hyphens so hyphen-joined ids are not split.
 const EMAIL_RE = /[A-Z0-9._%+-]{1,64}@[A-Z0-9-]{1,63}(?:\.[A-Z0-9-]{1,63}){1,8}/gi;
 const CUIT_RE = /(?<!\d)\d{2}-?\d{8}-?\d(?!\d)/g;
 const DNI_RE =
-  /(?<!\d)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d)(?!(?<=\s\d{3})(?:[.-]\d{4}(?!\d)|\s\d{4}(?!\d|[\s.-]\d)))/g;
+  /(?<!\d)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d)(?!(?<=\s\d{3})(?:[.-]\d{4}|\s\d{4}(?![\s.]\d))(?![\w-])|(?<=(?<!\d)(?:9|54)[.-]\d{3}[.-]\d{3})\1\d{4}(?![\w-]))/g;
 const PHONE_RE =
   /(?<![\w+-])(?:\+?54[\s.-]?)?(?:9[\s.-]?)?(?:\(\s?0?\d{2,4}\s?\)|0?\d{2,4})[\s.-]?(?:15[\s.-]?)?\d{2,4}[\s.-]?\d{3,4}(?![\w-])/g;
 const PHONE_MIN_DIGITS = 10;
@@ -106,7 +109,7 @@ export function redactText(text: string): string {
     .replace(SUPABASE_SECRET_RE, REDACTED)
     .replace(BEARER_RE, `$1 ${REDACTED}`)
     .replace(JSON_SECRET_RE, `"$1":"${REDACTED}"`)
-    .replace(QUOTED_KEY_SECRET_RE, `'$1': '${REDACTED}'`)
+    .replace(QUOTED_KEY_SECRET_RE, `'$1'$2'${REDACTED}'`)
     .replace(KEY_VALUE_SECRET_RE, `$1=${REDACTED}`)
     .replace(EMAIL_RE, '[email]');
   return redactOutsideUuids(withoutSecrets);
