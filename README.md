@@ -64,14 +64,41 @@ If `npm run db:start` cannot run on Podman:
 | `npm run typecheck` | Route type generation + `tsc --noEmit` in every workspace |
 | `npm run lint` | ESLint in every workspace |
 | `npm run test` | Vitest (projects `web` and `shared`) |
+| `npm run test:watch` | Vitest in watch mode |
 | `npm run test:db` | pgTAP SQL tests in `supabase/tests` (local stack running) |
 | `npm run db:start` / `db:stop` | Start / stop the local Supabase stack |
-| `npm run db:reset` | Recreate the local database from migrations |
+| `npm run db:reset` | Recreate the local database from migrations (run `db:seed` afterwards) |
 | `npm run db:push` | Apply migrations to the linked cloud project |
-| `npm run db:seed` | Idempotent seed: organization + admin operator |
+| `npm run db:types` | Regenerate `packages/shared/src/contracts/database.types.ts` from the local schema |
+| `npm run db:seed` | Idempotent seed: organization `epuyen` + admin operator from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` |
+
+## Seeding and first login
+
+1. Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env.local` (never commit them).
+2. `npm run db:seed` (safe to run again; it does not duplicate rows or reset the password).
+3. Open http://localhost:3000/login and sign in with those credentials.
+
+Inactive accounts or users without a profile are signed out and sent back to `/login` with a notice. Operators, areas and role editing arrive with the next change (`areas-operators-admin`); until then, extra local users are created with the Supabase admin API or Studio plus a `profiles` row.
+
+## Error tracking and support screen
+
+- Every request gets an `x-trace-id` header (middleware). Server errors are captured by `apps/web/src/instrumentation.ts` (`onRequestError`); UI crashes show "Ocurrió un error. Código: XXXXXXXX" and report to `POST /api/errors/report`.
+- Messages and details are redacted before storage (emails, DNI, CUIT, phones, tokens, passwords). Rows live in `error_logs` and are purged after 30 days.
+- Users with role `admin` or `support` open **`/support/errors`**: filter by status, source, level and date (Argentina time), open the detail, and mark incidents acknowledged, resolved or reopened. Other roles get HTTP 403.
+- To find a reported incident, match the code the user dictates with the first 8 characters of `trace_id`.
+
+## Testing notes
+
+- `npm run test` runs unit and component tests with no database; features receive fake ports.
+- `npm run test:db` needs the local stack (`npm run db:start`); it checks RLS isolation between organizations, inactive-user lockout, guard triggers, storage policies and error-log purge.
+- Before a change is closed, run `npm run typecheck`, `npm run lint`, `npm run test` and `npm run test:db`; all must exit 0.
+- Verification evidence (curl, E2E screenshots) lives in `openspec/changes/<change>/reports/`.
+- After editing modules imported by `instrumentation.ts`, restart `npm run dev`; Turbopack HMR may keep the old version.
 
 ## Documentation
 
 - Development rules: [`docs/base-standards.md`](docs/base-standards.md)
 - Architecture: [`ARCHITECTURE_SDD.md`](ARCHITECTURE_SDD.md)
 - Decision log (es-AR): [`STUDENT_DECISION_LOG.md`](STUDENT_DECISION_LOG.md)
+- Data model (es-AR): [`docs/data-model.md`](docs/data-model.md)
+- Requirements and roadmap: [`.planning/REQUIREMENTS.md`](.planning/REQUIREMENTS.md), [`.planning/ROADMAP.md`](.planning/ROADMAP.md)

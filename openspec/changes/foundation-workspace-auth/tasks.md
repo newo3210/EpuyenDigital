@@ -113,8 +113,8 @@
 
 ## 14. Update Technical Documentation (MANDATORY)
 
-- [ ] 14.1 Update `ARCHITECTURE_SDD.md` (EN): real paths, auth flow, RLS helpers, error tracking, local environment decision
-- [ ] 14.2 Update `STUDENT_DECISION_LOG.md` (ES): flujo de datos del login, por qué RLS con helpers, redacción de datos personales, decisión Podman vs cloud, glosario
-- [ ] 14.3 Update `docs/data-model.md` if the implemented schema diverged from the design
-- [ ] 14.4 Update `.planning/REQUIREMENTS.md` traceability (FND-01, FND-06 org, FND-07, FND-08 → implemented) and `.planning/STATE.md`
-- [ ] 14.5 Update root `README.md` with final commands
+- [x] 14.1 Update `ARCHITECTURE_SDD.md` (EN): real paths, auth flow, RLS helpers, error tracking, local environment decision
+- [x] 14.2 Update `STUDENT_DECISION_LOG.md` (ES): flujo de datos del login, por qué RLS con helpers, redacción de datos personales, decisión Podman vs cloud, glosario
+- [x] 14.3 Update `docs/data-model.md` if the implemented schema diverged from the design
+- [x] 14.4 Update `.planning/REQUIREMENTS.md` traceability (FND-01, FND-06 org, FND-07, FND-08 → implemented) and `.planning/STATE.md`
+- [x] 14.5 Update root `README.md` with final commands

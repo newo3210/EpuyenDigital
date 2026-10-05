@@ -1,7 +1,8 @@
 # Modelo de datos — Mesa de Entrada Digital Epuyén
 
-> Estado: diseño inicial (2026-09-30). Nombres técnicos en inglés; comentarios en español.
+> Estado: diseño inicial (2026-09-30), actualizado 2026-10-01 con lo implementado en `foundation-workspace-auth` (migración `supabase/migrations/20260930000100_foundation.sql`). Nombres técnicos en inglés; comentarios en español.
 > Convenciones: toda tabla de negocio tiene `id uuid pk`, `org_id uuid not null`, `created_at`, `updated_at` (trigger). RLS habilitado en todas.
+> Marcas: **[implementado]** existe en la base; **[pendiente]** columna diseñada que todavía no se creó; el resto es diseño.
 
 ## 1. Mapa general
 
@@ -30,11 +31,19 @@ erDiagram
 
 ## 2. Organización, equipo y áreas
 
-### `organizations`
-`name`, `slug unique`, `timezone` (default `America/Argentina/Buenos_Aires`).
+### `organizations` [implementado]
+`name`, `slug unique`, `created_at`. Seed: `epuyen`.
+- `timezone` (default `America/Argentina/Buenos_Aires`) **[pendiente]**: hoy la zona horaria está fija en la UI (`Intl` con `America/Argentina/Buenos_Aires`) y en los filtros de soporte (UTC-3). Se agrega cuando se necesite el horario hábil (SLA, fase 3).
 
-### `profiles`
-`id = auth.users.id`, `org_id`, `full_name`, `email`, `role user_role`, `avatar_path`, `is_active bool default true`, `deactivated_at`.
+### `profiles` [implementado]
+`id = auth.users.id` (on delete cascade), `org_id`, `full_name` (2–80 caracteres), `role user_role default 'operator'`, `avatar_path`, `is_active bool default true`, `created_at`, `updated_at` (trigger `set_updated_at`). Índice `org_id`.
+- `email` **[pendiente]**: el email vive en `auth.users`; el cambio `areas-operators-admin` decide si se replica para listar operadores.
+- `deactivated_at` **[pendiente]**: llega con la desactivación desde la UI (`areas-operators-admin`).
+- Trigger `profiles_guard_privileged_columns`: solo un admin puede cambiar `role`, `org_id` o `is_active` (si no, error `P0001 forbidden_column`).
+- Altas y bajas solo con service role (seed o futura pantalla de admin).
+
+### Bucket `avatars` (Storage) [implementado]
+Público para lectura, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user_id}/{uuid}.{ext}`; un usuario solo puede subir, reemplazar o borrar en su propia carpeta.
 
 ### `areas`
 `name`, `description`, `color`, `is_active`, `is_default bool` (una sola por org: "Mesa de Entrada"), `sla_warning_minutes`, `sla_critical_minutes`.
@@ -173,14 +182,20 @@ Una por `(org_id, line_id, phone_normalized)`.
 ### `activity_log` (append-only)
 `actor_user_id`, `action activity_action`, `citizen_id`, `conversation_id`, `task_id`, `details jsonb`.
 
-### `error_logs`
-`source (web|api|webhook|worker)`, `level`, `status (open|acknowledged|resolved)`, `trace_id`, `message`, `details`, `resolved_by`, `resolved_at`. Purga automática a 30 días.
+### `error_logs` [implementado]
+`org_id null` (null = error sin operador identificado, p. ej. antes del login), `source (web|api|worker|db)`, `level error_level`, `status error_status default 'open'`, `trace_id`, `message`, `details jsonb` (redactado; incluye `digestRef` para unir el reporte del navegador con el del servidor), `user_id null`, `resolved_by`, `resolved_at`, `created_at`. Índices `(org_id, status, created_at desc)` y `trace_id`.
+- Los errores del futuro webhook de Evolution se registran con `source = 'api'` (es un route handler); no hay valor `webhook`.
+- Inserción solo con service role (la app usa el cliente admin en el servidor).
+- Trigger `error_logs_guard_update`: solo se puede cambiar `status`; al pasar a `resolved` sella `resolved_by = auth.uid()` y `resolved_at = now()`, y los limpia al reabrir.
+- Purga automática a 30 días: función `purge_error_logs()` (solo service role) programada con `pg_cron` todos los días 06:00 UTC.
 
 ## 9. Enums
 
 | Enum | Valores |
 |---|---|
-| `user_role` | `admin`, `area_lead`, `operator`, `support` |
+| `user_role` [implementado] | `admin`, `area_lead`, `operator`, `support` |
+| `error_level` [implementado] | `error`, `warn`, `info` |
+| `error_status` [implementado] | `open`, `acknowledged`, `resolved` |
 | `line_status` | `connected`, `disconnected`, `error` |
 | `send_mode` | `dry_run`, `allowlist`, `production` |
 | `citizen_registration` | `unregistered`, `registered` |
@@ -217,7 +232,9 @@ Una por `(org_id, line_id, phone_normalized)`.
 | Áreas, operadores, líneas, settings | escritura | lectura (y miembros de su área) | lectura | lectura |
 | Historial / eventos / activity_log | solo insert por funciones; lectura según entidad | | | |
 | Secretos | nadie (service role) | | | |
-| error_logs | lectura + cambiar estado | — | — | lectura + cambiar estado |
+| error_logs | lectura + cambiar estado (su org) | — | — | lectura + cambiar estado (su org y filas con `org_id` null) |
+
+**Implementado hoy (nivel organización):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org. `anon` no tiene permisos. El filtro por área (`current_area_ids()`) llega en `areas-operators-admin`.
 
 ## 11. Funciones SQL (transiciones atómicas)
 
