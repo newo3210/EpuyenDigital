@@ -130,5 +130,5 @@
 - [x] 15.7 M-1 (TDD): calendar-date refine in `errorFiltersSchema`
 - [x] 15.8 Migration `20261005000100_foundation_hardening.sql` + pgTAP `005_hardening.test.sql`: grants, trigger-function execute, id/created_at guard, name/avatar_path checks, org-scoped `avatars_select`, user index, cron job, cross-user avatar delete and listing
 - [x] 15.9 M-5/M-7: `config.toml` signup disabled + min password 10, seed minimum 10; `avatarPublicUrl` encodes segments (TDD)
-- [ ] 15.10 Re-run verification: typecheck, lint, test, test:db, `db:reset` + seed; curl (login form method, report 401/413/429, signup rejected); browser smoke (login, support screen); report `reports/2026-10-05-step-15-hardening.md`; restore DB state
+- [x] 15.10 Re-run verification: typecheck, lint, test, test:db, `db:reset` + seed; curl (login form method, report 401/413/429, signup rejected); browser smoke (login, support screen); report `reports/2026-10-05-step-15-hardening.md`; restore DB state
 - [ ] 15.11 Update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `README.md`, `docs/data-model.md`, `.planning/STATE.md` (deferred findings backlog)
