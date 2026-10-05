@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { renderToString } from 'react-dom/server';
 import { esAR } from '@/i18n/es-AR';
 import { LoginForm } from './login-form';
 
@@ -91,6 +92,30 @@ describe('LoginForm - native submit', () => {
     const { container } = render(<LoginForm />);
 
     expect(container.querySelector('input[name="next"]')).toBeNull();
+  });
+
+  it('renders method="POST" in the server markup when the action is a server reference', () => {
+    const formActionFields = () => ({
+      name: '$ACTION_ID_login',
+      action: '',
+      encType: 'multipart/form-data',
+      method: 'POST',
+      data: null,
+    });
+    const boundReference = Object.assign(() => undefined, { $$FORM_ACTION: formActionFields });
+    Object.assign(signInAction, { $$FORM_ACTION: formActionFields, bind: () => boundReference });
+
+    try {
+      const html = renderToString(<LoginForm next="/inbox" />);
+      const formTag = html.match(/<form[^>]*>/)?.[0] ?? '';
+
+      expect(formTag).toMatch(/method="POST"/i);
+      expect(formTag).toMatch(/enctype="multipart\/form-data"/i);
+      expect(html).toContain('name="$ACTION_ID_login"');
+    } finally {
+      Reflect.deleteProperty(signInAction, '$$FORM_ACTION');
+      Reflect.deleteProperty(signInAction, 'bind');
+    }
   });
 });
 

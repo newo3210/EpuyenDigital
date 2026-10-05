@@ -141,6 +141,6 @@
 - [x] 16.4 N-1/N-2 app (TDD): `reportError` auth → pre-check (429) → `readBody` (413) → schema → trace → `storeClientReport` (`stored`/`rate_limited`/`failed`); repository `insertClientErrorReport` (rpc) and `countRecentClientReports` on the column; route wiring; regenerate DB types
 - [x] 16.5 N-8 (TDD): year range 2000–2100 in the calendar-date refine
 - [x] 16.6 N-9/N-11 (pgTAP first): revoke `maintain`; Unicode-blank-aware name check; tests for MAINTAIN and tab/NBSP/ZWSP names
-- [ ] 16.7 N-12: SSR `renderToString` test asserting `method="POST"` on the login form
+- [x] 16.7 N-12: SSR `renderToString` test asserting `method="POST"` on the login form
 - [ ] 16.8 Re-run verification: typecheck, lint, test, test:db; concurrent flood probe (50 parallel → ≤ 10 stored) and max-size reports probe against the dev server; report `reports/2026-10-05-step-16-rereview-fixes.md`; restore DB state
 - [ ] 16.9 N-14 + docs: fix ID labels in the step-15 report; update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `README.md`, `docs/data-model.md`, `.planning/STATE.md` (backlog N-5, N-6, N-7, N-10, N-13)
