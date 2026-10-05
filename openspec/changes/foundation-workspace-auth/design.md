@@ -166,6 +166,17 @@ Source: `reports/2026-10-05-adversarial-rereview-3.md` (verdict FAIL: S-1, S-2 M
 - **Invisible set completed (S-5):** add U+17B4–U+17B5, U+180B–U+180D, U+180F, U+FFF0–U+FFF8, U+1BCA0–U+1BCA3, U+1D173–U+1D17A and U+E0100–U+E01EF to the database and JS sets. New migration replaces the check again.
 - **Function tests (S-7):** pgTAP adds a zero window and a negative limit.
 
+### D15 — Fixes after the fourth re-review (2026-10-05)
+Source: `reports/2026-10-05-adversarial-rereview-4.md` (verdict FAIL: T-1, T-3 Major). User-approved scope: T-1 and T-3, cheap minors T-2, T-4, T-5, T-6, docs T-8; T-7 and T-9 named out of contract in the specs.
+- **3-digit area codes (T-1):** the DNI pass still runs first, but a DNI-shaped run whose separator is a blank is not taken when it is followed by a separator and a 4-digit group that ends the digit run (`9 294 445-1234`, `nro 12 294 445 1234`, `2026-10-05 294 445-1234`). That run is the start of a phone and the phone pass masks it whole. DNIs written with dots, hyphens or no separator keep their label (`30-123-456 2026` → `[dni] 2026`). A spaced DNI followed by a lone 4-digit number (`30 123 456 2026`) becomes `30 [phone]`: the identifying digits are masked, only the 2-digit prefix stays.
+- **4-3-3 phones (T-2):** the last phone group accepts 3 or 4 digits again (`2945 451 234`). The 10-digit minimum and the DNI-first pass keep `30123456 11` from being read as a phone.
+- **Realistic secret formats (T-3):** the string key list adds `authorization`, `cookie`, `session` and `credential` (aligned with `SENSITIVE_KEY_RE` for objects). Authorization and cookie lines accept `=` as well as `:` (`authorization=Basic …`). A new pass masks single-quoted keys as printed by `util.inspect` (`{ 'x-api-key': '…' }`, R-7). A `key=value` match never re-masks an existing `[redacted]`.
+- **Whole secret values (T-4):** a pair is skipped only when at least one blank separates its separator from an inner **strict** secret key (`token`, `secret`, `passw(or)d`, `api_key`) followed by `=` or `:`. `password=monkey:Zx91` and `password: Turkey=2024!` are masked whole; `missing key: token: …` still finds the real pair.
+- **UUIDs glued to hex (T-5):** `UUID_RE` drops the lookarounds; the literal `8-4-4-4-12` hyphens anchor the token and the leftmost match finds it inside longer hex runs (`id<uuid>`, `<uuid>abc`).
+- **Raw name length (T-6):** `fullNameSchema` / `profileNameSchema` also check the raw length in code points (2–80), like `profiles_full_name_check`; pgTAP covers the DB side of the emoji / astral scenario.
+- **Out of contract (T-7, T-9):** unassigned default-ignorable code points (U+2065, U+E0080–U+E00FF, U+E01F0–U+E0FFF) are not stripped from names; secret values are cut at `&`, `,`, `;` or an unbalanced quote.
+- **Docs (T-8):** remove the "a preceding number cannot hide the phone" claim, mark the D13 changelog row as superseded, refresh STATE, rename the D13 test title.
+
 ## Contracts (Zod)
 
 - `loginSchema { email: string().email(), password: string().min(1) }`
