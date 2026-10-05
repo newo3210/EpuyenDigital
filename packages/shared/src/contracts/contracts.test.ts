@@ -67,6 +67,24 @@ describe('fullNameSchema', () => {
     expect(fullNameSchema.safeParse('Al').success).toBe(true);
     expect(fullNameSchema.safeParse('a'.repeat(80)).success).toBe(true);
   });
+
+  it.each([
+    ['Hangul fillers', '\u3164\u3164'],
+    ['choseong/halfwidth/jungseong fillers', '\u115f\uffa0\u1160'],
+    ['LRM/RLM/ALM marks', '\u200e\u200f\u061c'],
+    ['soft hyphens', '\u00ad\u00ad'],
+    ['combining marks', '\u0301\u0301\u0301'],
+    ['a Hangul filler as the only letter', '\u0301\u3164\u0301'],
+    ['braille blanks and bidi isolates', '\u2800\u2800\u2066\u2069'],
+    ['tag characters and a variation selector', '\u{e0061}\u{e0062}\ufe0f'],
+    ['zero-width spaces around one letter', '\u200bA\u200b'],
+  ])('rejects a visually blank name made of %s', (_label, value) => {
+    expect(fullNameSchema.safeParse(value).success).toBe(false);
+  });
+
+  it.each(['José Pérez', '李明', '\tAna\u00a0María\u200b'])('accepts the visible name %j', (value) => {
+    expect(fullNameSchema.safeParse(value).success).toBe(true);
+  });
 });
 
 // Profile - operator identity within an organization.

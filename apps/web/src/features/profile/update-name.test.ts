@@ -42,6 +42,18 @@ describe('updateName - invalid', () => {
     expect(deps.saveName).not.toHaveBeenCalled();
   });
 
+  it.each([['\u3164\u3164'], ['\u200e\u200f'], ['\u0301\u0301']])(
+    'rejects the visually blank name %j with the visibility message',
+    async (fullName) => {
+      const deps = makeDeps();
+
+      const result = await updateName({ fullName }, deps);
+
+      expect(result).toEqual({ status: 'invalid', fieldErrors: { fullName: copy.errors.nameVisible } });
+      expect(deps.saveName).not.toHaveBeenCalled();
+    },
+  );
+
   it('rejects a missing name', async () => {
     const deps = makeDeps();
 

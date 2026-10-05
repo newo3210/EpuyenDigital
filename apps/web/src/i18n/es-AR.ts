@@ -51,6 +51,7 @@ export const esAR = {
     avatarSaved: 'Foto actualizada.',
     errors: {
       nameLength: 'El nombre debe tener entre 2 y 80 caracteres.',
+      nameVisible: 'El nombre debe tener al menos una letra o un número visible.',
       invalidImage: 'La imagen debe ser JPG, PNG o WebP de hasta 2 MB.',
       fileRequired: 'Elegí una imagen para subir.',
       saveFailed: 'No pudimos guardar los cambios. Probá de nuevo en unos minutos.',

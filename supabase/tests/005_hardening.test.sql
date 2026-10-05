@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(25);
+select plan(35);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): org A (admin, operator), org B (operator), outsider auth user without profile
@@ -102,6 +102,55 @@ select throws_ok(
 select lives_ok(
   $$update public.profiles set full_name = chr(9) || 'Ana' || chr(160) || 'María' || chr(8203) where id = '00000000-0000-4000-8000-0000000000a2'$$,
   'full_name with Unicode blanks around real text is accepted'
+);
+-- Visually blank names (design D13, spec org-tenancy "Visually blank name")
+select throws_ok(
+  $$update public.profiles set full_name = chr(12644) || chr(12644) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of only Hangul fillers is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(4447) || chr(65440) || chr(4448) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of choseong/halfwidth/jungseong fillers is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(8206) || chr(8207) || chr(1564) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of only LRM/RLM/ALM marks is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(173) || chr(173) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of only soft hyphens is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(769) || chr(769) || chr(769) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of only combining marks is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(769) || chr(12644) || chr(769) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name whose only letter is a Hangul filler is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(10240) || chr(10240) || chr(8294) || chr(8297) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of braille blanks and bidi isolates is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = chr(917601) || chr(917602) || chr(65039) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of tag characters and a variation selector is rejected'
+);
+select lives_ok(
+  $$update public.profiles set full_name = 'José Pérez' where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  'full_name with accented Latin letters is accepted'
+);
+select lives_ok(
+  $$update public.profiles set full_name = '李明' where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  'full_name of two CJK letters is accepted'
 );
 select lives_ok(
   $$update public.profiles set avatar_path = 'aaaaaaaa-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000a2/new.webp' where id = '00000000-0000-4000-8000-0000000000a2'$$,
