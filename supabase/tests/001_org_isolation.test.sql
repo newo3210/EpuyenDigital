@@ -83,9 +83,9 @@ select throws_ok(
   '42501', null,
   'admin cannot insert profiles from the client (service role only)'
 );
-select results_eq(
-  $$with d as (delete from public.profiles where id = '00000000-0000-4000-8000-0000000000a2' returning 1) select count(*)::int from d$$,
-  $$values (0)$$,
+select throws_ok(
+  $$delete from public.profiles where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '42501', null,
   'admin cannot delete profiles from the client (service role only)'
 );
 

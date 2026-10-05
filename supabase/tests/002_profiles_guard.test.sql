@@ -33,7 +33,7 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000
 set local role authenticated;
 
 select lives_ok(
-  $$update public.profiles set full_name = 'Ana Pérez', avatar_path = 'a/b/c.png' where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  $$update public.profiles set full_name = 'Ana Pérez', avatar_path = 'aaaaaaaa-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000a2/c.png' where id = '00000000-0000-4000-8000-0000000000a2'$$,
   'operator can update own full_name and avatar_path'
 );
 select throws_ok(
@@ -103,7 +103,7 @@ select throws_ok(
   'admin cannot move a profile to another organization'
 );
 select lives_ok(
-  $$update public.profiles set avatar_path = 'x/y/z.webp' where id = '00000000-0000-4000-8000-0000000000a1'$$,
+  $$update public.profiles set avatar_path = 'aaaaaaaa-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000a1/z.webp' where id = '00000000-0000-4000-8000-0000000000a1'$$,
   'admin can update own avatar_path'
 );
 
