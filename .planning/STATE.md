@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-09-30)
 
 Phase: 1 of 7 (Fundación)
 Plan: 1 of 2 changes implemented (`foundation-workspace-auth`); next `areas-operators-admin`
-Status: Verified + hardened five times — pending re-review 5 of the step-19 diff (separate session), acceptance matrix, human OK, archive
-Last activity: 2026-10-05 — fourth adversarial re-review FAIL (T-1 3-digit-area phones, T-3 serialized header secrets); step 19 fixes done (tasks 19.1–19.7, design D15): 428 unit / 136 pgTAP, contract corpus 0 leaks
+Status: Verified + hardened six times — pending targeted re-review 6 of the step-20 diff (separate session), acceptance matrix, human OK, archive
+Last activity: 2026-10-05 — fifth adversarial re-review FAIL (U-1 chained keys, U-2 keys containing a key word); step 20 fixes done (tasks 20.1–20.6, design D16): 456 unit / 136 pgTAP, contract corpus 0 leaks
 
 Progress: [█░░░░░░░░░] ~7% (Phase 1: 1 of 2 changes)
 
@@ -43,10 +43,11 @@ Recent decisions affecting current work:
 - [foundation/D13]: Superconjunto estricto (privacidad antes que IPs/decimales intactos), probado con oráculo `65eb994` + test de propiedad; UUID exentos de la redacción numérica; nombres con al menos una letra o número visible
 - [foundation/D14]: Fixes de la tercera re-revisión (parcial): la lectura de perfiles nunca rechaza un nombre que la DB aceptó (evita bloquear al operador); el formulario cuenta code points; se suman los default-ignorables asignados (DB + JS; los no asignados quedan fuera de alcance). Redacción: el usuario eligió la **opción A** (contrato explícito en vez de superconjunto de `65eb994`) porque `error_logs` es interno (admin/soporte, 30 días): secretos estrictos, datos personales en formatos comunes, test de corpus como contrato, excepciones con nombre en el spec
 - [foundation/D15]: Fixes de la cuarta re-revisión: alcance T-1, T-3 + menores baratos T-2, T-4, T-5, T-6 + docs; T-7 y T-9 declarados fuera de contrato. Teléfonos con característica de 3 dígitos (`+54 9 294 445-1234`) ya no se parten como DNI; headers serializados (`authorization`, `cookie`, `session`) y claves entre comillas simples de `util.inspect` se tapan (cierra R-7)
+- [foundation/D16]: Fixes de la quinta re-revisión: alcance U-1, U-2 + menores U-3, U-4, U-5 + docs U-7; U-6 fuera de contrato. Regla de claves más simple y conservadora: se tapa toda clave que *contiene* una palabra sensible (o termina en `key`), y las claves encadenadas se tapan junto con el valor. Re-revisión 6 enfocada: confirma U-1..U-5 y busca solo filtraciones realistas de secretos; los menores nuevos van al backlog
 
 ### Pending Todos
 
-- Cerrar `foundation-workspace-auth`: re-review adversarial 5 del diff `0a77033..HEAD` en sesión separada, contra el contrato D14/D15 → `acceptance-matrix.md` → OK humano → `/opsx:archive` → merge a `main`
+- Cerrar `foundation-workspace-auth`: re-review adversarial 6 enfocada del diff `af2bfe2..HEAD` en sesión separada, contra el contrato D14/D15/D16 → `acceptance-matrix.md` → OK humano → `/opsx:archive` → merge a `main`
 - Proponer `areas-operators-admin` (FND-02..05, FND-06 nivel área) incluyendo Q-3 (protección del último admin activo)
 - Backlog de hallazgos diferidos (review 2026-10-05): M-2 (una fila inválida rompe la lista de errores), M-8 (bloqueo de inactivos solo en el layout), M-9 (subidas directas a Storage sin sniffing), M-11 (trace ids son pistas del cliente), M-12 (errores de Auth colapsados en "credenciales incorrectas"), Q-2 (cookies viejas tras sign-out en el layout)
 - Backlog de la re-revisión (2026-10-05): N-5 (el corte por longitud puede partir un email o token y dejar ver la mitad), N-6 (formatos de teléfono no cubiertos: pares, `/`, ` - `, pegados a `tel`, `15-xxxxxx`), N-7 (emails muy largos o no ASCII, DSN `scheme://user:pass@host` sin punto, claves `key`/`service_key` en objetos, DNI con separadores inconsistentes), N-10 (resolver del operador sin tests ni timeout; usar `getClaims()` en vez de `getUser()`), N-13 (toda función `security definer` futura que escriba `profiles`/`error_logs` debe re-chequear roles, documentado en `ARCHITECTURE_SDD.md`)
