@@ -178,4 +178,4 @@
 - [x] 19.4 T-3, T-4 (TDD): extended secret keys, `=` on authorization/cookie lines, single-quoted key pass, no re-mask of `[redacted]`; skip only on blank + strict inner key
 - [x] 19.5 T-5 (TDD): `UUID_RE` without lookarounds
 - [x] 19.6 T-6 (TDD): raw code-point length in the name schemas; pgTAP emoji / astral DB cases
-- [ ] 19.7 T-8 docs and re-run verification; report `reports/2026-10-05-step-19-rereview-4-fixes.md`
+- [x] 19.7 T-8 docs and re-run verification; report `reports/2026-10-05-step-19-rereview-4-fixes.md`
