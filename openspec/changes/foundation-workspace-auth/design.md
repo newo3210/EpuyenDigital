@@ -121,19 +121,19 @@ Source: `reports/2026-10-05-adversarial-rereview.md` (verdict FAIL: N-1 Blocker,
 - **Redaction superset (N-3, N-4):**
   - Secret values may be double- or single-quoted with escapes (`"(?:[^"\\\n]|\\.){0,4096}"`), so `password="x"`, `{ password: 'x' }` (Node inspect) and `token: "x"` are masked.
   - JSON values accept escaped quotes, so `{"password":"hun\"ter2"}` is masked entirely.
-  - DNI boundaries are digit-based: not preceded by a digit or `digit.`, not followed by a digit or `.digit`, and not the first segment of a UUID (`-hhhh-`). So `dni_30123456.pdf`, `30123456_frente.jpg`, `nro.30123456`, `Doc.30.123.456` and `id30123456` are masked, while dates, IPs and UUIDs stay intact.
+  - DNI boundaries are digit-based: not preceded by a digit or `digit.`, not followed by a digit or `.digit`, and not the first segment of a UUID (`-hhhh-`); superseded by D13 (digit-only boundaries plus a UUID-token exemption). So `dni_30123456.pdf`, `30123456_frente.jpg`, `nro.30123456`, `Doc.30.123.456` and `id30123456` are masked, while dates, IPs and UUIDs stay intact.
   - Regression tests reproduce every reviewer case and also pass against `65eb994`. Linear time is kept: every quantifier stays bounded.
 - **Filters (N-8):** calendar dates must also have a year between 2000 and 2100.
 - **Database (N-9, N-11):**
   - Revoke `maintain` (PG 17) from `authenticated` on the three tables.
-  - The name check trims Unicode blanks (`[[:space:]]`, NBSP, zero-width space/joiners, BOM) before measuring length.
+  - The name check trims Unicode blanks (`[[:space:]]`, NBSP, zero-width space/joiners, BOM) before measuring length (extended by D13).
   - pgTAP covers `MAINTAIN`, tab/NBSP/ZWSP names, the `origin` column, the function grants and the limit.
 - **Login SSR test (N-12):** `renderToString(<LoginForm/>)` with a server-reference-shaped action asserts `method="POST"` in the server markup.
 - **Traceability (N-14):** fix the ID labels in the step-15 report; README/ARCHITECTURE describe the limit as atomic per user.
 - **Deferred to backlog:** N-5 (truncation splits a value), N-6 (more phone shapes), N-7 (email/DSN/object-key gaps), N-10 (resolver tests and timeout), N-13 (guards rely on `current_user`; documented rule).
 
 ### D13 — Fixes after the second re-review (2026-10-05)
-Source: `reports/2026-10-05-adversarial-rereview-2.md` (verdict FAIL: R-1 Major). User decisions: **strict superset** for R-1 (privacy over keeping IPs and decimals intact); scope R-1 plus cheap R-2, R-4, R-5, R-8, R-9. Deferred to backlog: R-3, R-6, R-7, R-10.
+Source: `reports/2026-10-05-adversarial-rereview-2.md` (verdict FAIL: R-1 Major). User decisions: **strict superset** for R-1 (privacy over keeping IPs and decimals intact); scope R-1 plus cheap R-2, R-4, R-5, R-8, R-9. Deferred to backlog: R-3, R-6, R-7, R-10. R-3 is the one known exception to the superset rule (tails of secret values over 4 096 characters, and `password=""x`); the spec names it explicitly.
 - **Strict DNI superset (R-1):**
   - `DNI_RE` keeps only digit boundaries: not preceded by a digit, not followed by a digit. The `digit.` / `.digit` exceptions and the `-hhhh-` lookahead are removed.
   - So `30123456.1.pdf`, `dni_30123456.2024.pdf`, `v2.30123456`, `0.30123456`, `1.30.123.456`, `30.123.456.789` and `x 1234567.89` are masked.

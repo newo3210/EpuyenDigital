@@ -154,4 +154,4 @@
 - [x] 17.5 R-5 (pgTAP first): `insert_client_error_report` raises `22023` on null user, null/zero limit, null/zero window
 - [x] 17.6 R-8: SSR test asserts the bound reference's `$$FORM_ACTION` was called and the action-id field is rendered; `GET /login` HTTP smoke for `method="POST"` in 17.7
 - [x] 17.7 Re-run verification (typecheck, lint, test, test:db, `GET /login` smoke, report probe); report `reports/2026-10-05-step-17-rereview-2-fixes.md`
-- [ ] 17.8 R-9 + docs: correct the superset, UUID, `MAINTAIN`/`LOCK` and zero-width claims; update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `docs/data-model.md`, `.planning/STATE.md` (backlog R-3, R-6, R-7, R-10)
+- [x] 17.8 R-9 + docs: correct the superset, UUID, `MAINTAIN`/`LOCK` and zero-width claims; update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `docs/data-model.md`, `.planning/STATE.md` (backlog R-3, R-6, R-7, R-10)

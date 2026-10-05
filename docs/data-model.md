@@ -40,7 +40,7 @@ erDiagram
 - `email` **[pendiente]**: el email vive en `auth.users`; el cambio `areas-operators-admin` decide si se replica para listar operadores.
 - `deactivated_at` **[pendiente]**: llega con la desactivación desde la UI (`areas-operators-admin`).
 - Trigger `profiles_guard_privileged_columns`: solo un admin puede cambiar `role`, `org_id` o `is_active`, y nadie desde la API puede cambiar `id` ni `created_at` (si no, error `P0001 forbidden_column`).
-- Checks: `profiles_full_name_trimmed_length` (nombre entre 2 y 80 caracteres después de quitar blancos Unicode de los bordes: espacios, tabs, NBSP, caracteres de ancho cero y BOM) y `profiles_avatar_path_own_folder` (`avatar_path` null o dentro de `{org_id}/{id}/`, sin `..`).
+- Checks: `profiles_full_name_trimmed_length` (nombre entre 2 y 80 caracteres después de quitar de los bordes los caracteres invisibles: espacios, tabs, NBSP, marcas de ancho cero y bidi, guion suave, rellenos Hangul, blanco braille, selectores de variación y caracteres de etiqueta; además debe quedar al menos una letra o número al quitar esos caracteres en todo el texto) y `profiles_avatar_path_own_folder` (`avatar_path` null o dentro de `{org_id}/{id}/`, sin `..`).
 - Altas y bajas solo con service role (seed o futura pantalla de admin); `authenticated` no tiene `INSERT`, `DELETE` ni `MAINTAIN` (permiso nuevo de Postgres 17).
 
 ### Bucket `avatars` (Storage) [implementado]
@@ -185,7 +185,7 @@ Una por `(org_id, line_id, phone_normalized)`.
 
 ### `error_logs` [implementado]
 `org_id null` (null = error sin operador identificado, p. ej. antes del login), `source (web|api|worker|db)`, `level error_level`, `origin (server|client) default 'server'`, `status error_status default 'open'`, `trace_id`, `message`, `details jsonb` (redactado; incluye `digestRef` para unir el reporte del navegador con el del servidor), `user_id null`, `resolved_by`, `resolved_at`, `created_at`. Índices `(org_id, status, created_at desc)`, `trace_id` y parcial `error_logs_client_reports_idx (user_id, created_at desc) where origin = 'client'` (límite de reportes).
-- Los reportes del navegador se guardan con la función `insert_client_error_report` (solo service role): toma un advisory lock por usuario, cuenta las filas `origin = 'client'` de los últimos 60 s y, si ya hay 10, devuelve null en lugar de insertar. Así el límite se cumple aunque lleguen muchos pedidos a la vez.
+- Los reportes del navegador se guardan con la función `insert_client_error_report` (solo service role): toma un advisory lock por usuario, cuenta las filas `origin = 'client'` de los últimos 60 s y, si ya hay 10, devuelve null en lugar de insertar. Rechaza (`22023 invalid_argument`) un usuario nulo o un límite o ventana nulos o menores que 1. Así el límite se cumple aunque lleguen muchos pedidos a la vez.
 - Los errores del servidor guardan `org_id` y `user_id` del operador conectado cuando hay sesión.
 - Los errores del futuro webhook de Evolution se registran con `source = 'api'` (es un route handler); no hay valor `webhook`.
 - Inserción solo con service role (la app usa el cliente admin en el servidor).
