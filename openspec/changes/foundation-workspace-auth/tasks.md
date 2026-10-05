@@ -144,3 +144,14 @@
 - [x] 16.7 N-12: SSR `renderToString` test asserting `method="POST"` on the login form
 - [x] 16.8 Re-run verification: typecheck, lint, test, test:db; concurrent flood probe (50 parallel → ≤ 10 stored) and max-size reports probe against the dev server; report `reports/2026-10-05-step-16-rereview-fixes.md`; restore DB state
 - [x] 16.9 N-14 + docs: fix ID labels in the step-15 report; update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `README.md`, `docs/data-model.md`, `.planning/STATE.md` (backlog N-5, N-6, N-7, N-10, N-13)
+
+## 17. Second Re-review Fixes (2026-10-05, design D13)
+
+- [x] 17.1 Update specs (error-tracking, org-tenancy), `design.md` D13, and this section before code
+- [ ] 17.2 R-1 (TDD): legacy `65eb994` fixture + superset property test over PII tokens × contexts, plus the digit-dot DNI scenario (red first); relax `DNI_RE` to digit-only boundaries; update IP/decimal controls to the accepted trade-off
+- [ ] 17.3 R-2 (TDD): 20 000 random UUIDs alone and inside URLs stay unchanged (red first); exempt canonical UUID tokens from the CUIT/phone/DNI passes, emails before the split; keep the performance tests green
+- [ ] 17.4 R-4 (pgTAP + Vitest first): Hangul filler, LRM/RLM, soft hyphen and combining-mark names rejected, `José Pérez` / `李明` accepted; new migration with the extended invisible set and the letter-or-number rule; mirror it in `profileNameSchema`
+- [ ] 17.5 R-5 (pgTAP first): `insert_client_error_report` raises `22023` on null user, null/zero limit, null/zero window
+- [ ] 17.6 R-8: SSR test asserts the bound reference's `$$FORM_ACTION` was called and the action-id field is rendered; `GET /login` HTTP smoke for `method="POST"` in 17.7
+- [ ] 17.7 Re-run verification (typecheck, lint, test, test:db, `GET /login` smoke, report probe); report `reports/2026-10-05-step-17-rereview-2-fixes.md`
+- [ ] 17.8 R-9 + docs: correct the superset, UUID, `MAINTAIN`/`LOCK` and zero-width claims; update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `docs/data-model.md`, `.planning/STATE.md` (backlog R-3, R-6, R-7, R-10)

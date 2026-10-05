@@ -34,7 +34,7 @@ Row Level Security SHALL be enabled on every business table, and no operator SHA
 - **THEN** zero rows are returned
 
 ### Requirement: Profile self-service limits
-An operator SHALL be able to update only their own `full_name` and `avatar_path`; `role`, `org_id`, and `is_active` SHALL be changeable only by an admin of the same organization; `id` and `created_at` SHALL be changeable by no client. The database SHALL enforce `full_name` as 2–80 characters after trimming Unicode blanks (spaces, tabs, newlines, NBSP, zero-width characters) and `avatar_path` as null or a path under `{org_id}/{id}/` of the same profile.
+An operator SHALL be able to update only their own `full_name` and `avatar_path`; `role`, `org_id`, and `is_active` SHALL be changeable only by an admin of the same organization; `id` and `created_at` SHALL be changeable by no client. The database SHALL enforce `full_name` as 2–80 characters after trimming invisible characters (spaces, tabs, newlines, NBSP, zero-width and bidi marks, soft hyphen, Hangul fillers, braille blank, variation selectors, tag characters), and SHALL require at least one letter or number once those characters are removed; the profile form SHALL apply the same rule. The database SHALL also enforce `avatar_path` as null or a path under `{org_id}/{id}/` of the same profile.
 
 #### Scenario: Operator tries to escalate role
 - **WHEN** an operator updates their own profile setting `role = 'admin'`
@@ -47,6 +47,10 @@ An operator SHALL be able to update only their own `full_name` and `avatar_path`
 #### Scenario: Foreign avatar path or blank name
 - **WHEN** an operator updates their own profile through the REST API with another user's avatar path or a name of only spaces, tabs, NBSP, or zero-width characters
 - **THEN** the update is rejected
+
+#### Scenario: Visually blank name
+- **WHEN** an operator sets a name made only of Hangul fillers, LRM/RLM marks, soft hyphens, or combining marks
+- **THEN** the update is rejected, while names such as `José Pérez`, `李明` or `Ana María` are accepted
 
 ### Requirement: Least-privilege table grants
 The `authenticated` role SHALL hold no `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`, or `MAINTAIN` privilege on `organizations`, `profiles`, or `error_logs`; writes it needs are limited to the `UPDATE` paths governed by RLS.

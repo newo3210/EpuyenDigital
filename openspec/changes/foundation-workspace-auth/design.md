@@ -132,6 +132,26 @@ Source: `reports/2026-10-05-adversarial-rereview.md` (verdict FAIL: N-1 Blocker,
 - **Traceability (N-14):** fix the ID labels in the step-15 report; README/ARCHITECTURE describe the limit as atomic per user.
 - **Deferred to backlog:** N-5 (truncation splits a value), N-6 (more phone shapes), N-7 (email/DSN/object-key gaps), N-10 (resolver tests and timeout), N-13 (guards rely on `current_user`; documented rule).
 
+### D13 — Fixes after the second re-review (2026-10-05)
+Source: `reports/2026-10-05-adversarial-rereview-2.md` (verdict FAIL: R-1 Major). User decisions: **strict superset** for R-1 (privacy over keeping IPs and decimals intact); scope R-1 plus cheap R-2, R-4, R-5, R-8, R-9. Deferred to backlog: R-3, R-6, R-7, R-10.
+- **Strict DNI superset (R-1):**
+  - `DNI_RE` keeps only digit boundaries: not preceded by a digit, not followed by a digit. The `digit.` / `.digit` exceptions and the `-hhhh-` lookahead are removed.
+  - So `30123456.1.pdf`, `dni_30123456.2024.pdf`, `v2.30123456`, `0.30123456`, `1.30.123.456`, `30.123.456.789` and `x 1234567.89` are masked.
+  - Accepted trade-off: dotted IPv4 addresses and decimals that contain a DNI-shaped run (`10.168.100.200`, `1.30123456`) are partially masked.
+  - **Proof of superset:** a frozen copy of the `65eb994` `redactText` lives in a test fixture (`packages/shared/src/redact.legacy.fixture.ts`). A property test builds a corpus of PII tokens (DNI in every format, phones, CUIT, emails, secrets) × contexts (letters, `_`, `.`, `digit.`, `.digit`, `-`, spaces, file-name prefixes and suffixes, JSON and `key=` wrappers). For every case where the legacy output no longer contains the token, the current output must not contain it either.
+- **UUID tokens exempt from personal-data passes (R-2):**
+  - After the secret and email passes, the text is split on canonical UUID tokens (`\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b`, case-insensitive). CUIT, phone and DNI passes run only on the segments between them.
+  - UUIDs are system identifiers (trace ids, row ids), never personal data, so exempting the exact token shape does not weaken privacy. The superset property is defined over text outside UUID tokens.
+  - Emails run before the split, so `<uuid>@domain` is still masked as an email.
+  - Test: 20 000 random `crypto.randomUUID()` values, alone and inside `/support/errors?id=<uuid>`, stay unchanged.
+- **Visible profile names (R-4):**
+  - The invisible set becomes: `[[:space:]]`, U+00A0, U+00AD, U+034F, U+061C, U+115F, U+1160, U+1680, U+180E, U+2000–U+200F, U+2028–U+202F, U+205F–U+2064, U+2066–U+206F, U+2800, U+3000, U+3164, U+FE00–U+FE0F, U+FEFF, U+FFA0, U+E0000–U+E007F.
+  - The check measures 2–80 characters after trimming that set from both ends, **and** requires at least one letter or number after removing that set everywhere. Hangul fillers count as letters in the `en_US.UTF-8` ctype, so they must be removed before the letter check. Combining marks alone are not letters, so they are rejected.
+  - `profileNameSchema` mirrors the same rule with a shared JS regex, so the form reports the error instead of a generic database failure.
+- **Function arguments (R-5):** `insert_client_error_report` raises `22023 invalid_argument` when `p_user_id`, `p_limit` or `p_window_seconds` is null, or when `p_limit` or `p_window_seconds` is below 1.
+- **SSR test honesty (R-8):** the test asserts that React called the bound reference's `$$FORM_ACTION` (proving the form is wired to the server action) and that the action-id field is rendered. The real `method="POST"` stays an HTTP smoke check: `GET /login` on the dev server in the verification step.
+- **Docs (R-9):** correct the superset claim (now proven by the property test), the UUID claim (exempt by design), the `MAINTAIN`/`LOCK` claim (`UPDATE` already allows `LOCK TABLE`; `MAINTAIN` adds VACUUM, ANALYZE, REINDEX, REFRESH MATERIALIZED VIEW and CLUSTER), and the zero-width claim (now covered).
+
 ## Contracts (Zod)
 
 - `loginSchema { email: string().email(), password: string().min(1) }`

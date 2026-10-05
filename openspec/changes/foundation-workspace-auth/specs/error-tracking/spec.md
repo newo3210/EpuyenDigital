@@ -8,7 +8,7 @@ Every panel request SHALL carry a trace id (header `x-trace-id`, generated if ab
 - **THEN** a new id is generated and returned in the response header `x-trace-id`
 
 ### Requirement: Redacted error logging
-Server-side errors SHALL be stored in `error_logs` with source, level, message, details, trace id, and status `open`, after redacting personal data and secrets. Redaction SHALL cover at least: emails; CUIT; Argentine phones with optional `+54`, optional `9`, optional `0`-prefixed area code, optional `15` mobile prefix, parentheses around the area code, and space, dot, or hyphen separators; DNI as 7–8 digits plain, dotted, spaced, or hyphenated; secrets as `key=value`, `key: value`, and JSON `"key": "value"` for keys containing `token`, `secret`, or `passw`, or ending in `key` (`key`, `apikey`, `api_key`, `service_key`), plus bare Supabase secret keys (`sb_secret_…`) and JWTs. Secret values SHALL be masked whether bare, double-quoted, or single-quoted (including escaped quotes), and DNIs SHALL be masked when adjacent to letters, `_`, or `.` (for example file names). Inputs SHALL be truncated to a bounded size before redaction, and redaction SHALL run in time linear in the input size. When the failing request has a signed-in active operator, the row SHALL carry that operator's `org_id` and `user_id`.
+Server-side errors SHALL be stored in `error_logs` with source, level, message, details, trace id, and status `open`, after redacting personal data and secrets. Redaction SHALL cover at least: emails; CUIT; Argentine phones with optional `+54`, optional `9`, optional `0`-prefixed area code, optional `15` mobile prefix, parentheses around the area code, and space, dot, or hyphen separators; DNI as 7–8 digits plain, dotted, spaced, or hyphenated; secrets as `key=value`, `key: value`, and JSON `"key": "value"` for keys containing `token`, `secret`, or `passw`, or ending in `key` (`key`, `apikey`, `api_key`, `service_key`), plus bare Supabase secret keys (`sb_secret_…`) and JWTs. Secret values SHALL be masked whether bare, double-quoted, or single-quoted (including escaped quotes), and DNIs SHALL be masked when adjacent to letters, `_`, `.`, or digit-dot sequences (for example versioned file names), even if that partially masks dotted IP addresses or decimals. Outside canonical UUID tokens (which are system identifiers and SHALL be left intact), redaction SHALL mask every value that the `65eb994` redaction masked. Inputs SHALL be truncated to a bounded size before redaction, and redaction SHALL run in time linear in the input size. When the failing request has a signed-in active operator, the row SHALL carry that operator's `org_id` and `user_id`.
 
 #### Scenario: Error with personal data
 - **WHEN** a server error message contains "DNI 30123456, tel 2945123456, token=abc"
@@ -21,6 +21,18 @@ Server-side errors SHALL be stored in `error_logs` with source, level, message, 
 #### Scenario: Quoted secrets and glued DNIs
 - **WHEN** a logged text contains `password="hunter2pass"`, `{ password: 'hunter2pass' }`, `token: "abc"`, `{"password":"hun\"ter2"}`, `dni_30123456.pdf`, `30123456_frente.jpg`, `nro.30123456`, or `Doc.30.123.456`
 - **THEN** every secret value and DNI is masked
+
+#### Scenario: DNIs next to digits and dots
+- **WHEN** a logged text contains `30123456.1.pdf`, `dni_30123456.2024.pdf`, `v2.30123456`, `0.30123456`, `1.30.123.456`, or `x 1234567.89`
+- **THEN** every DNI is masked
+
+#### Scenario: Superset of the previous redaction
+- **WHEN** any corpus text outside UUID tokens no longer contains a personal-data or secret token after the `65eb994` redaction
+- **THEN** it does not contain that token after the current redaction either
+
+#### Scenario: UUIDs stay intact
+- **WHEN** a logged text contains a random UUID, alone or inside a URL such as `/support/errors?id=<uuid>`
+- **THEN** the UUID is unchanged
 
 #### Scenario: Oversized input
 - **WHEN** a 200 KB message or stack is logged
@@ -35,7 +47,7 @@ Server-side errors SHALL be stored in `error_logs` with source, level, message, 
 - **THEN** the insert is rejected (service role only)
 
 ### Requirement: Client error reporting
-The browser SHALL report unhandled UI errors to `POST /api/errors/report` with the trace id and an optional user note (max 500 characters), and show the user a short incident code. The endpoint SHALL authenticate the caller before reading the body, reject bodies larger than 16 KB, and accept at most 10 reports per user per minute. The limit SHALL count a dedicated origin column (never a key inside truncatable details) and SHALL be checked and applied atomically in the database, so concurrent requests cannot exceed it. Trace ids are correlation hints chosen by the client, not integrity proofs.
+The browser SHALL report unhandled UI errors to `POST /api/errors/report` with the trace id and an optional user note (max 500 characters), and show the user a short incident code. The endpoint SHALL authenticate the caller before reading the body, reject bodies larger than 16 KB, and accept at most 10 reports per user per minute. The limit SHALL count a dedicated origin column (never a key inside truncatable details) and SHALL be checked and applied atomically in the database, so concurrent requests cannot exceed it. The database function SHALL reject a missing user, a missing or non-positive limit, and a missing or non-positive window instead of storing without a limit. Trace ids are correlation hints chosen by the client, not integrity proofs.
 
 #### Scenario: Anonymous report
 - **WHEN** a request without a valid session posts a report
@@ -56,6 +68,10 @@ The browser SHALL report unhandled UI errors to `POST /api/errors/report` with t
 #### Scenario: Concurrent flood
 - **WHEN** an authenticated operator sends 50 reports concurrently
 - **THEN** at most 10 are stored and the rest respond 429
+
+#### Scenario: Invalid limit arguments
+- **WHEN** the report function is called with a null user, a null or zero limit, or a null or zero window
+- **THEN** it raises `invalid_argument` and stores nothing
 
 #### Scenario: UI crash
 - **WHEN** a panel page throws during render
