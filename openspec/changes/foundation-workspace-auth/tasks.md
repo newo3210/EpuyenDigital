@@ -194,4 +194,4 @@
 - [x] 21.1 Update `design.md` D17, error-tracking spec, and this section before code
 - [x] 21.2 Tests first (red): V-1..V-4 reproductions as scenario cases and corpus tokens (Bearer before another pair, multi-line `set-cookie` arrays, chunked cookie names, chained link before a spaced phone/DNI) (B-9)
 - [x] 21.3 V-1..V-4 (TDD): bearer value without quotes/backslash; arrays across lines (quoted-key passes before header lines); chunk suffix on secret keys; chained links with blanks only for secret keys
-- [ ] 21.4 Docs (B-8, D17), backlog B-1..B-7 in `.planning/STATE.md`, re-run verification; report `reports/2026-10-05-step-21-rereview-6-fixes.md`
+- [x] 21.4 Docs (B-8, D17), backlog B-1..B-7 in `.planning/STATE.md`, re-run verification; report `reports/2026-10-05-step-21-rereview-6-fixes.md`
