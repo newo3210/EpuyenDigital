@@ -85,6 +85,20 @@ describe('fullNameSchema', () => {
   it.each(['José Pérez', '李明', '\tAna\u00a0María\u200b'])('accepts the visible name %j', (value) => {
     expect(fullNameSchema.safeParse(value).success).toBe(true);
   });
+
+  it('counts code points, not UTF-16 units, like the database', () => {
+    expect(fullNameSchema.safeParse(`Ana ${'\u{1f600}'.repeat(40)}`).success).toBe(true);
+    expect(fullNameSchema.safeParse('\u{1d400}'.repeat(80)).success).toBe(true);
+    expect(fullNameSchema.safeParse('\u{1d400}'.repeat(81)).success).toBe(false);
+  });
+
+  it.each([
+    ['vulgar fractions (not letters or decimal digits)', '\u00bd\u00bd'],
+    ['a letter followed by an ICU-only blank', 'A\u001c'],
+    ['a letter followed by NEL', 'A\u0085'],
+  ])('rejects %s like the database', (_label, value) => {
+    expect(fullNameSchema.safeParse(value).success).toBe(false);
+  });
 });
 
 // Profile - operator identity within an organization.
@@ -95,12 +109,19 @@ describe('profileSchema', () => {
     expect(profileSchema.parse(withAvatar)).toEqual(withAvatar);
   });
 
+  it.each([`Ana ${'\u{1f600}'.repeat(40)}`, '\u{1d400}'.repeat(41)])(
+    'reads any name the database accepted (%#), so an operator is never locked out',
+    (fullName) => {
+      expect(profileSchema.safeParse({ ...validProfile, fullName }).success).toBe(true);
+    },
+  );
+
   it.each([
     ['non-uuid id', { id: 'abc' }],
     ['missing orgId', { orgId: undefined }],
     ['unknown role', { role: 'root' }],
     ['non-boolean isActive', { isActive: 'yes' }],
-    ['short name', { fullName: 'A' }],
+    ['empty name', { fullName: '' }],
   ])('rejects a profile with %s', (_label, patch) => {
     expect(profileSchema.safeParse({ ...validProfile, ...patch }).success).toBe(false);
   });

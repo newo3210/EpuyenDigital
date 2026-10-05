@@ -29,11 +29,20 @@ describe('updateName - valid', () => {
     await expect(updateName({ fullName: 'Al' }, deps)).resolves.toMatchObject({ status: 'ok' });
     await expect(updateName({ fullName: 'a'.repeat(80) }, deps)).resolves.toMatchObject({ status: 'ok' });
   });
+
+  it('counts emoji and astral letters as one character each, like the database', async () => {
+    const deps = makeDeps();
+
+    await expect(updateName({ fullName: `Ana ${'\u{1f600}'.repeat(40)}` }, deps)).resolves.toMatchObject({
+      status: 'ok',
+    });
+    await expect(updateName({ fullName: '\u{1d400}'.repeat(80) }, deps)).resolves.toMatchObject({ status: 'ok' });
+  });
 });
 
 // Invalid names - field error, nothing persisted.
 describe('updateName - invalid', () => {
-  it.each([[''], ['A'], ['   B   '], ['a'.repeat(81)]])('rejects %j', async (fullName) => {
+  it.each([[''], ['A'], ['   B   '], ['a'.repeat(81)], ['\u{1d400}'.repeat(81)], ['A\u001c']])('rejects %j', async (fullName) => {
     const deps = makeDeps();
 
     const result = await updateName({ fullName }, deps);

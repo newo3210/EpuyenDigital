@@ -1,16 +1,15 @@
 import { z } from 'zod';
-import { FULL_NAME_MAX, FULL_NAME_MIN, hasVisibleLetter, hasVisibleNameLength } from '@epuyen/shared';
+import { hasVisibleLetter, hasVisibleNameLength } from '@epuyen/shared';
 import { esAR } from '@/i18n/es-AR';
 
 const messages = esAR.profile.errors;
 
-// Profile name form - trimmed display name within the database bounds (2-80) with a visible letter or number.
+// Profile name form - trimmed display name within the database bounds (2-80 code points) with a visible letter or digit.
 export const profileNameSchema = z.object({
   fullName: z
     .string({ required_error: messages.nameLength, invalid_type_error: messages.nameLength })
     .trim()
-    .min(FULL_NAME_MIN, messages.nameLength)
-    .max(FULL_NAME_MAX, messages.nameLength)
+    .min(1, messages.nameLength)
     .refine(hasVisibleLetter, messages.nameVisible)
     .refine(hasVisibleNameLength, messages.nameLength),
 });

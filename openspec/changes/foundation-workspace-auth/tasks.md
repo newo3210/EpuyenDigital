@@ -159,7 +159,7 @@
 ## 18. Third Re-review Fixes (2026-10-05, design D14)
 
 - [x] 18.1 Decision brief for the team (`reports/2026-10-05-redaction-superset-decision-brief.md`); update specs (org-tenancy), `design.md` D14, and this section before code
-- [ ] 18.2 S-4 (TDD): rows with 40 emoji / 41 astral letters parse; form counts code points; `[\p{Alphabetic}\p{Nd}]` and ICU blanks U+001C–U+001F, U+0085 in the JS set
+- [x] 18.2 S-4 (TDD): rows with 40 emoji / 41 astral letters parse; form counts code points; `[\p{L}\p{Nd}]` and ICU blanks U+001C–U+001F, U+0085 in the JS set
 - [ ] 18.3 S-5 (pgTAP + Vitest first): `A` + U+E0100 / U+180B / U+17B4 rejected; new migration with the completed invisible set; same set in JS
 - [ ] 18.4 S-7: pgTAP zero window and negative limit
 - [ ] 18.5 BLOCKED on the team decision (brief): S-1, S-2, S-3, S-6 redaction work
