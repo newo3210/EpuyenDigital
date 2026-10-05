@@ -152,6 +152,14 @@ Source: `reports/2026-10-05-adversarial-rereview-2.md` (verdict FAIL: R-1 Major)
 - **SSR test honesty (R-8):** the test asserts that React called the bound reference's `$$FORM_ACTION` (proving the form is wired to the server action) and that the action-id field is rendered. The real `method="POST"` stays an HTTP smoke check: `GET /login` on the dev server in the verification step.
 - **Docs (R-9):** correct the superset claim (now proven by the property test), the UUID claim (exempt by design), the `MAINTAIN`/`LOCK` claim (`UPDATE` already allows `LOCK TABLE`; `MAINTAIN` adds VACUUM, ANALYZE, REINDEX, REFRESH MATERIALIZED VIEW and CLUSTER), and the zero-width claim (now covered).
 
+### D14 — Fixes after the third re-review (2026-10-05, partial)
+Source: `reports/2026-10-05-adversarial-rereview-3.md` (verdict FAIL: S-1, S-2 Major). The redaction strategy (S-1, S-2, S-3, S-6) is **blocked on a team decision**: `reports/2026-10-05-redaction-superset-decision-brief.md`. User-approved now, independent of that decision: S-4, S-5, S-7.
+- **Profile rows never stricter than the database (S-4 a):** `profileSchema.fullName` (repository row validation) only requires a non-empty string. The database checks are the source of truth, so a name the database accepted can always be read; an operator can no longer lock themselves out with a REST update.
+- **Form counts code points (S-4 a):** `fullNameSchema` / `profileNameSchema` measure the raw and the visible length in code points (`[...value].length`), like `char_length`, instead of UTF-16 units.
+- **ICU character classes (S-4 b, c):** the database uses the ICU provider, so `[[:alnum:]]` is `\p{Alphabetic}` plus decimal digits, and `[[:space:]]` also covers U+001C–U+001F and U+0085. The JS mirror uses `[\p{Alphabetic}\p{Nd}]` and adds those blanks. Node's Unicode tables are newer than the database's ICU, so the form may accept a few recent letters the database rejects (generic save error); it can never reject a name the database accepts on read, because row validation no longer applies the rule. D13's attribution to the `en_US.UTF-8` ctype was wrong; the conclusion (Hangul fillers count as letters) still holds.
+- **Invisible set completed (S-5):** add U+17B4–U+17B5, U+180B–U+180D, U+180F, U+FFF0–U+FFF8, U+1BCA0–U+1BCA3, U+1D173–U+1D17A and U+E0100–U+E01EF to the database and JS sets. New migration replaces the check again.
+- **Function tests (S-7):** pgTAP adds a zero window and a negative limit.
+
 ## Contracts (Zod)
 
 - `loginSchema { email: string().email(), password: string().min(1) }`
