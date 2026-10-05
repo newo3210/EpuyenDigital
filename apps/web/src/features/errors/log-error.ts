@@ -2,8 +2,9 @@ import { redactDetails, redactText, type ErrorLevel, type ErrorSource } from '@e
 
 import type { NewErrorLog } from '@/infrastructure/repositories/error-logs';
 
-// Message limit - stored messages are capped after redaction.
+// Message limits - raw input pre-cut with margin (no value split at the stored edge), stored cap after redaction.
 export const MAX_MESSAGE_CHARS = 2000;
+const RAW_MESSAGE_CHARS = MAX_MESSAGE_CHARS * 2;
 
 // Log input - incident data before redaction; org/user optional for anonymous failures.
 export type LogErrorInput = {
@@ -33,7 +34,7 @@ function buildRow(input: LogErrorInput): NewErrorLog {
   return {
     source: input.source,
     level: input.level ?? 'error',
-    message: redactText(input.message).slice(0, MAX_MESSAGE_CHARS),
+    message: redactText(input.message.slice(0, RAW_MESSAGE_CHARS)).slice(0, MAX_MESSAGE_CHARS),
     details: toDetailsObject(redactDetails(input.details ?? {})),
     traceId: input.traceId,
     orgId: input.orgId ?? null,

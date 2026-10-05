@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_DETAILS_CHARS, MAX_DETAILS_DEPTH, redactDetails, redactText } from './redact';
+import { MAX_DETAILS_CHARS, MAX_DETAILS_DEPTH, MAX_REDACT_INPUT_CHARS, redactDetails, redactText } from './redact';
 
 // Spec scenario - the exact message from error-tracking "Error with personal data".
 describe('redactText - spec scenario', () => {
@@ -54,6 +54,84 @@ describe('redactText - personal data', () => {
   it('does not mistake timestamps or UUIDs for phones', () => {
     const text = 'at 2026-10-01 12:30:45 trace 550e8400-e29b-41d4-a716-446655440000';
     expect(redactText(text)).toBe(text);
+  });
+});
+
+// Argentine formats - spec scenario "Argentine formats and JSON secrets".
+describe('redactText - Argentine phone and DNI formats', () => {
+  it.each([
+    ['02945-15-123456'],
+    ['2945-15-123456'],
+    ['(02945) 15-123456'],
+    ['(02945) 451234'],
+    ['+54 (2945) 451234'],
+    ['2945.451234'],
+    ['+54 9 2945 12-3456'],
+    ['011 4555-6677'],
+  ])('masks phone %s', (phone) => {
+    expect(redactText(`llamar al ${phone} hoy`)).toBe('llamar al [phone] hoy');
+  });
+
+  it.each([['30 123 456'], ['30-123-456'], ['30.123.456'], ['5.123.456']])('masks DNI %s', (dni) => {
+    expect(redactText(`dni ${dni} ok`)).toBe('dni [dni] ok');
+  });
+
+  it('keeps dates, times, IPs and short local numbers intact', () => {
+    const text = 'el 2026-10-05 a las 13:06:36 desde 127.0.0.1 interno 4512 paso 05/10/2026';
+    expect(redactText(text)).toBe(text);
+  });
+});
+
+// Secret formats - JSON pairs, key suffixes and Supabase secret keys.
+describe('redactText - secret formats', () => {
+  it('masks JSON string secrets', () => {
+    expect(redactText('{"refresh_token":"abc123xyzSECRET","user":"ana"}')).toBe(
+      '{"refresh_token":"[redacted]","user":"ana"}',
+    );
+  });
+
+  it('masks JSON secrets with spaces and non-string values', () => {
+    expect(redactText('{ "api_key" : 123456789, "password": "hunter2" }')).toBe(
+      '{ "api_key":"[redacted]", "password":"[redacted]" }',
+    );
+  });
+
+  it('masks escaped JSON secrets inside strings', () => {
+    expect(redactText('body={\\"access_token\\":\\"abc\\"}')).not.toContain('abc');
+  });
+
+  it('masks keys ending in key', () => {
+    expect(redactText('key=abc service_key: xyz')).toBe('key=[redacted] service_key=[redacted]');
+  });
+
+  it('masks bare Supabase secret keys', () => {
+    // Fixture built at runtime so secret scanners never see a literal key.
+    const fakeKey = ['sb', 'secret', 'FAKEFAKEFAKE-test_only0000'].join('_');
+    expect(redactText(`using ${fakeKey} now`)).toBe('using [redacted] now');
+  });
+});
+
+// Linear time - spec scenario "Oversized input"; adversarial inputs must not backtrack.
+describe('redactText - performance', () => {
+  const SIZE = 200_000;
+
+  it.each([
+    ['dotted local parts', 'a.'.repeat(SIZE / 2)],
+    ['long word', 'a'.repeat(SIZE)],
+    ['digits and spaces', '1 '.repeat(SIZE / 2)],
+    ['jwt prefixes', 'eyJ'.repeat(SIZE / 3)],
+    ['secret keys', 'token'.repeat(SIZE / 5)],
+    ['parentheses', '(0'.repeat(SIZE / 2)],
+  ])('redacts 200 KB of %s within 200 ms', (_label, input) => {
+    const start = performance.now();
+    redactText(input);
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+
+  it(`caps input at ${MAX_REDACT_INPUT_CHARS} characters before matching`, () => {
+    const result = redactText('x'.repeat(MAX_REDACT_INPUT_CHARS * 2));
+    expect(result.length).toBeLessThanOrEqual(MAX_REDACT_INPUT_CHARS + '[truncated]'.length);
+    expect(result.endsWith('[truncated]')).toBe(true);
   });
 });
 

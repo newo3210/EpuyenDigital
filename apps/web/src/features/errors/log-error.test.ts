@@ -91,6 +91,28 @@ describe('logError - row', () => {
 
     expect(insertedRow(deps).message).toHaveLength(MAX_MESSAGE_CHARS);
   });
+
+  it('logs a 200 KB adversarial message and stack within 200 ms', async () => {
+    const deps = makeDeps();
+    const huge = 'a.'.repeat(100_000);
+
+    const start = performance.now();
+    await logError({ source: 'web', message: huge, details: { stack: huge }, traceId: TRACE_ID }, deps);
+
+    expect(performance.now() - start).toBeLessThan(200);
+    expect(insertedRow(deps).message.length).toBeLessThanOrEqual(MAX_MESSAGE_CHARS);
+  });
+
+  it('still masks personal data near the truncation boundary', async () => {
+    const deps = makeDeps();
+
+    await logError(
+      { source: 'api', message: `${'x'.repeat(MAX_MESSAGE_CHARS - 12)} 30123456 tail`, traceId: TRACE_ID },
+      deps,
+    );
+
+    expect(insertedRow(deps).message).not.toContain('3012');
+  });
 });
 
 // Failure handling - logging must never break the caller.
