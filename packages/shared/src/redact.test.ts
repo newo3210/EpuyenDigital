@@ -111,6 +111,42 @@ describe('redactText - secret formats', () => {
   });
 });
 
+// Regressions - spec scenario "Quoted secrets and glued DNIs"; every case was masked by the pre-hardening rules.
+describe('redactText - quoted secrets and glued DNIs', () => {
+  it.each([
+    ['password="hunter2pass"', 'hunter2pass'],
+    ["{ password: 'hunter2pass' }", 'hunter2pass'],
+    ['token: "abc123xyz"', 'abc123xyz'],
+    ["refresh_token='abc123xyz'", 'abc123xyz'],
+  ])('masks the quoted secret value in %s', (input, secret) => {
+    expect(redactText(input)).not.toContain(secret);
+  });
+
+  it('masks a JSON secret value containing an escaped quote entirely', () => {
+    const result = redactText(String.raw`{"password":"hun\"ter2"}`);
+    expect(result).not.toContain('hun');
+    expect(result).not.toContain('ter2');
+  });
+
+  it.each(['dni_30123456.pdf', '30123456_frente.jpg', 'nro.30123456', 'Doc.30.123.456', 'id30123456'])(
+    'masks the DNI glued to letters, underscores or dots in %s',
+    (input) => {
+      const result = redactText(input);
+      expect(result).toContain('[dni]');
+      expect(result).not.toMatch(/30\.?123\.?456/);
+    },
+  );
+
+  it.each([
+    'trace 12345678-abcd-4ef0-8123-456789abcdef',
+    'host 10.168.100.200',
+    'on 2026-10-05',
+    'version 1.30123456',
+  ])('keeps UUIDs, IPs, dates and decimals intact in %s', (input) => {
+    expect(redactText(input)).toBe(input);
+  });
+});
+
 // Linear time - spec scenario "Oversized input"; adversarial inputs must not backtrack.
 describe('redactText - performance', () => {
   const SIZE = 200_000;
@@ -122,6 +158,10 @@ describe('redactText - performance', () => {
     ['jwt prefixes', 'eyJ'.repeat(SIZE / 3)],
     ['secret keys', 'token'.repeat(SIZE / 5)],
     ['parentheses', '(0'.repeat(SIZE / 2)],
+    ['unclosed quoted secrets', 'password="\\'.repeat(SIZE / 11)],
+    ['unclosed JSON secrets', '"token":"\\x'.repeat(SIZE / 11)],
+    ['escape runs after a secret key', `secret='${'\\\\'.repeat(SIZE / 2)}`],
+    ['glued digit runs', 'a1234567.'.repeat(SIZE / 9)],
   ])('redacts 200 KB of %s within 200 ms', (_label, input) => {
     const start = performance.now();
     redactText(input);
