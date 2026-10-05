@@ -79,6 +79,18 @@ export async function insertErrorLog(client: DbClient, input: NewErrorLog): Prom
   return data.id;
 }
 
+// Recent client reports - head count of a user's client-origin rows since an instant (admin client).
+export async function countRecentClientReports(client: DbClient, userId: string, sinceIso: string): Promise<number> {
+  const { count, error } = await client
+    .from('error_logs')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('details->>origin', 'client')
+    .gte('created_at', sinceIso);
+  if (error) throw new RepositoryError('error_logs.read_failed', error.message);
+  return count ?? 0;
+}
+
 // List - newest first with optional filters; RLS scopes rows to admin/support of the org.
 export async function listErrorLogs(client: DbClient, filters: ErrorLogFilters): Promise<ErrorLog[]> {
   let query = client.from('error_logs').select(ERROR_LOG_COLUMNS);

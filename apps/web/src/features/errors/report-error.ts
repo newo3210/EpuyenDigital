@@ -4,31 +4,46 @@ import { errorReportSchema } from '@/contracts/errors';
 import { digestRef } from './digest-ref';
 import type { LogErrorInput } from './log-error';
 
-// Report request - raw JSON body plus the trace id resolved by the middleware.
+// Rate limit - max stored client reports per user in the trailing window.
+export const REPORT_RATE_LIMIT = 10;
+export const REPORT_RATE_WINDOW_MS = 60_000;
+
+// Body read result - parsed JSON (null when malformed) or a size-limit rejection.
+export type ReportBody = { kind: 'json'; value: unknown } | { kind: 'too_large' };
+
+// Report request - lazy body reader (called only after auth and rate checks) plus the middleware trace id.
 export type ReportErrorRequest = {
-  body: unknown;
+  readBody: () => Promise<ReportBody>;
   headerTraceId: string | null;
 };
 
-// Report ports - session, active-profile lookup and the redacting logger.
+// Report ports - session, active-profile lookup, recent client-report counter, and the redacting logger.
 export type ReportErrorDeps = {
   getSessionUserId: () => Promise<string | null>;
   findProfile: (userId: string) => Promise<Profile | null>;
+  countRecentReports: (userId: string) => Promise<number>;
   log: (input: LogErrorInput) => Promise<string | null>;
 };
 
 // Report outcome - HTTP status with a JSON body for the route handler.
 export type ReportErrorResult =
   | { status: 201; body: { code: string } }
-  | { status: 400 | 401 | 500; body: { error: string } };
+  | { status: 400 | 401 | 413 | 429 | 500; body: { error: string } };
 
-// Client error report - authenticates, validates, checks the trace id, stores a redacted web row.
+// Client error report - auth, rate limit, bounded body, schema, trace check, then a redacted web row.
 export async function reportError(request: ReportErrorRequest, deps: ReportErrorDeps): Promise<ReportErrorResult> {
   const userId = await deps.getSessionUserId();
   const profile = userId ? await deps.findProfile(userId) : null;
   if (!profile?.isActive) return { status: 401, body: { error: 'unauthenticated' } };
 
-  const parsed = errorReportSchema.safeParse(request.body);
+  if ((await deps.countRecentReports(profile.id)) >= REPORT_RATE_LIMIT) {
+    return { status: 429, body: { error: 'rate_limited' } };
+  }
+
+  const body = await request.readBody();
+  if (body.kind === 'too_large') return { status: 413, body: { error: 'too_large' } };
+
+  const parsed = errorReportSchema.safeParse(body.value);
   if (!parsed.success) return { status: 400, body: { error: 'invalid_body' } };
 
   const report = parsed.data;
@@ -38,7 +53,13 @@ export async function reportError(request: ReportErrorRequest, deps: ReportError
     source: 'web',
     level: 'error',
     message: report.message,
-    details: { url: report.url, stack: report.stack, note: report.note, digestRef: digestRef(report.digest) },
+    details: {
+      origin: 'client',
+      url: report.url,
+      stack: report.stack,
+      note: report.note,
+      digestRef: digestRef(report.digest),
+    },
     traceId: report.traceId,
     orgId: profile.orgId,
     userId: profile.id,

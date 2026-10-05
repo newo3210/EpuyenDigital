@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createSupabaseMock } from '@/test/supabase-mock';
-import { changeErrorLogStatus, findErrorLogById, insertErrorLog, listErrorLogs } from './error-logs';
+import {
+  changeErrorLogStatus,
+  countRecentClientReports,
+  findErrorLogById,
+  insertErrorLog,
+  listErrorLogs,
+} from './error-logs';
 
 // Fixtures - a stored error row (snake_case) and its domain mapping (camelCase).
 const ORG_ID = '7d3c1f9e-2b4a-4c8d-9e1f-0a2b3c4d5e6f';
@@ -90,6 +96,38 @@ describe('insertErrorLog', () => {
         userId: null,
       }),
     ).rejects.toMatchObject({ code: 'error_logs.write_failed' });
+  });
+});
+
+// Recent client reports - head count used by the report endpoint rate limit.
+describe('countRecentClientReports', () => {
+  it('counts client-origin rows of the user since the given instant', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('error_logs', { data: null, error: null, count: 4 });
+
+    await expect(countRecentClientReports(mock.client, USER_ID, '2026-10-05T13:00:00.000Z')).resolves.toBe(4);
+    expect(mock.callsFor('error_logs')).toEqual([
+      { method: 'select', args: ['id', { count: 'exact', head: true }] },
+      { method: 'eq', args: ['user_id', USER_ID] },
+      { method: 'eq', args: ['details->>origin', 'client'] },
+      { method: 'gte', args: ['created_at', '2026-10-05T13:00:00.000Z'] },
+    ]);
+  });
+
+  it('treats a missing count as zero', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('error_logs', { data: null, error: null, count: null });
+
+    await expect(countRecentClientReports(mock.client, USER_ID, '2026-10-05T13:00:00.000Z')).resolves.toBe(0);
+  });
+
+  it('throws error_logs.read_failed when the query errors', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('error_logs', { data: null, error: { message: 'boom' } });
+
+    await expect(
+      countRecentClientReports(mock.client, USER_ID, '2026-10-05T13:00:00.000Z'),
+    ).rejects.toMatchObject({ code: 'error_logs.read_failed' });
   });
 });
 

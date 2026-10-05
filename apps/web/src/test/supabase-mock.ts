@@ -3,7 +3,7 @@ import type { Database } from '@epuyen/shared';
 
 // Mock types - recorded builder calls and queued PostgREST-like results.
 export type RecordedCall = { table: string; method: string; args: unknown[] };
-export type MockResult = { data: unknown; error: { message: string; code?: string } | null };
+export type MockResult = { data: unknown; error: { message: string; code?: string } | null; count?: number | null };
 
 type MockUser = { id: string; email?: string } | null;
 
