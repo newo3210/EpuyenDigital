@@ -187,4 +187,4 @@
 - [x] 20.3 U-1, U-2 (TDD): key rule "contains a key word or ends in `key`"; chained links masked with the value; skip rule removed
 - [x] 20.4 U-3, U-4 (TDD): DNI lookahead uses the phone end boundary; `9`/`54` hyphen- or dot-joined runs left to the phone pass
 - [x] 20.5 U-5 (TDD): array values and `=>` separator for JSON / single-quoted keys
-- [ ] 20.6 U-7 docs and re-run verification; report `reports/2026-10-05-step-20-rereview-5-fixes.md`
+- [x] 20.6 U-7 docs and re-run verification; report `reports/2026-10-05-step-20-rereview-5-fixes.md`
