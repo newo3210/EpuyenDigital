@@ -42,7 +42,7 @@ describe('updateName - valid', () => {
 
 // Invalid names - field error, nothing persisted.
 describe('updateName - invalid', () => {
-  it.each([[''], ['A'], ['   B   '], ['a'.repeat(81)], ['\u{1d400}'.repeat(81)], ['A\u001c']])('rejects %j', async (fullName) => {
+  it.each([[''], ['A'], ['   B   '], ['a'.repeat(81)], ['\u{1d400}'.repeat(81)], ['A\u001c'], [`Ana${'\u200b'.repeat(78)}`]])('rejects %j', async (fullName) => {
     const deps = makeDeps();
 
     const result = await updateName({ fullName }, deps);

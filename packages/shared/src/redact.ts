@@ -10,40 +10,50 @@ const CIRCULAR = '[circular]';
 
 // Secret patterns - header lines, bearer/JWT/Supabase keys, JSON pairs and key=value credentials.
 // Every quantifier is bounded so matching stays linear in the input size.
-const AUTHORIZATION_LINE_RE = /\b(authorization)\s{0,10}:[^\n]*/gi;
-const COOKIE_LINE_RE = /\b(cookie)\s{0,10}:[^\n]*/gi;
+const AUTHORIZATION_LINE_RE = /\b(authorization)\s{0,10}[:=][^\n]*/gi;
+const COOKIE_LINE_RE = /\b(cookie)\s{0,10}[:=][^\n]*/gi;
 const BEARER_RE = /\b(bearer)\s{1,10}[^\s,;]{1,4096}/gi;
 const JWT_RE = /\beyJ[\w-]{4,512}\.[\w-]{4,4096}\.[\w-]{4,512}/g;
 const SUPABASE_SECRET_RE = /\bsb_secret_[\w-]{1,200}/g;
-const SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw(?:or)?d|key)`;
+const SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw(?:or)?d|key|authorization|cookie|session|credential)`;
+const STRICT_SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw(?:or)?d|api[_-]?key)`;
 const QUOTED_VALUE = String.raw`"(?:[^"\\\n]|\\.){0,4096}"|'(?:[^'\\\n]|\\.){0,4096}'`;
 const JSON_SECRET_RE = new RegExp(
   String.raw`\\?"(${SECRET_KEY})\\?"\s{0,10}:\s{0,10}(?:\\?"(?:[^"\\]|\\.){0,4096}\\?"|[^\s,}\]"]{1,4096})`,
   'gi',
 );
-// Bare values keep quotes (passwords may contain them); a value that is itself a secret pair is skipped
-// so the real pair is found next (`missing key: token: …`, D14).
+// Single-quoted keys - objects printed by util.inspect / console.log (`{ 'x-api-key': '…' }`, D15).
+const QUOTED_KEY_SECRET_RE = new RegExp(
+  String.raw`'(${SECRET_KEY})'\s{0,10}:\s{0,10}(?:${QUOTED_VALUE}|[^\s,}\]]{1,4096})`,
+  'gi',
+);
+// Bare values keep quotes (passwords may contain them). A pair is skipped only when a blank separates its
+// separator from an inner strict secret pair (`missing key: token: …`), so `password=monkey:Zx91` stays whole
+// (D15). An existing placeholder is never masked again.
 const KEY_VALUE_SECRET_RE = new RegExp(
-  String.raw`\b(${SECRET_KEY})\s{0,10}[=:]\s{0,10}(?!${SECRET_KEY}\s{0,10}[=:])(?:${QUOTED_VALUE}|[^\s&,;]{1,4096})`,
+  String.raw`\b(${SECRET_KEY})\s{0,10}[=:](?:\s{1,10}(?!${STRICT_SECRET_KEY}\s{0,10}[=:])|)(?!\[redacted\])(?:${QUOTED_VALUE}|[^\s&,;]{1,4096})`,
   'gi',
 );
 
 // Personal data patterns - email, CUIT, DNI, Argentine phones.
 // DNI: 2-3-3 grouping with one consistent separator and digit-only boundaries, so DNIs glued to letters,
 // underscores, dots or digit-dot sequences match; IPs/decimals may be partially masked. Runs before phones
-// so a DNI is never read as the start of a phone.
+// so a DNI is never read as the start of a phone. A blank-separated run is left to the phone pass when a
+// 4-digit group follows it after `-`/`.` (`9 294 445-1234 …`) or after a blank as the last digit group
+// (`nro 12 294 445 1234`), because it is a 3-digit-area phone (D15).
 // Phones: optional +54, 9, 0-prefixed area code (optionally in parentheses), 15 mobile prefix; space/dot/hyphen
-// separators; last group exactly 4 digits. Boundaries exclude hyphens so hyphen-joined ids are not split.
+// separators; last group 3-4 digits. Boundaries exclude hyphens so hyphen-joined ids are not split.
 const EMAIL_RE = /[A-Z0-9._%+-]{1,64}@[A-Z0-9-]{1,63}(?:\.[A-Z0-9-]{1,63}){1,8}/gi;
 const CUIT_RE = /(?<!\d)\d{2}-?\d{8}-?\d(?!\d)/g;
-const DNI_RE = /(?<!\d)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d)/g;
+const DNI_RE =
+  /(?<!\d)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d)(?!(?<=\s\d{3})(?:[.-]\d{4}(?!\d)|\s\d{4}(?!\d|[\s.-]\d)))/g;
 const PHONE_RE =
-  /(?<![\w+-])(?:\+?54[\s.-]?)?(?:9[\s.-]?)?(?:\(\s?0?\d{2,4}\s?\)|0?\d{2,4})[\s.-]?(?:15[\s.-]?)?\d{2,4}[\s.-]?\d{4}(?![\w-])/g;
+  /(?<![\w+-])(?:\+?54[\s.-]?)?(?:9[\s.-]?)?(?:\(\s?0?\d{2,4}\s?\)|0?\d{2,4})[\s.-]?(?:15[\s.-]?)?\d{2,4}[\s.-]?\d{3,4}(?![\w-])/g;
 const PHONE_MIN_DIGITS = 10;
 
-// UUID tokens - canonical 8-4-4-4-12 hex ids (trace/row ids) exempt from the CUIT/DNI/phone passes, also when
-// glued to `_` or letters (D14).
-const UUID_RE = /(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![0-9a-f])/gi;
+// UUID tokens - canonical 8-4-4-4-12 hex ids (trace/row ids) exempt from the CUIT/DNI/phone passes; the literal
+// hyphens anchor the token, so it is found even when glued to `_`, letters or digits (D15).
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 // Sensitive keys - object properties whose values are always replaced.
 const SENSITIVE_KEY_RE = /passw(?:or)?d|secret|token|api[-_]?key|authorization|cookie|session|credential/i;
@@ -96,6 +106,7 @@ export function redactText(text: string): string {
     .replace(SUPABASE_SECRET_RE, REDACTED)
     .replace(BEARER_RE, `$1 ${REDACTED}`)
     .replace(JSON_SECRET_RE, `"$1":"${REDACTED}"`)
+    .replace(QUOTED_KEY_SECRET_RE, `'$1': '${REDACTED}'`)
     .replace(KEY_VALUE_SECRET_RE, `$1=${REDACTED}`)
     .replace(EMAIL_RE, '[email]');
   return redactOutsideUuids(withoutSecrets);

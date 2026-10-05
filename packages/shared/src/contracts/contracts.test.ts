@@ -100,6 +100,7 @@ describe('fullNameSchema', () => {
     ['a letter and Mongolian free variation selectors', 'A\u180b\u180f'],
     ['a letter and Khmer inherent vowels', 'A\u17b4\u17b5'],
     ['a letter and reserved/shorthand/musical format controls', 'A\ufff0\u{1bca0}\u{1d173}'],
+    ['a short name padded beyond 80 raw code points with zero-width spaces', `Ana${'\u200b'.repeat(78)}`],
   ])('rejects %s like the database', (_label, value) => {
     expect(fullNameSchema.safeParse(value).success).toBe(false);
   });

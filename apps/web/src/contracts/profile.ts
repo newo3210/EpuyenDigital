@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { hasVisibleLetter, hasVisibleNameLength } from '@epuyen/shared';
+import { hasRawNameLength, hasVisibleLetter, hasVisibleNameLength } from '@epuyen/shared';
 import { esAR } from '@/i18n/es-AR';
 
 const messages = esAR.profile.errors;
@@ -11,7 +11,8 @@ export const profileNameSchema = z.object({
     .trim()
     .min(1, messages.nameLength)
     .refine(hasVisibleLetter, messages.nameVisible)
-    .refine(hasVisibleNameLength, messages.nameLength),
+    .refine(hasVisibleNameLength, messages.nameLength)
+    .refine(hasRawNameLength, messages.nameLength),
 });
 
 export type ProfileNameInput = z.infer<typeof profileNameSchema>;

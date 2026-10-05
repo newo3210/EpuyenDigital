@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(39);
+select plan(42);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): org A (admin, operator), org B (operator), outsider auth user without profile
@@ -164,6 +164,21 @@ select throws_ok(
   $$update public.profiles set full_name = 'A' || chr(65520) || chr(113824) || chr(119155) where id = '00000000-0000-4000-8000-0000000000a2'$$,
   '23514', null,
   'full_name of one letter and reserved/shorthand/musical format controls is rejected'
+);
+-- Code-point bounds (spec org-tenancy "Name with emoji or astral letters", design D15 T-6)
+select lives_ok(
+  $$update public.profiles set full_name = 'Ana ' || repeat(chr(128512), 40) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  'full_name of a short name and 40 emoji is accepted (44 code points)'
+);
+select throws_ok(
+  $$update public.profiles set full_name = repeat(chr(119808), 81) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name of 81 astral letters is rejected'
+);
+select throws_ok(
+  $$update public.profiles set full_name = 'Ana' || repeat(chr(8203), 78) where id = '00000000-0000-4000-8000-0000000000a2'$$,
+  '23514', null,
+  'full_name longer than 80 raw code points is rejected even if mostly invisible'
 );
 select lives_ok(
   $$update public.profiles set full_name = 'José Pérez' where id = '00000000-0000-4000-8000-0000000000a2'$$,

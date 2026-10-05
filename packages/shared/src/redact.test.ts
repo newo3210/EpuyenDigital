@@ -145,7 +145,7 @@ describe('redactText - quoted secrets and glued DNIs', () => {
   );
 });
 
-// Strict superset (design D13) - spec scenario "DNIs next to digits and dots"; privacy wins over IPs/decimals.
+// Privacy first (design D13) - spec scenario "DNIs next to digits and dots"; privacy wins over IPs/decimals.
 describe('redactText - DNIs next to digits and dots', () => {
   it.each([
     ['30123456.1.pdf', /30\.?123\.?456/],
@@ -189,16 +189,16 @@ describe('redactText - UUIDs stay intact', () => {
     expect(redactText(`trace=${id};tel 2945451234`)).toBe(`trace=${id};tel [phone]`);
   });
 
-  it(`leaves ${SAMPLES} random UUIDs glued to underscores or letters unchanged`, () => {
+  it(`leaves ${SAMPLES} random UUIDs glued to underscores, letters or digits unchanged`, () => {
     const changed: string[] = [];
     for (let i = 0; i < SAMPLES; i += 1) {
       const id = crypto.randomUUID();
-      for (const text of [`avatar_${id}.png`, `${id}_v2`, `row${id}`]) {
+      for (const text of [`avatar_${id}.png`, `${id}_v2`, `row${id}`, `id${id}`, `file${id}.pdf`, `${id}abc`, `1${id}`]) {
         if (redactText(text) !== text) changed.push(text);
       }
     }
     expect(changed.slice(0, 5)).toEqual([]);
-  });
+  }, 30_000);
 
   it('still masks an email whose local part is a UUID', () => {
     expect(redactText('550e8400-e29b-41d4-a716-446655440000@epuyen.gob.ar')).toBe('[email]');
@@ -218,6 +218,18 @@ describe('redactText - phones next to other numbers', () => {
     ['7123456 11 4567 8901', '[dni] [phone]'],
     ['30123456\n011 4567 8901', '[dni]\n[phone]'],
     ['dni 30 123 456 2945 451234', 'dni [dni] [phone]'],
+    ['+54 9 294 445-1234', '[phone]'],
+    ['tel +54 9 299 512-3456 ok', 'tel [phone] ok'],
+    ['+54 294 445-1234', '[phone]'],
+    ['9 294 445 1234', '[phone]'],
+    ['nro 12 294 445 1234', 'nro 12 [phone]'],
+    ['piso 3 294 445-1234', 'piso 3 [phone]'],
+    ['2026-10-05 294 445-1234', '2026-10-05 [phone]'],
+    ['el 05/10 294 445-1234', 'el 05/10 [phone]'],
+    ['2945 451 234', '[phone]'],
+    ['tel 2945-451-234.', 'tel [phone].'],
+    ['30-123-456 2026', '[dni] 2026'],
+    ['30.123.456 2026', '[dni] 2026'],
   ])('masks every phone and DNI in %j', (input, expected) => {
     expect(redactText(input)).toBe(expected);
   });
@@ -232,8 +244,36 @@ describe('redactText - secrets with quotes or after a key word', () => {
     ['cache key: password: hunter2pass', 'cache key: password=[redacted]'],
     ['config key: secret = s3cr3tvalue', 'config key: secret=[redacted]'],
     ['key: password = hunter2pass', 'key: password=[redacted]'],
+    ['password=monkey:Zx91', 'password=[redacted]'],
+    ['password=whiskey:4ever', 'password=[redacted]'],
+    ['password: Turkey=2024!', 'password=[redacted]'],
+    ['password=secret=abc123', 'password=[redacted]'],
+    ['token=hockey:Abc123', 'token=[redacted]'],
   ])('masks the whole secret value in %j', (input, expected) => {
     expect(redactText(input)).toBe(expected);
+  });
+});
+
+// Serialized headers and inspected objects (design D15, T-3) - spec scenario of the same name.
+describe('redactText - serialized headers and inspected objects', () => {
+  it.each([
+    ['{"authorization":"Basic dXNlcjpwYXNz"}', 'dXNlcjpwYXNz'],
+    ['{"Authorization": "Token abc123opaque"}', 'abc123opaque'],
+    ['authorization=Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'],
+    ['authorization="Basic dXNlcjpwYXNz"', 'dXNlcjpwYXNz'],
+    ['{"cookie":"sid=abc123def"}', 'abc123def'],
+    ["{ 'x-api-key': 'sk_live_abc123' }", 'sk_live_abc123'],
+    ["{ 'x-auth-token': 'abc123opaque' }", 'abc123opaque'],
+    ["missing key: 'token': abc123secret", 'abc123secret'],
+    ['{"session":"s3ss10nvalue","user":"ana"}', 's3ss10nvalue'],
+  ])('masks the credential in %j', (input, credential) => {
+    const result = redactText(input);
+    expect(result).not.toContain(credential);
+    expect(result).toContain('[redacted]');
+  });
+
+  it('keeps the shape of inspected objects', () => {
+    expect(redactText("{ 'x-api-key': 'sk_live_abc123', id: 7 }")).toBe("{ 'x-api-key': '[redacted]', id: 7 }");
   });
 });
 
@@ -262,6 +302,12 @@ describe('redactText - redaction contract corpus', () => {
     ['2945.451234', '451234'],
     ['011 4555-6677', '4555-6677'],
     ['(0294) 15-412-3456', '412-3456'],
+    ['+54 9 294 445-7788', '7788'],
+    ['+54 294 445-7788', '7788'],
+    ['294 445-7788', '7788'],
+    ['0294 445-7788', '7788'],
+    ['2945 451 234', '451 234'],
+    ['2945-451-234', '451-234'],
     ['20-30123456-7', '30123456'],
     ['20301234567', '30123456'],
     ['ana.perez@epuyen.gob.ar', 'ana.perez@epuyen.gob.ar'],
@@ -278,6 +324,13 @@ describe('redactText - redaction contract corpus', () => {
     [`jwt ${jwt}`, jwt],
     ['authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'],
     ['cookie: sid=abc123def', 'abc123def'],
+    ['password=monkey:Zx91', 'monkey'],
+    ['password: Turkey=2024!', 'Turkey'],
+    ['{"authorization":"Basic dXNlcjpwYXNz"}', 'dXNlcjpwYXNz'],
+    ['authorization=Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'],
+    ['{"cookie":"sid=abc123def"}', 'abc123def'],
+    ["{ 'x-api-key': 'sk_live_abc123' }", 'sk_live_abc123'],
+    ["missing key: 'token': abc123secret", 'abc123secret'],
   ];
   const tokens = [...dniTokens, ...otherTokens];
 
@@ -307,6 +360,10 @@ describe('redactText - redaction contract corpus', () => {
     ['30123456\n', ''],
     ['7123456 ', ''],
     ['', ' 30123456'],
+    ['piso 3 ', ''],
+    ['2026-10-05 ', ''],
+    ['13:06:36 ', ''],
+    ['05/10 ', ''],
   ];
   const gluedContexts: Array<[prefix: string, suffix: string]> = [
     ['dni_', '.pdf'],

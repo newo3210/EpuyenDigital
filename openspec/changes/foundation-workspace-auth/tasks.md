@@ -173,9 +173,9 @@
 ## 19. Fourth Re-review Fixes (2026-10-05, design D15)
 
 - [x] 19.1 Update `design.md` D15, specs (error-tracking, org-tenancy), and this section before code
-- [ ] 19.2 Tests first (red): corpus adds 3-digit-area and 4-3-3 phones, serialized-header and inspected-object secrets, `password=monkey:Zx91`, contexts `piso 3 `, `2026-10-05 `, `13:06:36 `, `05/10 `; scenario tests for T-1..T-5; UUID glued to hex letters and digits
-- [ ] 19.3 T-1, T-2 (TDD): DNI lookahead for blank-separated runs before a final 4-digit group; last phone group 3–4 digits
-- [ ] 19.4 T-3, T-4 (TDD): extended secret keys, `=` on authorization/cookie lines, single-quoted key pass, no re-mask of `[redacted]`; skip only on blank + strict inner key
-- [ ] 19.5 T-5 (TDD): `UUID_RE` without lookarounds
-- [ ] 19.6 T-6 (TDD): raw code-point length in the name schemas; pgTAP emoji / astral DB cases
+- [x] 19.2 Tests first (red): corpus adds 3-digit-area and 4-3-3 phones, serialized-header and inspected-object secrets, `password=monkey:Zx91`, contexts `piso 3 `, `2026-10-05 `, `13:06:36 `, `05/10 `; scenario tests for T-1..T-5; UUID glued to hex letters and digits
+- [x] 19.3 T-1, T-2 (TDD): DNI lookahead for blank-separated runs before a 4-digit group (after `-`/`.`, or final after a blank); last phone group 3–4 digits
+- [x] 19.4 T-3, T-4 (TDD): extended secret keys, `=` on authorization/cookie lines, single-quoted key pass, no re-mask of `[redacted]`; skip only on blank + strict inner key
+- [x] 19.5 T-5 (TDD): `UUID_RE` without lookarounds
+- [x] 19.6 T-6 (TDD): raw code-point length in the name schemas; pgTAP emoji / astral DB cases
 - [ ] 19.7 T-8 docs and re-run verification; report `reports/2026-10-05-step-19-rereview-4-fixes.md`
