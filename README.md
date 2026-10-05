@@ -88,7 +88,7 @@ Do not set `[auth.email] enable_signup = false` in `supabase/config.toml`: it di
 
 - Every request gets an `x-trace-id` header (middleware). Server errors are captured by `apps/web/src/instrumentation.ts` (`onRequestError`); UI crashes show "Ocurrió un error. Código: XXXXXXXX" and report to `POST /api/errors/report`.
 - Messages and details are redacted before storage (emails, DNI, CUIT, Argentine phone formats, tokens, passwords, JSON secrets). Redaction input is capped at 16 KB and runs in linear time. Rows live in `error_logs` and are purged after 30 days.
-- `POST /api/errors/report` limits: signed-in active operator (401), 10 reports per user per minute (429), body ≤ 16 KB (413). Server errors record the signed-in operator's organization and user when there is a session.
+- `POST /api/errors/report` limits: signed-in active operator (401), at most 10 stored reports per user per minute (429, enforced atomically by the `insert_client_error_report` database function), body ≤ 16 KB (413). Server errors record the signed-in operator's organization and user when there is a session.
 - Users with role `admin` or `support` open **`/support/errors`**: filter by status, source, level and date (Argentina time), open the detail, and mark incidents acknowledged, resolved or reopened. Other roles get HTTP 403.
 - To find a reported incident, match the code the user dictates with the first 8 characters of `trace_id`.
 

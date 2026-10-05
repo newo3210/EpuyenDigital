@@ -11,13 +11,16 @@
 | Commit | Task | Summary |
 |---|---|---|
 | `c53bded` | 15.2 (J-1) | Login form bound to the server action; native submits POST, credentials never land in a URL |
-| `93da9b0` | 15.3 / 15.4 (J-2, M-1) | Linear-time redaction (bounded quantifiers, 16 KB input cap), Argentine phone/DNI formats, JSON / key=value / JWT / `sb_secret_` secrets |
-| `e3e9dcd` | 15.5 (J-3) | Report endpoint: auth, then rate limit (10/min/user), then bounded body (16 KB), then schema |
-| `fc11af9` | 15.6 (M-3) | Server errors attach the signed-in operator's org and user |
-| `0c9c171` | 15.7 (M-13) | Impossible calendar dates dropped from error filters |
-| `eae008b` | 15.8 (M-4, M-6, M-10) | Least-privilege grants, immutable `id`/`created_at`, profile check constraints, org-scoped avatar listing, rate-limit index |
+| `93da9b0` | 15.3 / 15.4 (J-2, J-3 a-b) | Linear-time redaction (bounded quantifiers, 16 KB input cap), Argentine phone/DNI formats, JSON / key=value / JWT / `sb_secret_` secrets |
+| `e3e9dcd` | 15.5 (J-3 c-d) | Report endpoint: auth, then advisory rate limit (10/min/user), then bounded body (16 KB), then schema |
+| `fc11af9` | 15.6 (Q-1) | Server errors attach the signed-in operator's org and user |
+| `0c9c171` | 15.7 (M-1) | Impossible calendar dates dropped from error filters |
+| `eae008b` | 15.8 (M-3, M-4, M-6, M-10) | Purge cron job asserted, least-privilege grants, immutable `id`/`created_at`, profile check constraints, org-scoped avatar listing, rate-limit index |
 | `a677b0f` | 15.9 (M-5, M-7) | Signup disabled, min password 10 (auth + seed), avatar URL segments encoded |
 | `ef7b4cf` | 15.10 fix | `[auth.email] enable_signup` restored to `true` (see finding below) |
+| `93ced81` | 15.11 (M-13) | Design layer table and test counts realigned with the code |
+
+ID labels follow `reports/2026-10-05-adversarial-review.md` (corrected in step 16, finding N-14). The rate limit shipped here was advisory: the re-review showed it could be bypassed (N-1, N-2), and step 16 made it atomic.
 
 ## Automated checks
 

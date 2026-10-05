@@ -46,10 +46,12 @@ Cada pedido al panel
 Algo falla en el servidor → instrumentation.ts lo captura
 Algo falla en la pantalla → error.tsx muestra "Ocurrió un error. Código: XXXXXXXX"
                             y envía un reporte a POST /api/errors/report
-                            (primero sesión, después máximo 10 por minuto, después cuerpo ≤ 16 KB)
+                            (primero sesión, después un conteo previo barato, después cuerpo ≤ 16 KB)
   → se anota el municipio y el operador que estaba conectado (si lo hay)
   → redactar: se borran emails, DNI, CUIT, teléfonos, tokens y contraseñas
-  → error_logs (solo el servidor puede escribir)
+  → error_logs (solo el servidor puede escribir; los reportes de pantalla pasan por
+    la función insert_client_error_report, que cuenta y guarda en una sola transacción:
+    nunca más de 10 por minuto por usuario)
 Soporte → /support/errors → filtra, abre el detalle, marca "resuelto"
   → la base anota quién lo resolvió y cuándo
 ```
@@ -77,7 +79,7 @@ Vecino (WhatsApp)
 - **Repositorios como única puerta a Supabase.** Si mañana cambia una columna, se toca un archivo. Además validan cada fila con Zod: si la base devuelve algo raro, el error es claro (`profiles.invalid_row`) en lugar de una pantalla rota más adelante.
 - **Por qué RLS con funciones auxiliares (`current_org_id()`, `current_user_role()`).** Las reglas de seguridad viven en la base, no en la aplicación. Las dos funciones devuelven "nada" si el perfil está desactivado, entonces **todas** las reglas dejan de coincidir de golpe: desactivar a alguien lo bloquea en todas las tablas sin tocar cada política. El CRM de seguros no tenía desactivación de usuarios; al portar sus helpers agregamos el chequeo de `is_active` adentro, sin ningún valor "por defecto" permisivo.
 - **Triggers de guardia.** Un operador puede editar su propia fila de perfil, pero un trigger impide que cambie su rol, su municipio o su estado activo (error `forbidden_column`). Nadie desde la API, ni siquiera un admin, puede cambiar el `id` o la fecha de creación de un perfil: eso evitaría "reasignar" un perfil a otra cuenta.
-- **Mínimo privilegio también en los permisos (`GRANT`).** RLS decide *qué filas*; los permisos deciden *qué operaciones*. El rol `authenticated` solo conserva `SELECT` y `UPDATE` en las tablas de negocio: crear o borrar perfiles queda para el service role. Los checks de la tabla (`profiles_full_name_trimmed_length`, `profiles_avatar_path_own_folder`) protegen el dato aunque alguien se salte la pantalla. En `error_logs`, otro trigger permite cambiar solo el estado y anota quién resolvió. La aplicación también controla roles, pero si alguien llama a la API directamente con su token, la base lo frena igual (lo probamos con curl).
+- **Mínimo privilegio también en los permisos (`GRANT`).** RLS decide *qué filas*; los permisos deciden *qué operaciones*. El rol `authenticated` solo conserva `SELECT` y `UPDATE` en las tablas de negocio: crear o borrar perfiles queda para el service role. Postgres 17 agregó el permiso `MAINTAIN` (VACUUM, REINDEX, LOCK) y lo daba por defecto; la re-revisión lo encontró porque el test solo miraba la lista estándar de permisos, así que ahora se revoca y se prueba aparte. Los checks de la tabla (`profiles_full_name_trimmed_length`, `profiles_avatar_path_own_folder`) protegen el dato aunque alguien se salte la pantalla. En `error_logs`, otro trigger permite cambiar solo el estado y anota quién resolvió. La aplicación también controla roles, pero si alguien llama a la API directamente con su token, la base lo frena igual (lo probamos con curl).
 - **`forbidden()` de Next para el 403.** Elegimos activar `experimental.authInterrupts` en lugar de redirigir con código 200: un operador que entra a `/support/errors` recibe un 403 real, que es lo correcto y se puede testear.
 - **Excepción consciente (futura)**: tomar, delegar, aceptar o resolver se harán en funciones SQL. Si dos operadores aprietan "tomar" al mismo tiempo, solo la base puede garantizar que gane uno (bloqueo de fila en una transacción).
 
@@ -90,8 +92,10 @@ Vecino (WhatsApp)
 - `logError` **nunca** lanza una excepción: si la base falla, escribe en consola (también redactado). Un error al registrar errores no puede tumbar la pantalla.
 - **Lección aprendida en la prueba E2E:** Next identifica cada error del servidor con un "digest" numérico largo. Nuestra redacción lo confundía con un teléfono y lo guardaba como `[phone]`, así que no se podía unir el reporte de la pantalla con el del servidor. La solución, primero en la spec y después en código con TDD, fue guardar `digestRef`: un resumen SHA-256 de 16 caracteres escrito solo con letras (a–p). No tiene dígitos, así que la redacción no lo toca, y no expone el digest original. Moraleja: los filtros de privacidad deben probarse con datos reales del sistema, no solo con ejemplos inventados.
 - **Lección de la revisión adversarial (2026-10-05):** la primera versión de la redacción fallaba de dos formas. (1) No reconocía formatos argentinos reales, como `(0294) 15-412-3456`, `+54 9 294 …` o un DNI con espacios, ni secretos en JSON como `"password":"…"`. (2) Algunas expresiones regulares tardaban **minutos** con un texto de 200 KB armado a propósito (*backtracking* cuadrático), y eso se puede usar para colgar el servidor. La solución (decisión D11) fue limitar la entrada a 16 384 caracteres y poner un tope a cada repetición de las regex, para que el tiempo crezca en forma lineal. Hoy hay un test que exige menos de 200 ms con 200 KB. Moraleja: un filtro de seguridad también es una superficie de ataque.
+- **Lección de la re-revisión (decisión D12):** al reescribir la redacción se rompieron casos que antes andaban: secretos entre comillas (`password="…"`) y DNI pegados a letras o guiones bajos (`dni_30123456`). Arreglar un filtro puede empeorar otro caso. Por eso fijamos una regla: la nueva redacción tiene que tapar **todo** lo que tapaba la versión anterior (`65eb994`) más los casos nuevos, y los tests de regresión se corrieron contra las dos versiones para demostrarlo.
 - El trace id viaja en la cabecera `x-trace-id` y en el cuerpo del reporte; si no coinciden, se rechaza (400).
-- **El endpoint de reportes revisa en orden barato → caro:** primero la sesión (401), después el límite de 10 reportes por minuto por usuario (429) y recién entonces lee el cuerpo, cortándolo a los 16 KB (413). Así un atacante no puede obligar al servidor a leer megas ni a escribir miles de filas.
+- **El endpoint de reportes revisa en orden barato → caro:** primero la sesión (401), después un conteo previo de reportes recientes (429 sin leer el cuerpo) y recién entonces lee el cuerpo, cortándolo a los 16 KB (413). Así un atacante no puede obligar al servidor a leer megas.
+- **El límite de 10 por minuto lo garantiza la base, no la aplicación.** La re-revisión rompió la primera versión de dos maneras. (1) Contaba las filas buscando `origin` *dentro* del JSON de detalles, y un reporte muy grande se recortaba y perdía esa marca, así que no contaba. (2) Si llegaban 50 pedidos al mismo tiempo, todos contaban "hay 0" antes de que nadie guardara, y entraban todos (condición de carrera). La solución: `origin` es ahora una columna propia, y la función SQL `insert_client_error_report` toma un candado por usuario (`pg_advisory_xact_lock`), cuenta y guarda dentro de la misma transacción. Lo probamos con 50 pedidos en paralelo: se guardaron exactamente 10. El conteo previo de la aplicación queda solo como atajo barato.
 - **Login sin JavaScript:** si el formulario se envía antes de que la página termine de cargar, el navegador hace un POST al server action. Antes hacía un GET y la contraseña podía quedar en la URL y en el historial. Al usuario se le muestran solo los primeros 8 caracteres en mayúsculas como "código" para dictar por teléfono.
 
 ### 4.2 Bot (planeado, fase 6)
@@ -126,7 +130,10 @@ Vecino (WhatsApp)
 | RAG | El bot busca primero en los documentos oficiales y responde solo con eso | `worker/src/features/bot` (planeado) |
 | Transacción atómica | Varias escrituras que pasan todas juntas o ninguna | Funciones SQL (planeado) |
 | ReDoS / backtracking | Una regex mal acotada puede tardar muchísimo con un texto armado a propósito y colgar el servidor | `packages/shared/src/redact.ts` (cuantificadores acotados) |
-| Rate limit | Tope de pedidos por usuario en una ventana de tiempo (acá: 10 reportes por minuto) | `apps/web/src/features/errors/report-error.ts` |
+| Rate limit | Tope de pedidos por usuario en una ventana de tiempo (acá: 10 reportes por minuto) | `apps/web/src/features/errors/report-error.ts`, función `insert_client_error_report` |
+| Condición de carrera | Dos pedidos simultáneos leen el mismo dato "viejo" y ambos actúan como si fueran los únicos | Resuelta con candado en `supabase/migrations/20261005000200_report_rate_limit.sql` |
+| Advisory lock | Candado de Postgres con un nombre elegido por nosotros (acá, uno por usuario); se libera solo al terminar la transacción | `pg_advisory_xact_lock` en `insert_client_error_report` |
+| Blancos Unicode | Caracteres que no se ven (tab, espacio duro NBSP, espacio de ancho cero, BOM); un nombre hecho solo de eso parece vacío | Check `profiles_full_name_trimmed_length` en `20261005000300_maintain_and_blank_names.sql` |
 | GRANT / mínimo privilegio | Permisos por operación (leer, actualizar, borrar) que se suman a RLS | `supabase/migrations/20261005000100_foundation_hardening.sql` |
 | Revisión adversarial | Un revisor independiente (otra sesión) intenta romper el cambio antes de cerrarlo | `openspec/changes/foundation-workspace-auth/reports/2026-10-05-adversarial-review.md` |
 
@@ -136,8 +143,8 @@ Vecino (WhatsApp)
 - Por qué la seguridad vive en la base: probamos con curl y el token de un operador que no puede leer errores ni cambiarse el rol, aunque se salte la pantalla.
 - Por qué validar archivos por su contenido: un `.png` renombrado puede ser cualquier cosa; leemos los primeros bytes.
 - Por qué el error tracking redacta: los mensajes de error suelen arrastrar lo que escribió el vecino (DNI, teléfono). Guardar eso en un log viola la privacidad.
-- Por qué TDD: 248 tests unitarios y 69 tests de base dieron confianza para corregir el defecto del digest sin romper nada. Después de la revisión adversarial son 306 unitarios y 89 de base.
-- Por qué "quien escribe no revisa": la verificación mecánica (`/opsx:verify`) dio todo en verde, pero un revisor independiente encontró 3 fallas mayores. Pasar los checks no significa que el código sea seguro.
+- Por qué TDD: 248 tests unitarios y 69 tests de base dieron confianza para corregir el defecto del digest sin romper nada. Después de la revisión adversarial son 306 unitarios y 89 de base, y tras la re-revisión, 337 unitarios y 111 de base.
+- Por qué "quien escribe no revisa": la verificación mecánica (`/opsx:verify`) dio todo en verde, pero un revisor independiente encontró 3 fallas mayores. Pasar los checks no significa que el código sea seguro. Y la segunda revisión encontró que el arreglo del límite se podía saltear: un test que corre de a un pedido no prueba lo que pasa con 50 a la vez.
 - Por qué el webhook no llamará al LLM (fase 2): velocidad y reintentos de Evolution.
 - Por qué documentar primero: 78 requisitos con ID y 7 fases permiten verificar cada entrega contra algo escrito.
 

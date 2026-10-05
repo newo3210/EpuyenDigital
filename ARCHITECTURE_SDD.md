@@ -89,9 +89,12 @@ Server error (render / action / route) → instrumentation.ts onRequestError (No
 UI crash → (panel)/error.tsx or global-error.tsx → ErrorFallback
   → generateTraceId(); shows "Ocurrió un error. Código: XXXXXXXX"
   → POST /api/errors/report  header x-trace-id = body.traceId (+ optional note, digest)
-  → reportError: active profile? (401) → ≥ 10 client reports in the last 60 s? (429)
+  → reportError: active profile? (401) → advisory pre-check: ≥ 10 origin='client' rows in the last 60 s? (429, body unread)
      → readBoundedJson (> 16 KB: 413, stream cancelled) → errorReportSchema (400) → trace match (400)
-  → logError(source 'web', details.origin 'client', org/user of the operator) → 201 { code }
+  → buildErrorLogRow (cap raw message, redact message + details {url, stack, note, digestRef})
+  → storeClientReport → rpc insert_client_error_report (service role):
+     advisory xact lock per user → count + insert origin 'client' in one transaction
+     → id: 201 { code } | null: 429 { rate_limited } | throws: 500 { not_stored }
 
 Support (admin | support) → /support/errors?status&source&level&from&to&id
   → errorFiltersSchema (invalid values and impossible calendar dates dropped) → toLogFilters (Argentina day bounds, UTC-3)
@@ -102,7 +105,7 @@ Support (admin | support) → /support/errors?status&source&level&from&to&id
 Retention: purge_error_logs() deletes rows older than 30 days; pg_cron daily 06:00 UTC where available.
 ```
 
-Redaction (`packages/shared/src/redact.ts`, design D11): input capped at 16 384 chars (`[truncated]`) and every regex quantifier bounded, so worst-case time is linear (200 KB adversarial input < 200 ms). Order: secrets first (authorization/cookie lines, JWT, `sb_secret_…`, bearer, JSON pairs and escaped JSON whose key ends in `token|secret|password|key`, `key=value` / `key: value`), then email, CUIT, AR phones (structured match: optional `+54`/`9`, area code with optional parentheses or leading `0`, optional `15`, masked when ≥ 10 digits), DNI (2-3-3 grouping with one consistent separator or none). `logError` slices the raw message to 2× the stored limit before redacting. `redactDetails` walks objects (max depth 5, sensitive keys replaced, circular refs marked) and truncates beyond 8 KB serialized. Next digests are numeric, so they are stored as `digestRef` (letters-only SHA-256 prefix) to survive redaction and still correlate the client report with the server row.
+Redaction (`packages/shared/src/redact.ts`, design D11): input capped at 16 384 chars (`[truncated]`) and every regex quantifier bounded, so worst-case time is linear (200 KB adversarial input < 200 ms). Order: secrets first (authorization/cookie lines, JWT, `sb_secret_…`, bearer, JSON pairs and escaped JSON whose key ends in `token|secret|password|key`, `key=value` / `key: value` including single- or double-quoted values with escapes), then email, CUIT, AR phones (structured match: optional `+54`/`9`, area code with optional parentheses or leading `0`, optional `15`, masked when ≥ 10 digits), DNI (2-3-3 grouping with one consistent separator or none; also when glued to letters, `_` or `.`, but not inside UUIDs, IPs or decimals). Design D12 requires this to stay a superset of the step-14 redaction (`65eb994`). `logError` slices the raw message to 2× the stored limit before redacting. `redactDetails` walks objects (max depth 5, sensitive keys replaced, circular refs marked) and truncates beyond 8 KB serialized. Next digests are numeric, so they are stored as `digestRef` (letters-only SHA-256 prefix) to survive redaction and still correlate the client report with the server row.
 
 ## 4. Routes
 
@@ -119,7 +122,7 @@ Redaction (`packages/shared/src/redact.ts`, design D11): input capped at 16 384 
 
 | Method | Path | Auth | Request schema | Response | Feature |
 |---|---|---|---|---|---|
-| POST | `/api/errors/report` | Supabase session + active profile; 10 reports / 60 s / user | header `x-trace-id`; body `errorReportSchema`, ≤ 16 KB (read only after auth and rate checks) | 201 `{code}` / 400 `{error:'invalid_body'|'trace_mismatch'}` / 401 `{error:'unauthenticated'}` / 413 `{error:'too_large'}` / 429 `{error:'rate_limited'}` / 500 `{error:'not_stored'}` | `features/errors/report-error`, `infrastructure/http/read-bounded-json` |
+| POST | `/api/errors/report` | Supabase session + active profile; at most 10 stored reports / 60 s / user, enforced atomically in the database | header `x-trace-id`; body `errorReportSchema`, ≤ 16 KB (read only after auth and the advisory pre-check) | 201 `{code}` / 400 `{error:'invalid_body'|'trace_mismatch'}` / 401 `{error:'unauthenticated'}` / 413 `{error:'too_large'}` / 429 `{error:'rate_limited'}` / 500 `{error:'not_stored'}` | `features/errors/report-error`, `infrastructure/http/read-bounded-json` |
 
 ### 4.3 Server actions
 
@@ -142,29 +145,33 @@ Redaction (`packages/shared/src/redact.ts`, design D11): input capped at 16 384 
 | `avatarFileSchema` | `apps/web/src/contracts/profile.ts` | `type` (jpeg/png/webp), `size` (≤ 2 097 152) |
 | `errorReportSchema` | `apps/web/src/contracts/errors.ts` | `traceId` (8–64), `message` (≤ 2000), `stack?` (≤ 8000), `url` (≤ 500), `note?` (≤ 500), `digest?` (≤ 200) |
 | `errorStatusChangeSchema` | `apps/web/src/contracts/errors.ts` | `id` (uuid), `status` (`open|acknowledged|resolved`) |
-| `errorFiltersSchema` | `apps/web/src/contracts/errors.ts` | `status?`, `source?`, `level?`, `from?`/`to?` (`YYYY-MM-DD`, must be a real calendar date), `id?` (uuid); invalid values become `undefined` |
+| `errorFiltersSchema` | `apps/web/src/contracts/errors.ts` | `status?`, `source?`, `level?`, `from?`/`to?` (`YYYY-MM-DD`, must be a real calendar date in years 2000–2100), `id?` (uuid); invalid values become `undefined` |
 | `roleSchema`, `profileSchema`, `errorLogSchema` | `packages/shared/src/contracts/*` | Domain entities used to validate repository rows |
 | `Database` types | `packages/shared/src/contracts/database.types.ts` | Generated by `npm run db:types` |
 
-### 5.2 Persistence (migrations `20260930000100_foundation.sql` + `20261005000100_foundation_hardening.sql`)
+### 5.2 Persistence (migrations `20260930000100_foundation.sql`, `20261005000100_foundation_hardening.sql`, `20261005000200_report_rate_limit.sql`, `20261005000300_maintain_and_blank_names.sql`)
 
 | Table | Key columns | Notes |
 |---|---|---|
 | `organizations` | `id`, `name`, `slug unique` | Seeded `epuyen` |
-| `profiles` | `id = auth.users.id`, `org_id`, `full_name (2–80)`, `avatar_path`, `role user_role`, `is_active`, `created_at`, `updated_at` | Index `org_id`; `updated_at` trigger; checks `profiles_full_name_trimmed_length` (trimmed 2–80) and `profiles_avatar_path_own_folder` (`{org_id}/{id}/…`, no `..`) |
-| `error_logs` | `org_id?`, `source (web|api|worker|db)`, `level error_level`, `message`, `details jsonb`, `trace_id`, `user_id?`, `status error_status`, `resolved_by?`, `resolved_at?` | Indexes `(org_id, status, created_at desc)`, `trace_id`, `(user_id, created_at desc)` (report rate limit) |
+| `profiles` | `id = auth.users.id`, `org_id`, `full_name (2–80)`, `avatar_path`, `role user_role`, `is_active`, `created_at`, `updated_at` | Index `org_id`; `updated_at` trigger; checks `profiles_full_name_trimmed_length` (2–80 after trimming Unicode blanks: whitespace, NBSP, zero-width characters, BOM) and `profiles_avatar_path_own_folder` (`{org_id}/{id}/…`, no `..`) |
+| `error_logs` | `org_id?`, `source (web|api|worker|db)`, `level error_level`, `origin (server|client) default 'server'`, `message`, `details jsonb`, `trace_id`, `user_id?`, `status error_status`, `resolved_by?`, `resolved_at?` | Indexes `(org_id, status, created_at desc)`, `trace_id`, partial `error_logs_client_reports_idx (user_id, created_at desc) where origin = 'client'` (report rate limit) |
 | `storage.buckets.avatars` | public, 2 MB, JPEG/PNG/WebP | Objects `{org_id}/{user_id}/{uuid}.{ext}` |
 
 RLS helpers (`security definer`, `stable`, `search_path = ''`, return null without an **active** profile, so every policy matches nothing for inactive/orphan users): `current_org_id()`, `current_user_role()`.
+
+Client report limit: `insert_client_error_report(p_org_id, p_user_id, p_trace_id, p_message, p_details, p_limit, p_window_seconds) returns uuid` (`security invoker`, `search_path = ''`, execute granted to `service_role` only). It takes `pg_advisory_xact_lock` on the user, counts `origin = 'client'` rows inside the window, and returns null when the limit is reached; otherwise it inserts and returns the id. Concurrent requests for the same user are serialized, so at most `p_limit` rows land per window (probe: 50 parallel requests → 10 stored).
+
+Rule for future functions: the `profiles` and `error_logs` guard triggers trust `current_user`, so a `security definer` function that writes those tables runs as the owner and skips them. Any such function must re-check roles and columns itself (re-review N-13).
 
 | Object | Select | Update | Insert / delete |
 |---|---|---|---|
 | `organizations` | own org | — | service role |
 | `profiles` | own org | self (own row) or admin (own org); trigger `profiles_guard_privileged_columns` rejects any API change to `id`/`created_at` and non-admin changes to `role`, `org_id`, `is_active` (`P0001 forbidden_column`) | service role |
-| `error_logs` | `admin`/`support` of the org; null-org rows `support` only | same set; trigger `error_logs_guard_update` allows only `status` and stamps resolution | service role; `purge_error_logs()` service role only |
+| `error_logs` | `admin`/`support` of the org; null-org rows `support` only | same set; trigger `error_logs_guard_update` allows only `status` (never `origin`) and stamps resolution | service role; `purge_error_logs()` service role only |
 | `storage.objects` (`avatars`) | authenticated, own org folder only | own folder | own folder |
 
-Grants: `authenticated` holds only `SELECT`/`UPDATE` on the three business tables (no `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`); trigger functions are not executable by `public`/`anon`/`authenticated`.
+Grants: `authenticated` holds only `SELECT`/`UPDATE` on the three business tables (no `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`, nor the PG 17 `MAINTAIN` privilege); trigger functions are not executable by `public`/`anon`/`authenticated`.
 
 Auth server (`supabase/config.toml`): `[auth] enable_signup = false` (operators are provisioned by the seed or the service role), `minimum_password_length = 10`. `[auth.email] enable_signup` stays `true` because it enables the email provider itself; turning it off breaks password sign-in. The cloud project must mirror this (see README).
 
@@ -200,3 +207,4 @@ This snapshot: areas, area membership and area-level RLS, operator CRUD/role edi
 | 2026-09-30 | Design baseline at SDD bootstrap | — |
 | 2026-10-01 | Monorepo, local Supabase on Podman, org RLS, auth/session/guards, profile editing, error tracking + support screen, panel shell | `foundation-workspace-auth` |
 | 2026-10-05 | Adversarial-review hardening (D11): POST-bound login form, linear-time redaction with AR formats, report endpoint auth → rate limit → 16 KB cap, server errors attach operator org/user, calendar-date filters, least-privilege grants, immutable profile identity, profile checks, org-scoped avatar listing, signup disabled + 10-char passwords | `foundation-workspace-auth` |
+| 2026-10-05 | Re-review fixes (D12): atomic per-user report limit (`origin` column + `insert_client_error_report` with advisory lock), redaction superset (quoted secrets, glued DNIs), filter years 2000–2100, `MAINTAIN` revoked, Unicode-blank name check, SSR login-form test | `foundation-workspace-auth` |

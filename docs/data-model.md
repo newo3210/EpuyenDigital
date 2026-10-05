@@ -40,8 +40,8 @@ erDiagram
 - `email` **[pendiente]**: el email vive en `auth.users`; el cambio `areas-operators-admin` decide si se replica para listar operadores.
 - `deactivated_at` **[pendiente]**: llega con la desactivación desde la UI (`areas-operators-admin`).
 - Trigger `profiles_guard_privileged_columns`: solo un admin puede cambiar `role`, `org_id` o `is_active`, y nadie desde la API puede cambiar `id` ni `created_at` (si no, error `P0001 forbidden_column`).
-- Checks: `profiles_full_name_trimmed_length` (nombre sin espacios de borde entre 2 y 80) y `profiles_avatar_path_own_folder` (`avatar_path` null o dentro de `{org_id}/{id}/`, sin `..`).
-- Altas y bajas solo con service role (seed o futura pantalla de admin); `authenticated` no tiene `INSERT` ni `DELETE`.
+- Checks: `profiles_full_name_trimmed_length` (nombre entre 2 y 80 caracteres después de quitar blancos Unicode de los bordes: espacios, tabs, NBSP, caracteres de ancho cero y BOM) y `profiles_avatar_path_own_folder` (`avatar_path` null o dentro de `{org_id}/{id}/`, sin `..`).
+- Altas y bajas solo con service role (seed o futura pantalla de admin); `authenticated` no tiene `INSERT`, `DELETE` ni `MAINTAIN` (permiso nuevo de Postgres 17).
 
 ### Bucket `avatars` (Storage) [implementado]
 Público para lectura por URL, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user_id}/{uuid}.{ext}`; un usuario solo puede subir, reemplazar o borrar en su propia carpeta, y listar objetos solo de la carpeta de su organización.
@@ -184,11 +184,12 @@ Una por `(org_id, line_id, phone_normalized)`.
 `actor_user_id`, `action activity_action`, `citizen_id`, `conversation_id`, `task_id`, `details jsonb`.
 
 ### `error_logs` [implementado]
-`org_id null` (null = error sin operador identificado, p. ej. antes del login), `source (web|api|worker|db)`, `level error_level`, `status error_status default 'open'`, `trace_id`, `message`, `details jsonb` (redactado; incluye `digestRef` para unir el reporte del navegador con el del servidor), `user_id null`, `resolved_by`, `resolved_at`, `created_at`. Índices `(org_id, status, created_at desc)`, `trace_id` y `(user_id, created_at desc)` (límite de 10 reportes por minuto; los reportes del navegador llevan `details.origin = 'client'`).
+`org_id null` (null = error sin operador identificado, p. ej. antes del login), `source (web|api|worker|db)`, `level error_level`, `origin (server|client) default 'server'`, `status error_status default 'open'`, `trace_id`, `message`, `details jsonb` (redactado; incluye `digestRef` para unir el reporte del navegador con el del servidor), `user_id null`, `resolved_by`, `resolved_at`, `created_at`. Índices `(org_id, status, created_at desc)`, `trace_id` y parcial `error_logs_client_reports_idx (user_id, created_at desc) where origin = 'client'` (límite de reportes).
+- Los reportes del navegador se guardan con la función `insert_client_error_report` (solo service role): toma un advisory lock por usuario, cuenta las filas `origin = 'client'` de los últimos 60 s y, si ya hay 10, devuelve null en lugar de insertar. Así el límite se cumple aunque lleguen muchos pedidos a la vez.
 - Los errores del servidor guardan `org_id` y `user_id` del operador conectado cuando hay sesión.
 - Los errores del futuro webhook de Evolution se registran con `source = 'api'` (es un route handler); no hay valor `webhook`.
 - Inserción solo con service role (la app usa el cliente admin en el servidor).
-- Trigger `error_logs_guard_update`: solo se puede cambiar `status`; al pasar a `resolved` sella `resolved_by = auth.uid()` y `resolved_at = now()`, y los limpia al reabrir.
+- Trigger `error_logs_guard_update`: solo se puede cambiar `status` (nunca `origin`); al pasar a `resolved` sella `resolved_by = auth.uid()` y `resolved_at = now()`, y los limpia al reabrir.
 - Purga automática a 30 días: función `purge_error_logs()` (solo service role) programada con `pg_cron` todos los días 06:00 UTC.
 
 ## 9. Enums
