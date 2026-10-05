@@ -3,7 +3,7 @@
 - **Change:** `foundation-workspace-auth` (branch `feature/foundation-workspace-auth`)
 - **Date:** 2026-10-05
 - **Audience:** technical team review
-- **Status:** **blocked on a team decision** — the change cannot be archived while the third adversarial re-review is FAIL
+- **Status:** **decided — Option A** (explicit contract), by the user on 2026-10-05 after reviewing the threat model: `error_logs` is internal (`admin`/`support` only, 30-day retention), so secrets are masked strictly and personal data in common formats. Implemented under `design.md` D14
 - **Evidence:** `reports/2026-10-05-adversarial-review.md`, `reports/2026-10-05-adversarial-rereview.md`, `reports/2026-10-05-adversarial-rereview-2.md`, `reports/2026-10-05-adversarial-rereview-3.md`, `design.md` D11–D13, `specs/error-tracking/spec.md`
 
 ## 1. Summary

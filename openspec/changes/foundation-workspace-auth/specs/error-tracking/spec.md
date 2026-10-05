@@ -8,7 +8,7 @@ Every panel request SHALL carry a trace id (header `x-trace-id`, generated if ab
 - **THEN** a new id is generated and returned in the response header `x-trace-id`
 
 ### Requirement: Redacted error logging
-Server-side errors SHALL be stored in `error_logs` with source, level, message, details, trace id, and status `open`, after redacting personal data and secrets. Redaction SHALL cover at least: emails; CUIT; Argentine phones with optional `+54`, optional `9`, optional `0`-prefixed area code, optional `15` mobile prefix, parentheses around the area code, and space, dot, or hyphen separators; DNI as 7–8 digits plain, dotted, spaced, or hyphenated; secrets as `key=value`, `key: value`, and JSON `"key": "value"` for keys containing `token`, `secret`, or `passw`, or ending in `key` (`key`, `apikey`, `api_key`, `service_key`), plus bare Supabase secret keys (`sb_secret_…`) and JWTs. Secret values SHALL be masked whether bare, double-quoted, or single-quoted (including escaped quotes), and DNIs SHALL be masked when adjacent to letters, `_`, `.`, or digit-dot sequences (for example versioned file names), even if that partially masks dotted IP addresses or decimals. Outside canonical UUID tokens (which are system identifiers and SHALL be left intact), redaction SHALL mask every value that the `65eb994` redaction masked, with one known, user-deferred exception tracked as backlog item R-3: the tail of secret values longer than 4 096 characters and a value glued after an empty quoted pair (`password=""x`). Inputs SHALL be truncated to a bounded size before redaction, and redaction SHALL run in time linear in the input size. When the failing request has a signed-in active operator, the row SHALL carry that operator's `org_id` and `user_id`.
+Server-side errors SHALL be stored in `error_logs` with source, level, message, details, trace id, and status `open`, after redacting personal data and secrets. Redaction SHALL cover at least: emails; CUIT; Argentine phones with optional `+54`, optional `9`, optional `0`-prefixed area code, optional `15` mobile prefix, parentheses around the area code, and space, dot, or hyphen separators; DNI as 7–8 digits plain, dotted, spaced, or hyphenated; secrets as `key=value`, `key: value`, and JSON `"key": "value"` for keys containing `token`, `secret`, or `passw`, or ending in `key` (`key`, `apikey`, `api_key`, `service_key`), plus bare Supabase secret keys (`sb_secret_…`) and JWTs. Secret values SHALL be masked whether bare, double-quoted, or single-quoted (including escaped quotes), and DNIs SHALL be masked when adjacent to letters, `_`, `.`, or digit-dot sequences (for example versioned file names), even if that partially masks dotted IP addresses or decimals. Redaction SHALL follow an explicit contract (design D14): every listed format SHALL be masked when it stands alone or is surrounded by blanks, punctuation, quotes, brackets, URL or JSON syntax, newlines, other numbers, or other personal-data values (for example `calle 123 2945 451234` or `dni 30123456 11 4567 8901`). Secret values SHALL be masked whole even when they contain quotes, and a secret pair SHALL still be found after a word ending in `key` (`missing key: token: …`). Canonical UUID tokens are system identifiers and SHALL be left intact, also when glued to `_` or letters. The following cases are out of contract and accepted: the tail of secret values longer than 4 096 characters and a value glued after an empty quoted pair (`password=""x`) (R-3); a value split by the input cut (N-5); emails with a local part over 64 characters or more than 9 domain labels (N-7); more than 10 blanks around a secret separator or after `Bearer`/`authorization`; secret key prefixes over 40 characters; JWTs with a header over 512 or a segment under 4 characters outside Authorization/Bearer lines; and numbers glued by `-` to other digits or identifiers. Inputs SHALL be truncated to a bounded size before redaction, and redaction SHALL run in time linear in the input size. When the failing request has a signed-in active operator, the row SHALL carry that operator's `org_id` and `user_id`.
 
 #### Scenario: Error with personal data
 - **WHEN** a server error message contains "DNI 30123456, tel 2945123456, token=abc"
@@ -26,12 +26,20 @@ Server-side errors SHALL be stored in `error_logs` with source, level, message, 
 - **WHEN** a logged text contains `30123456.1.pdf`, `dni_30123456.2024.pdf`, `v2.30123456`, `0.30123456`, `1.30.123.456`, or `x 1234567.89`
 - **THEN** every DNI is masked
 
-#### Scenario: Superset of the previous redaction
-- **WHEN** any corpus text outside UUID tokens no longer contains a personal-data or secret token after the `65eb994` redaction
-- **THEN** it does not contain that token after the current redaction either
+#### Scenario: Phones next to other numbers
+- **WHEN** a logged text contains `calle 123 2945 451234`, `123 294 445 1234`, `2026 011 4555-6677`, `dni 30123456 11 4567 8901`, or `30123456` and `011 4567 8901` on consecutive lines
+- **THEN** every phone and DNI is masked
+
+#### Scenario: Secrets with quotes or after a key word
+- **WHEN** a logged text contains `password=Abc'123!xyz`, `token=ab"cdefgh`, `missing key: token: abc123secret`, or `config key: secret = s3cr3tvalue`
+- **THEN** every secret value is masked whole
+
+#### Scenario: Redaction contract corpus
+- **WHEN** any personal-data or secret token of the contract corpus appears in any separated context, next to other numbers, or paired with another token (DNIs also in glued contexts)
+- **THEN** the redacted text does not contain that token
 
 #### Scenario: UUIDs stay intact
-- **WHEN** a logged text contains a random UUID, alone or inside a URL such as `/support/errors?id=<uuid>`
+- **WHEN** a logged text contains a random UUID, alone, inside a URL such as `/support/errors?id=<uuid>`, or glued to `_` or letters such as `avatar_<uuid>.png`
 - **THEN** the UUID is unchanged
 
 #### Scenario: Oversized input
