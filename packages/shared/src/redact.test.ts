@@ -137,13 +137,112 @@ describe('redactText - quoted secrets and glued DNIs', () => {
     },
   );
 
+  it.each(['trace 12345678-abcd-4ef0-8123-456789abcdef', 'on 2026-10-05', 'from 127.0.0.1'])(
+    'keeps UUIDs, dates and short IPs intact in %s',
+    (input) => {
+      expect(redactText(input)).toBe(input);
+    },
+  );
+});
+
+// Strict superset (design D13) - spec scenario "DNIs next to digits and dots"; privacy wins over IPs/decimals.
+describe('redactText - DNIs next to digits and dots', () => {
   it.each([
-    'trace 12345678-abcd-4ef0-8123-456789abcdef',
-    'host 10.168.100.200',
-    'on 2026-10-05',
-    'version 1.30123456',
-  ])('keeps UUIDs, IPs, dates and decimals intact in %s', (input) => {
-    expect(redactText(input)).toBe(input);
+    ['30123456.1.pdf', /30\.?123\.?456/],
+    ['dni_30123456.2024.pdf', /30123456/],
+    ['v2.30123456', /30123456/],
+    ['0.30123456', /30123456/],
+    ['1.30.123.456', /30\.123\.456/],
+    ['30.123.456.789', /30\.123\.456/],
+    ['x 1234567.89', /1234567/],
+  ])('masks the DNI in %s', (input, raw) => {
+    const result = redactText(input);
+    expect(result).toContain('[dni]');
+    expect(result).not.toMatch(raw);
+  });
+
+  it.each([
+    ['host 10.168.100.200', 'host [dni].200'],
+    ['version 1.30123456', 'version 1.[dni]'],
+  ])('accepts partial masking of DNI-shaped runs inside IPs and decimals: %s', (input, expected) => {
+    expect(redactText(input)).toBe(expected);
+  });
+});
+
+// Superset property (design D13) - whatever the 65eb994 redaction removed, the current one removes too.
+describe('redactText - superset of the 65eb994 redaction', () => {
+  const jwt = ['eyJ' + 'hbGciOiJIUzI1NiJ9', 'eyJzdWIiOiJ0ZXN0In0', 'c2lnbmF0dXJlX3Rlc3Q'].join('.');
+  const tokens: Array<[raw: string, sensitive: string]> = [
+    ['30123456', '30123456'],
+    ['7123456', '7123456'],
+    ['30.123.456', '30.123.456'],
+    ['7.123.456', '7.123.456'],
+    ['30 123 456', '30 123 456'],
+    ['30-123-456', '30-123-456'],
+    ['2945451234', '2945451234'],
+    ['2945 451234', '2945 451234'],
+    ['2945-451234', '2945-451234'],
+    ['11 4567 8901', '11 4567 8901'],
+    ['+54 9 2945 451234', '2945 451234'],
+    ['+5492945451234', '2945451234'],
+    ['02945-15-451234', '451234'],
+    ['(02945) 451234', '451234'],
+    ['2945.451234', '2945.451234'],
+    ['20-30123456-7', '30123456'],
+    ['20301234567', '20301234567'],
+    ['ana.perez@epuyen.gob.ar', 'ana.perez@epuyen.gob.ar'],
+    ['x_y+z@mail.com', 'x_y+z@mail.com'],
+    ['password=hunter2pass', 'hunter2pass'],
+    ['api_key=abcDEF123', 'abcDEF123'],
+    ['token: s3cr3tvalue', 's3cr3tvalue'],
+    ['client_secret=topsecret99', 'topsecret99'],
+    ['Bearer abcdefghijkl', 'abcdefghijkl'],
+    [`jwt ${jwt}`, jwt],
+    ['authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'],
+    ['cookie: sid=abc123def', 'abc123def'],
+  ];
+  const contexts: Array<[prefix: string, suffix: string]> = [
+    ['', ''],
+    ['DNI ', ' ok'],
+    ['dni_', '.pdf'],
+    ['', '_frente.jpg'],
+    ['nro.', ''],
+    ['id', ''],
+    ['v2.', ''],
+    ['0.', ''],
+    ['', '.1.pdf'],
+    ['', '.2024.pdf'],
+    ['1.', '.9'],
+    ['x ', '.89'],
+    ['(', ')'],
+    ['"', '"'],
+    ["'", "'"],
+    ['[', ']'],
+    ['tel:', ''],
+    ['/path/', '/x'],
+    ['?q=', '&a=1'],
+    ['-', ''],
+    ['', '-'],
+    ['a-', '-b'],
+    ['\n', '\n'],
+    ['{"v":"', '"}'],
+    ['=', ''],
+    ['#', ''],
+    ['text ', ', more text'],
+  ];
+
+  it('masks every token the legacy redaction masked, in every context', async () => {
+    const { legacyRedactText } = await import('./redact.legacy.fixture');
+    const leaks: string[] = [];
+    for (const [raw, sensitive] of tokens) {
+      for (const [prefix, suffix] of contexts) {
+        const input = `${prefix}${raw}${suffix}`;
+        if (!legacyRedactText(input).includes(sensitive)) {
+          if (redactText(input).includes(sensitive)) leaks.push(JSON.stringify(input));
+        }
+      }
+    }
+    expect(leaks).toEqual([]);
   });
 });
 

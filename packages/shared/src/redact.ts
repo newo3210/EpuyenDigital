@@ -29,14 +29,14 @@ const KEY_VALUE_SECRET_RE = new RegExp(
 // Personal data patterns - email, CUIT, Argentine phones, DNI.
 // Phones: optional +54, 9, 0-prefixed area code (optionally in parentheses), 15 mobile prefix; space/dot/hyphen separators.
 // DNI: 2-3-3 grouping with one consistent separator and digit-only boundaries, so DNIs glued to letters,
-// underscores or dots match while dates, dotted IPs, decimals and UUID first segments do not.
+// underscores, dots or digit-dot sequences match (strict superset, D13); IPs/decimals may be partially masked.
 // Phone boundaries exclude hyphens so hyphen-joined ids (UUID segments) are not split.
 const EMAIL_RE = /[A-Z0-9._%+-]{1,64}@[A-Z0-9-]{1,63}(?:\.[A-Z0-9-]{1,63}){1,8}/gi;
 const CUIT_RE = /(?<!\d)\d{2}-?\d{8}-?\d(?!\d)/g;
 const PHONE_RE =
   /(?<![\w+-])(?:\+?54[\s.-]?)?(?:9[\s.-]?)?(?:\(\s?0?\d{2,4}\s?\)|0?\d{2,4})[\s.-]?(?:15[\s.-]?)?\d{2,4}[\s.-]?\d{2,4}(?![\w-])/g;
 const PHONE_MIN_DIGITS = 10;
-const DNI_RE = /(?<!\d|\d\.)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d|\.\d|-[0-9a-f]{4}-)/gi;
+const DNI_RE = /(?<!\d)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d|-[0-9a-f]{4}-)/gi;
 
 // Sensitive keys - object properties whose values are always replaced.
 const SENSITIVE_KEY_RE = /passw(?:or)?d|secret|token|api[-_]?key|authorization|cookie|session|credential/i;

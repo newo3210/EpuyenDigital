@@ -148,7 +148,7 @@
 ## 17. Second Re-review Fixes (2026-10-05, design D13)
 
 - [x] 17.1 Update specs (error-tracking, org-tenancy), `design.md` D13, and this section before code
-- [ ] 17.2 R-1 (TDD): legacy `65eb994` fixture + superset property test over PII tokens × contexts, plus the digit-dot DNI scenario (red first); relax `DNI_RE` to digit-only boundaries; update IP/decimal controls to the accepted trade-off
+- [x] 17.2 R-1 (TDD): legacy `65eb994` fixture + superset property test over PII tokens × contexts, plus the digit-dot DNI scenario (red first); relax `DNI_RE` to digit-only boundaries; update IP/decimal controls to the accepted trade-off
 - [ ] 17.3 R-2 (TDD): 20 000 random UUIDs alone and inside URLs stay unchanged (red first); exempt canonical UUID tokens from the CUIT/phone/DNI passes, emails before the split; keep the performance tests green
 - [ ] 17.4 R-4 (pgTAP + Vitest first): Hangul filler, LRM/RLM, soft hyphen and combining-mark names rejected, `José Pérez` / `李明` accepted; new migration with the extended invisible set and the letter-or-number rule; mirror it in `profileNameSchema`
 - [ ] 17.5 R-5 (pgTAP first): `insert_client_error_report` raises `22023` on null user, null/zero limit, null/zero window
