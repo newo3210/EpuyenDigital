@@ -12,13 +12,15 @@ const CIRCULAR = '[circular]';
 // Every quantifier is bounded so matching stays linear in the input size.
 const AUTHORIZATION_LINE_RE = /\b(authorization)\s{0,10}[:=][^\n]*/gi;
 const COOKIE_LINE_RE = /\b(cookie)\s{0,10}[:=][^\n]*/gi;
-const BEARER_RE = /\b(bearer)\s{1,10}[^\s,;]{1,4096}/gi;
+// Bearer tokens never contain quotes or backslashes, so a serialized header keeps its closing quote (D17).
+const BEARER_RE = /\b(bearer)\s{1,10}[^\s,;"'\\]{1,4096}/gi;
 const JWT_RE = /\beyJ[\w-]{4,512}\.[\w-]{4,4096}\.[\w-]{4,512}/g;
 const SUPABASE_SECRET_RE = /\bsb_secret_[\w-]{1,200}/g;
-// Secret keys - contain a key word anywhere, or end in `key` (`password_confirmation`, `x-api-key`, D16).
-const SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw|authorization|cookie|session|credential)[\w-]{0,40}|[\w-]{0,40}key`;
+// Secret keys - contain a key word anywhere, or end in `key` (`password_confirmation`, `x-api-key`, D16), with an
+// optional cookie chunk suffix (`sb-<ref>-auth-token.0`, D17). Array values may span lines (D17).
+const SECRET_KEY = String.raw`[\w-]{0,40}(?:token|secret|passw|authorization|cookie|session|credential)[\w-]{0,40}(?:\.\d{1,2})?|[\w-]{0,40}key(?:\.\d{1,2})?`;
 const QUOTED_VALUE = String.raw`"(?:[^"\\\n]|\\.){0,4096}"|'(?:[^'\\\n]|\\.){0,4096}'`;
-const ARRAY_VALUE = String.raw`\[[^\]\n]{0,4096}\]?`;
+const ARRAY_VALUE = String.raw`\[[^\]]{0,4096}\]?`;
 const JSON_SECRET_RE = new RegExp(
   String.raw`\\?"(${SECRET_KEY})\\?"\s{0,10}:\s{0,10}(?:\\?"(?:[^"\\]|\\.){0,4096}\\?"|${ARRAY_VALUE}|[^\s,}\]"]{1,4096})`,
   'gi',
@@ -28,11 +30,12 @@ const QUOTED_KEY_SECRET_RE = new RegExp(
   String.raw`'(${SECRET_KEY})'(\s{0,10}(?::|=>)\s{0,10})(?:${QUOTED_VALUE}|${ARRAY_VALUE}|[^\s,}\]]{1,4096})`,
   'gi',
 );
-// Bare values keep quotes (passwords may contain them). Up to 4 chained `word:` / `word=` links after the
-// separator are masked with the value (`missing key: service_key: …`, `password: Turkey=2024!`, D16).
-// An existing placeholder is never masked again.
+// Bare values keep quotes (passwords may contain them). Up to 4 chained links after the separator are masked
+// with the value (D16): a secret key with blanks around its separator (`missing key: service_key: …`), or any
+// word glued to its separator and the next character (`password: Turkey=2024!`), so a plain `phone:` on the
+// next line never becomes a link (D17). An existing placeholder is never masked again.
 const KEY_VALUE_SECRET_RE = new RegExp(
-  String.raw`\b(${SECRET_KEY})\s{0,10}[=:]\s{0,10}(?!\[redacted\])(?:[\w-]{1,80}\s{0,10}[=:]\s{0,10}){0,4}(?:${QUOTED_VALUE}|[^\s&,;]{1,4096})`,
+  String.raw`\b(${SECRET_KEY})\s{0,10}[=:]\s{0,10}(?!\[redacted\])(?:(?:${SECRET_KEY})\s{0,10}[=:]\s{0,10}|[\w-]{1,80}[=:](?=\S)){0,4}(?:${QUOTED_VALUE}|[^\s&,;]{1,4096})`,
   'gi',
 );
 
@@ -99,17 +102,18 @@ function redactOutsideUuids(text: string): string {
 }
 
 // Text redaction - bounded input; secrets first (they may contain digits), then emails, then numeric data.
+// Quoted-key pairs run before header lines, so a line cut never leaves the elements of a multi-line array (D17).
 export function redactText(text: string): string {
   const bounded =
     text.length > MAX_REDACT_INPUT_CHARS ? `${text.slice(0, MAX_REDACT_INPUT_CHARS)}${TRUNCATED}` : text;
   const withoutSecrets = bounded
-    .replace(AUTHORIZATION_LINE_RE, `$1: ${REDACTED}`)
-    .replace(COOKIE_LINE_RE, `$1: ${REDACTED}`)
     .replace(JWT_RE, REDACTED)
     .replace(SUPABASE_SECRET_RE, REDACTED)
     .replace(BEARER_RE, `$1 ${REDACTED}`)
     .replace(JSON_SECRET_RE, `"$1":"${REDACTED}"`)
     .replace(QUOTED_KEY_SECRET_RE, `'$1'$2'${REDACTED}'`)
+    .replace(AUTHORIZATION_LINE_RE, `$1: ${REDACTED}`)
+    .replace(COOKIE_LINE_RE, `$1: ${REDACTED}`)
     .replace(KEY_VALUE_SECRET_RE, `$1=${REDACTED}`)
     .replace(EMAIL_RE, '[email]');
   return redactOutsideUuids(withoutSecrets);

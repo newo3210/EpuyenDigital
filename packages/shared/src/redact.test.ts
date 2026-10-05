@@ -275,6 +275,18 @@ describe('redactText - secrets with quotes or after a key word', () => {
   it('keeps keys that only start with "key"', () => {
     expect(redactText('keyboard=qwerty')).toBe('keyboard=qwerty');
   });
+
+  it.each([
+    ['token:\nphone: 2945 451234', '451234', '[phone]'],
+    ['session:\ndni: 30 123 456', '123 456', '[dni]'],
+    ['token: QUJDREVGR0g=\nphone: 2945 451234', '451234', '[phone]'],
+    ['secret=QUJDREVGR0g= 2945 451234', '451234', '[phone]'],
+  ])('never lets a chained link hide the personal data after it in %j', (input, sensitive, placeholder) => {
+    const result = redactText(input);
+    expect(result).not.toContain(sensitive);
+    expect(result).toContain(placeholder);
+    expect(result).not.toContain('QUJDREVGR0g');
+  });
 });
 
 // Serialized headers and inspected objects (design D15, T-3) - spec scenario of the same name.
@@ -294,6 +306,15 @@ describe('redactText - serialized headers and inspected objects', () => {
     ["{ 'set-cookie': [ 'sid=abc123def' ] }", 'abc123def'],
     ['{"token":["abc123opaque"]}', 'abc123opaque'],
     ["Map(1) { 'cookie' => 'sid=abc123def' }", 'abc123def'],
+    [JSON.stringify({ authorization: 'Bearer abc123opaque', cookie: 'sid=abc123def' }), 'abc123def'],
+    [JSON.stringify({ authorization: 'Bearer abc123opaque', 'x-api-key': 'k3yvalue99' }), 'k3yvalue99'],
+    [JSON.stringify({ Authorization: 'Bearer abc123opaque', apikey: 'k3yvalue99' }, null, 2), 'k3yvalue99'],
+    ["{\n  'set-cookie': [\n    'connect.sid=s%3Aabc123def.sig; Path=/; HttpOnly',\n    'rt=r3fr3sh99; Path=/'\n  ]\n}", 'abc123def'],
+    ["{\n  'set-cookie': [\n    'connect.sid=s%3Aabc123def.sig; Path=/; HttpOnly',\n    'rt=r3fr3sh99; Path=/'\n  ]\n}", 'r3fr3sh99'],
+    [JSON.stringify({ 'set-cookie': ['sid=abc123def'] }, null, 2), 'abc123def'],
+    ['refresh failed for sb-ref-auth-token.0=base64-s3ss10nchunk; sb-ref-auth-token.1=s3ss10nchunk2', 's3ss10nchunk'],
+    ['{"sb-ref-auth-token.0":"base64-s3ss10nchunk"}', 's3ss10nchunk'],
+    ["{ 'sb-ref-auth-token.0': 'base64-s3ss10nchunk' }", 's3ss10nchunk'],
   ])('masks the credential in %j', (input, credential) => {
     const result = redactText(input);
     expect(result).not.toContain(credential);
@@ -372,6 +393,10 @@ describe('redactText - redaction contract corpus', () => {
     ['{"set-cookie":["sid=abc123def; Path=/"]}', 'abc123def'],
     ["{ 'set-cookie': [ 'sid=abc123def' ] }", 'abc123def'],
     ["'cookie' => 'sid=abc123def'", 'abc123def'],
+    ['{"authorization":"Bearer abc123opaque","cookie":"sid=abc123def"}', 'abc123def'],
+    ["{ 'set-cookie': [\n    'sid=abc123def; Path=/',\n    'rt=r3fr3sh99'\n  ] }", 'abc123def'],
+    ['sb-ref-auth-token.0=base64-s3ss10nchunk', 's3ss10nchunk'],
+    ['token:\nphone: 2945 451234', '451234'],
   ];
   const tokens = [...dniTokens, ...otherTokens];
 
