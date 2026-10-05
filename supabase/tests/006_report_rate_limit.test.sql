@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(23);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): one org, three operators
@@ -130,6 +130,38 @@ select is(
   ),
   null,
   'user 2 is rejected once 10 recent client rows exist'
+);
+
+-- Invalid arguments (design D13, spec error-tracking "Invalid limit arguments")
+select throws_ok(
+  $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', null, 't-null-user', 'x', '{}'::jsonb, 10, 60)$$,
+  '22023', 'invalid_argument',
+  'a null user is rejected'
+);
+select throws_ok(
+  $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a3', 't-null-limit', 'x', '{}'::jsonb, null, 60)$$,
+  '22023', 'invalid_argument',
+  'a null limit is rejected'
+);
+select throws_ok(
+  $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a3', 't-zero-limit', 'x', '{}'::jsonb, 0, 60)$$,
+  '22023', 'invalid_argument',
+  'a zero limit is rejected'
+);
+select throws_ok(
+  $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a3', 't-null-window', 'x', '{}'::jsonb, 10, null)$$,
+  '22023', 'invalid_argument',
+  'a null window is rejected'
+);
+select throws_ok(
+  $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a3', 't-negative-window', 'x', '{}'::jsonb, 10, -5)$$,
+  '22023', 'invalid_argument',
+  'a negative window is rejected'
+);
+select is(
+  (select count(*)::int from public.error_logs where trace_id like 't-%'),
+  0,
+  'rejected calls store nothing'
 );
 
 reset role;
