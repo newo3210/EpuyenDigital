@@ -11,7 +11,7 @@ const seedEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   SEED_ADMIN_EMAIL: z.string().email(),
-  SEED_ADMIN_PASSWORD: z.string().min(8),
+  SEED_ADMIN_PASSWORD: z.string().min(10),
 });
 
 type SeedEnv = z.infer<typeof seedEnvSchema>;

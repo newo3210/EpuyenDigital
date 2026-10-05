@@ -20,4 +20,10 @@ describe('avatarPublicUrl', () => {
   it('returns null without a path', () => {
     expect(avatarPublicUrl(null)).toBeNull();
   });
+
+  it('encodes each path segment so stored values cannot inject URL syntax', () => {
+    expect(avatarPublicUrl('org-1/user 1/a?b#c.png')).toBe(
+      'http://127.0.0.1:54321/storage/v1/object/public/avatars/org-1/user%201/a%3Fb%23c.png',
+    );
+  });
 });
