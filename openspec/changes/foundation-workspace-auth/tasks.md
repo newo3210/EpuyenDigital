@@ -126,7 +126,7 @@
 - [x] 15.3 J-2 (TDD): redaction rules for Argentine phone/DNI formats, JSON/`key=` secrets, `sb_secret_`; one test per format; dates, IPs and UUIDs stay intact
 - [x] 15.4 J-3a/b (TDD): bounded quantifiers, `redactText` input cap, message slice before redaction in `logError`; performance test on 200 KB adversarial inputs (< 200 ms)
 - [x] 15.5 J-3c/d (TDD): `reportError` auth → rate limit (429) → `readBody` (413 over 16 KB) → schema → trace; `countRecentClientReports` repository; route adapter with content-length and text-length checks
-- [ ] 15.6 Q-1 (TDD): `attachRequestOperator` resolves org/user from the request cookie header for `onRequestError` rows; never throws
+- [x] 15.6 Q-1 (TDD): `attachRequestOperator` resolves org/user from the request cookie header for `onRequestError` rows; never throws
 - [ ] 15.7 M-1 (TDD): calendar-date refine in `errorFiltersSchema`
 - [ ] 15.8 Migration `20261005000100_foundation_hardening.sql` + pgTAP `005_hardening.test.sql`: grants, trigger-function execute, id/created_at guard, name/avatar_path checks, org-scoped `avatars_select`, user index, cron job, cross-user avatar delete and listing
 - [ ] 15.9 M-5/M-7: `config.toml` signup disabled + min password 10, seed minimum 10; `avatarPublicUrl` encodes segments (TDD)

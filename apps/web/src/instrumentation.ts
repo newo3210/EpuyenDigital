@@ -8,6 +8,11 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
   const input = toRequestErrorLog(error, request, context);
   if (!input) return;
 
-  const { logServerError } = await import('@/features/errors/server');
-  await logServerError(input);
+  const { attachRequestOperator } = await import('@/features/errors/attach-operator');
+  const { logServerError, resolveOperatorFromCookieHeader } = await import('@/features/errors/server');
+  const cookieHeader = request.headers.cookie;
+  const enriched = await attachRequestOperator(input, Array.isArray(cookieHeader) ? cookieHeader.join('; ') : cookieHeader, {
+    resolveOperator: resolveOperatorFromCookieHeader,
+  });
+  await logServerError(enriched);
 };
