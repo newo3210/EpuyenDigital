@@ -4,7 +4,7 @@
 > **Location:** repository root `ARCHITECTURE_SDD.md`.
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-05
 **Related OpenSpec change:** `openspec/changes/foundation-workspace-auth/` (Phase 1, change 1 of 2)
 
 ---

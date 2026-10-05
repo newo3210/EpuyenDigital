@@ -4,7 +4,7 @@
 > **Ubicación:** raíz del repo `STUDENT_DECISION_LOG.md`.
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
-**Última actualización:** 2026-10-01
+**Última actualización:** 2026-10-05
 **Change relacionado:** `openspec/changes/foundation-workspace-auth/` (Fase 1, cambio 1 de 2)
 
 ---

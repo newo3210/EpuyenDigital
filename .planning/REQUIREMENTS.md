@@ -164,4 +164,4 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-10-01 after implementing `foundation-workspace-auth`*
+*Last updated: 2026-10-05 after implementing `foundation-workspace-auth`*

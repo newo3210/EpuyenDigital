@@ -1,6 +1,6 @@
 # Modelo de datos — Mesa de Entrada Digital Epuyén
 
-> Estado: diseño inicial (2026-09-30), actualizado 2026-10-01 con lo implementado en `foundation-workspace-auth` (migración `supabase/migrations/20260930000100_foundation.sql`). Nombres técnicos en inglés; comentarios en español.
+> Estado: diseño inicial (2026-09-30), actualizado 2026-10-05 con lo implementado en `foundation-workspace-auth` (migración `supabase/migrations/20260930000100_foundation.sql`). Nombres técnicos en inglés; comentarios en español.
 > Convenciones: toda tabla de negocio tiene `id uuid pk`, `org_id uuid not null`, `created_at`, `updated_at` (trigger). RLS habilitado en todas.
 > Marcas: **[implementado]** existe en la base; **[pendiente]** columna diseñada que todavía no se creó; el resto es diseño.
 
