@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(25);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): one org, three operators
@@ -157,6 +157,16 @@ select throws_ok(
   $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a3', 't-negative-window', 'x', '{}'::jsonb, 10, -5)$$,
   '22023', 'invalid_argument',
   'a negative window is rejected'
+);
+select throws_ok(
+  $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a3', 't-zero-window', 'x', '{}'::jsonb, 10, 0)$$,
+  '22023', 'invalid_argument',
+  'a zero window is rejected'
+);
+select throws_ok(
+  $$select public.insert_client_error_report('aaaaaaaa-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a3', 't-negative-limit', 'x', '{}'::jsonb, -1, 60)$$,
+  '22023', 'invalid_argument',
+  'a negative limit is rejected'
 );
 select is(
   (select count(*)::int from public.error_logs where trace_id like 't-%'),
