@@ -26,6 +26,14 @@ An operator SHALL be able to upload their own avatar (JPEG, PNG, or WebP, max 2 
 - **WHEN** a request tries to write to `avatars/{org_id}/{other_user_id}/`
 - **THEN** the storage policy rejects it
 
+#### Scenario: Deleting another user's avatar
+- **WHEN** an operator deletes an object under another user's or another organization's avatar folder
+- **THEN** zero objects are deleted
+
+#### Scenario: Listing other organizations' avatars
+- **WHEN** an operator lists objects of the `avatars` bucket
+- **THEN** only objects under their own organization's folder are returned (public image URLs keep working)
+
 ### Requirement: Default avatar
 Operators without an avatar SHALL be shown initials derived from their display name.
 

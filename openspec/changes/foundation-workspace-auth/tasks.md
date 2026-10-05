@@ -118,3 +118,17 @@
 - [x] 14.3 Update `docs/data-model.md` if the implemented schema diverged from the design
 - [x] 14.4 Update `.planning/REQUIREMENTS.md` traceability (FND-01, FND-06 org, FND-07, FND-08 → implemented) and `.planning/STATE.md`
 - [x] 14.5 Update root `README.md` with final commands
+
+## 15. Adversarial Review Fixes (2026-10-05, design D11)
+
+- [x] 15.1 Update specs (error-tracking, operator-auth, org-tenancy, operator-profile, local-dev-environment), `design.md` D11 and layer table, and this section before code
+- [ ] 15.2 J-1 (TDD): login form posts via `action={formAction}` with a hidden `next` input; test that the form has an action and carries `next`
+- [ ] 15.3 J-2 (TDD): redaction rules for Argentine phone/DNI formats, JSON/`key=` secrets, `sb_secret_`; one test per format; dates, IPs and UUIDs stay intact
+- [ ] 15.4 J-3a/b (TDD): bounded quantifiers, `redactText` input cap, message slice before redaction in `logError`; performance test on 200 KB adversarial inputs (< 200 ms)
+- [ ] 15.5 J-3c/d (TDD): `reportError` auth → rate limit (429) → `readBody` (413 over 16 KB) → schema → trace; `countRecentClientReports` repository; route adapter with content-length and text-length checks
+- [ ] 15.6 Q-1 (TDD): `attachRequestOperator` resolves org/user from the request cookie header for `onRequestError` rows; never throws
+- [ ] 15.7 M-1 (TDD): calendar-date refine in `errorFiltersSchema`
+- [ ] 15.8 Migration `20261005000100_foundation_hardening.sql` + pgTAP `005_hardening.test.sql`: grants, trigger-function execute, id/created_at guard, name/avatar_path checks, org-scoped `avatars_select`, user index, cron job, cross-user avatar delete and listing
+- [ ] 15.9 M-5/M-7: `config.toml` signup disabled + min password 10, seed minimum 10; `avatarPublicUrl` encodes segments (TDD)
+- [ ] 15.10 Re-run verification: typecheck, lint, test, test:db, `db:reset` + seed; curl (login form method, report 401/413/429, signup rejected); browser smoke (login, support screen); report `reports/2026-10-05-step-15-hardening.md`; restore DB state
+- [ ] 15.11 Update `ARCHITECTURE_SDD.md`, `STUDENT_DECISION_LOG.md`, `README.md`, `docs/data-model.md`, `.planning/STATE.md` (deferred findings backlog)

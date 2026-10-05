@@ -24,7 +24,7 @@ Standards that apply: `docs/base-standards.md` (§9 layers + section comments, �
 
 | Conceptual layer | Paths in this change |
 |---|---|
-| Presentation | `apps/web/src/app/(auth)/login/**`, `apps/web/src/app/(panel)/**` (layout, `inbox`, `settings/profile`, `support/errors`, `forbidden`), `apps/web/src/app/global-error.tsx`, `apps/web/src/presentation/components/**` (shell, sidebar, top bar, avatar, error boundary, form primitives) |
+| Presentation | `apps/web/src/app/(auth)/login/**`, `apps/web/src/app/(panel)/**` (layout, `error.tsx`, `inbox`, `citizens`, `tasks`, `settings/profile`, `support/errors`), `apps/web/src/app/{forbidden,global-error}.tsx`, `apps/web/src/app/api/errors/report/route.ts`, `apps/web/src/presentation/{auth,layout,profile,support,errors,ui}/**` (login form, shell, sidebar, top bar, avatar, error fallback, support table/filters/detail) |
 | Application / services | `apps/web/src/features/auth/**` (sign-in, sign-out, `requireOperator`, `requireRole`, safe-next), `apps/web/src/features/profile/**` (update name, upload avatar), `apps/web/src/features/errors/**` (log, report, list, change status), `packages/shared/src/redact.ts`, `packages/shared/src/initials.ts`, `packages/shared/src/trace.ts` |
 | Infrastructure / repositories | `apps/web/src/infrastructure/supabase/{server,browser,admin,middleware}.ts`, `apps/web/src/infrastructure/repositories/{profiles,error-logs}.ts`, `apps/web/src/infrastructure/env.ts`, `apps/web/src/middleware.ts`, `supabase/migrations/*.sql`, `supabase/seed/seed.ts`, `supabase/config.toml` |
 | Contracts | `packages/shared/src/contracts/{roles,profile,error-log}.ts`, `apps/web/src/contracts/{auth,profile,errors}.ts` (form and route-handler Zod schemas) |
@@ -86,13 +86,34 @@ Server action `updateProfileName` (Zod 2–80 chars, trimmed). Avatar upload: cl
 ### D10 — Section comments and UI language
 All hand-written TS/TSX follow the section-comment rule (`// <Block> - <what it does>`). UI copy in es-AR; code, specs and comments in English.
 
+### D11 — Hardening after adversarial review (2026-10-05)
+Source: `reports/2026-10-05-adversarial-review.md` (verdict FAIL, 3 majors). Scope approved by the user: majors + cheap hardening; Q-1 resolved as "attach org/user".
+- **Login without JS (J-1):** the `<form>` gets `action={formAction}` (server action → SSR renders `method="POST"` with React's action fields), and `next` travels in a hidden input. After hydration, react-hook-form still validates first and calls the action in a transition. Credentials can never be sent as a GET query.
+- **Redaction coverage (J-2):** `redact.ts` rules are rewritten around Argentine formats. Phones are structured matches (optional `+54`, `9`, `0`-prefixed area code in optional parentheses, optional `15`, separators space/dot/hyphen) masked when they have ≥ 10 digits. DNI uses a 2-3-3 grouping with one consistent separator (none, dot, space, or hyphen), so dates (`2026-10-05`) and IPs are not masked. Secrets: JSON `"key": "value"`, `key=value` / `key: value` for keys containing `token|secret|passw` or ending in `key`, bare `sb_secret_…`, and JWT.
+- **Linear-time redaction (J-3a/b):** every quantifier in `redact.ts` is bounded (email local part ≤ 64, labels ≤ 63, secret key prefix ≤ 40). `redactText` truncates its input to 16 384 characters before matching, and `logError` slices the message to 2 000 characters before redacting. A performance test redacts 200 KB adversarial inputs within 200 ms.
+- **Report endpoint limits (J-3c/d):** `reportError` checks session and active profile first. It then checks a per-user limit (≥ 10 stored client reports in the last 60 s → 429), and only then reads the body through an injected `readBody` port. The route rejects `content-length` > 16 384 or a longer text with 413. Client reports carry `details.origin = 'client'` so the limit counts only them (index `error_logs (user_id, created_at desc)`). This is not a distributed rate limiter; it is enough for one municipality, and Phase 7 revisits it.
+- **Server errors attach the operator (Q-1):** `instrumentation.ts` enriches the log input through `attachRequestOperator`, which builds a read-only Supabase client from the request's cookie header (`parseCookieHeader`), resolves the user and active profile, and sets `orgId`/`userId`. It never throws; without an active operator the row keeps a null org, visible to support only.
+- **Filters (M-1):** `from`/`to` must be real calendar dates (round-trip through `Date`); otherwise they are dropped.
+- **Database hardening (M-3..M-7, M-10)**, new migration `20261005000100_foundation_hardening.sql`:
+  - Revoke `insert, delete, truncate, trigger, references` on the three tables from `authenticated`, and `execute` on the trigger functions from `public, anon, authenticated`.
+  - `profiles_guard_privileged_columns` also rejects changes to `id` and `created_at` by any `authenticated` caller.
+  - Check constraints: `char_length(btrim(full_name)) between 2 and 80`, and `avatar_path is null or avatar_path like org_id || '/' || id || '/%'` with no `..`.
+  - `avatars_select` restricted to the caller's org folder (public URLs are unaffected because the bucket is public).
+  - pgTAP covers the cron job, privileges, guards, constraints, cross-user avatar delete, and listing.
+  - `avatarPublicUrl` URL-encodes path segments.
+- **Auth config (M-5):** `enable_signup = false` (API and email), `minimum_password_length = 10`; the seed validates `SEED_ADMIN_PASSWORD` with the same minimum. The cloud project must mirror these settings (README).
+- **Deferred with user approval:**
+  - M-2 (one malformed row breaks the list), M-8 (lockout only in the layout), M-9 (direct Storage uploads bypass sniffing), M-11 (trace ids are client hints), M-12 (Auth errors collapsed into "wrong credentials").
+  - Q-2 (stale cookies after a layout sign-out; lockout still enforced server-side).
+  - Q-3 (last-admin protection) goes to `areas-operators-admin`. The other deferred items go to the backlog in `.planning/STATE.md`.
+
 ## Contracts (Zod)
 
 - `loginSchema { email: string().email(), password: string().min(1) }`
 - `profileNameSchema { fullName: string().trim().min(2).max(80) }`
 - `avatarFileSchema { type: enum(['image/jpeg','image/png','image/webp']), size: number().max(2_097_152) }`
 - `errorReportSchema { traceId: string().min(8).max(64), message: string().max(2000), stack: string().max(8000).optional(), url: string().max(500), note: string().max(500).optional(), digest: string().max(200).optional() }`
-- `errorFiltersSchema { status?, source?, level?, from?: YYYY-MM-DD, to?: YYYY-MM-DD, id?: uuid }` (invalid values are dropped, not rejected)
+- `errorFiltersSchema { status?, source?, level?, from?: YYYY-MM-DD, to?: YYYY-MM-DD, id?: uuid }` (invalid values, including impossible calendar dates, are dropped, not rejected)
 - `errorStatusChangeSchema { id: uuid(), status: enum(['acknowledged','resolved','open']) }`
 - `roleSchema = enum(['admin','area_lead','operator','support'])` (shared)
 

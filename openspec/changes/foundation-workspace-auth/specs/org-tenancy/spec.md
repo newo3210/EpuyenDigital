@@ -34,8 +34,23 @@ Row Level Security SHALL be enabled on every business table, and no operator SHA
 - **THEN** zero rows are returned
 
 ### Requirement: Profile self-service limits
-An operator SHALL be able to update only their own `full_name` and `avatar_path`; `role`, `org_id`, and `is_active` SHALL be changeable only by an admin of the same organization.
+An operator SHALL be able to update only their own `full_name` and `avatar_path`; `role`, `org_id`, and `is_active` SHALL be changeable only by an admin of the same organization; `id` and `created_at` SHALL be changeable by no client. The database SHALL enforce `full_name` as 2–80 characters after trimming and `avatar_path` as null or a path under `{org_id}/{id}/` of the same profile.
 
 #### Scenario: Operator tries to escalate role
 - **WHEN** an operator updates their own profile setting `role = 'admin'`
 - **THEN** the update is rejected and the role remains unchanged
+
+#### Scenario: Admin tries to re-key a profile
+- **WHEN** an admin updates a profile setting `id` to another auth user id
+- **THEN** the update is rejected
+
+#### Scenario: Foreign avatar path or blank name
+- **WHEN** an operator updates their own profile through the REST API with another user's avatar path or a name of only spaces
+- **THEN** the update is rejected
+
+### Requirement: Least-privilege table grants
+The `authenticated` role SHALL hold no `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, or `REFERENCES` privilege on `organizations`, `profiles`, or `error_logs`; writes it needs are limited to the `UPDATE` paths governed by RLS.
+
+#### Scenario: Truncate attempt
+- **WHEN** an authenticated operator runs `truncate public.error_logs`
+- **THEN** it fails with a permission error

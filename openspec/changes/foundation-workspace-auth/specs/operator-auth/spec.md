@@ -15,6 +15,10 @@ The system SHALL let an operator sign in with email and password at `/login`.
 - **WHEN** the email is not a valid address or the password is empty
 - **THEN** the form shows field-level validation errors and no request is sent
 
+#### Scenario: Submit before JavaScript loads
+- **WHEN** the login form is submitted before the page's JavaScript has loaded
+- **THEN** the browser sends the credentials in a POST body to the server and the email and password never appear in the URL
+
 ### Requirement: Persistent session
 The session SHALL persist across page reloads and browser restarts until logout or token expiry, refreshing tokens transparently.
 

@@ -29,6 +29,13 @@ Every environment variable used by the code SHALL be listed in `.env.example` wi
 - **WHEN** the web app starts without `NEXT_PUBLIC_SUPABASE_URL`
 - **THEN** startup fails with an error naming the missing variable
 
+### Requirement: Hardened auth configuration
+Self sign-up SHALL be disabled (operators are created only with the service role) and the minimum password length SHALL be 10 characters, in `supabase/config.toml` and documented for the cloud project.
+
+#### Scenario: Self sign-up attempt
+- **WHEN** an anonymous client calls the Supabase sign-up endpoint with the public anon key
+- **THEN** the request is rejected and no auth user is created
+
 ### Requirement: Quality scripts
 The repository SHALL expose `npm run typecheck`, `npm run lint`, `npm run test` (Vitest), and `npm run test:db` (SQL tests) from the root.
 
