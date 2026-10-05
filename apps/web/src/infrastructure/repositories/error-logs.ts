@@ -9,8 +9,8 @@ import {
 } from '@epuyen/shared';
 import { RepositoryError, type DbClient } from './errors';
 
-// Row shape and columns - public.error_logs as read by the support screen.
-type ErrorLogRow = Database['public']['Tables']['error_logs']['Row'];
+// Row shape and columns - public.error_logs as read by the support screen (origin is only used for rate limiting).
+type ErrorLogRow = Omit<Database['public']['Tables']['error_logs']['Row'], 'origin'>;
 
 const ERROR_LOG_COLUMNS =
   'id, org_id, source, level, message, details, trace_id, user_id, status, resolved_by, resolved_at, created_at';
@@ -85,10 +85,32 @@ export async function countRecentClientReports(client: DbClient, userId: string,
     .from('error_logs')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('details->>origin', 'client')
+    .eq('origin', 'client')
     .gte('created_at', sinceIso);
   if (error) throw new RepositoryError('error_logs.read_failed', error.message);
   return count ?? 0;
+}
+
+// Client report limit - max rows per user inside a trailing window, enforced by the database.
+export type ClientReportLimit = { limit: number; windowSeconds: number };
+
+// Atomic client report - count and insert under a per-user lock (service role); null when over the limit.
+export async function insertClientErrorReport(
+  client: DbClient,
+  input: NewErrorLog,
+  { limit, windowSeconds }: ClientReportLimit,
+): Promise<string | null> {
+  const { data, error } = await client.rpc('insert_client_error_report', {
+    p_org_id: input.orgId as string,
+    p_user_id: input.userId as string,
+    p_trace_id: input.traceId,
+    p_message: input.message,
+    p_details: input.details as Json,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+  });
+  if (error) throw new RepositoryError('error_logs.write_failed', error.message);
+  return data ?? null;
 }
 
 // List - newest first with optional filters; RLS scopes rows to admin/support of the org.

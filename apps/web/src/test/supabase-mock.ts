@@ -40,9 +40,13 @@ export function createSupabaseMock() {
     return proxy;
   };
 
-  // Client surface - from() plus the auth methods used by repositories, gateways and guards.
+  // Client surface - from(), rpc() (recorded under "rpc:<fn>") plus the auth methods used by repositories, gateways and guards.
   const client = {
     from: (table: string) => builder(table),
+    rpc: async (fn: string, args?: unknown) => {
+      calls.push({ table: `rpc:${fn}`, method: 'rpc', args: [args] });
+      return nextResult(`rpc:${fn}`);
+    },
     auth: {
       getUser: async () => {
         authCalls.push({ method: 'getUser', args: [] });

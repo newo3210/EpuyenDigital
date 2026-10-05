@@ -30,7 +30,7 @@ function toDetailsObject(value: unknown): Record<string, unknown> {
 }
 
 // Redacted row builder - masks message and details before anything leaves the process.
-function buildRow(input: LogErrorInput): NewErrorLog {
+export function buildErrorLogRow(input: LogErrorInput): NewErrorLog {
   return {
     source: input.source,
     level: input.level ?? 'error',
@@ -46,7 +46,7 @@ function buildRow(input: LogErrorInput): NewErrorLog {
 export async function logError(input: LogErrorInput, deps: LogErrorDeps): Promise<string | null> {
   let row: NewErrorLog | null = null;
   try {
-    row = buildRow(input);
+    row = buildErrorLogRow(input);
     return await deps.insert(row);
   } catch (cause) {
     try {

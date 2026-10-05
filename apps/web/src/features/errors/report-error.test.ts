@@ -1,10 +1,10 @@
 import type { Profile } from '@epuyen/shared';
 import type { NewErrorLog } from '@/infrastructure/repositories/error-logs';
 import { digestRef } from './digest-ref';
-import { logError } from './log-error';
 import {
   REPORT_RATE_LIMIT,
   reportError,
+  type ClientReportOutcome,
   type ReportBody,
   type ReportErrorDeps,
   type ReportErrorRequest,
@@ -37,15 +37,15 @@ function makeRequest(body: unknown, headerTraceId: string | null = TRACE_ID, rea
   return { request, readBody };
 }
 
-// Test deps - session, profile, recent-report counter, and real redacting logger over a fake insert.
+// Test deps - session, profile, advisory counter, and the atomic store receiving the redacted row.
 function makeDeps(overrides: Partial<ReportErrorDeps> = {}) {
-  const insert = vi.fn<(row: NewErrorLog) => Promise<string>>(async () => 'log-id-1');
+  const insert = vi.fn<(row: NewErrorLog) => Promise<ClientReportOutcome>>(async () => 'stored');
   const countRecentReports = vi.fn<(userId: string) => Promise<number>>(async () => 0);
   const deps: ReportErrorDeps = {
     getSessionUserId: async () => PROFILE.id,
     findProfile: async () => PROFILE,
     countRecentReports,
-    log: (input) => logError(input, { insert, fallback: () => {} }),
+    storeReport: insert,
     ...overrides,
   };
   return { deps, insert, countRecentReports };
@@ -75,7 +75,7 @@ describe('reportError - authentication', () => {
 
 // Abuse limits - per-user rate limit and body size cap store nothing.
 describe('reportError - limits', () => {
-  it(`responds 429 once ${REPORT_RATE_LIMIT} reports were stored in the last minute`, async () => {
+  it(`responds 429 before reading the body once the advisory count reaches ${REPORT_RATE_LIMIT}`, async () => {
     const { deps, insert, countRecentReports } = makeDeps();
     countRecentReports.mockResolvedValueOnce(REPORT_RATE_LIMIT);
     const { request, readBody } = makeRequest(VALID_BODY);
@@ -93,6 +93,17 @@ describe('reportError - limits', () => {
     countRecentReports.mockResolvedValueOnce(REPORT_RATE_LIMIT - 1);
 
     expect((await reportError(makeRequest(VALID_BODY).request, deps)).status).toBe(201);
+  });
+
+  it('responds 429 when the atomic store rejects the report, after the body was fully read', async () => {
+    const { deps, insert } = makeDeps();
+    insert.mockResolvedValueOnce('rate_limited');
+    const { request, readBody } = makeRequest(VALID_BODY);
+
+    const result = await reportError(request, deps);
+
+    expect(result).toEqual({ status: 429, body: { error: 'rate_limited' } });
+    expect(readBody.mock.invocationCallOrder[0]).toBeLessThan(insert.mock.invocationCallOrder[0] ?? 0);
   });
 
   it('responds 413 for an oversized body', async () => {
@@ -133,7 +144,7 @@ describe('reportError - validation', () => {
   });
 });
 
-// Happy path - redacted client-origin web row linked to the operator and organization.
+// Happy path - redacted web row linked to the operator and organization (origin is a column set by the store).
 describe('reportError - stored report', () => {
   it('responds 201 and stores a redacted web error', async () => {
     const { deps, insert } = makeDeps();
@@ -147,12 +158,23 @@ describe('reportError - stored report', () => {
     expect(serialized).not.toContain('30123456');
     expect(serialized).not.toContain('2945123456');
     expect(serialized).not.toContain('token=abc');
-    expect(row?.details).toMatchObject({ origin: 'client', url: VALID_BODY.url, digestRef: digestRef('12345') });
+    expect(row?.details).toMatchObject({ url: VALID_BODY.url, digestRef: digestRef('12345') });
     expect(row?.details).not.toHaveProperty('digest');
+    expect(row?.details).not.toHaveProperty('origin');
+  });
+
+  it('hands maximum-size reports to the atomic store even when their details get truncated', async () => {
+    const { deps, insert } = makeDeps();
+    const body = { ...VALID_BODY, stack: 's'.repeat(8000), url: `http://x/${'u'.repeat(480)}`, note: 'n'.repeat(500) };
+
+    const result = await reportError(makeRequest(body).request, deps);
+
+    expect(result.status).toBe(201);
+    expect(insert.mock.calls[0]?.[0].details).toHaveProperty('truncated', true);
   });
 
   it('responds 500 when the row could not be stored', async () => {
-    const { deps } = makeDeps({ log: async () => null });
+    const { deps } = makeDeps({ storeReport: async () => 'failed' });
 
     const result = await reportError(makeRequest(VALID_BODY).request, deps);
 

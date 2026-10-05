@@ -4,6 +4,7 @@ import {
   changeErrorLogStatus,
   countRecentClientReports,
   findErrorLogById,
+  insertClientErrorReport,
   insertErrorLog,
   listErrorLogs,
 } from './error-logs';
@@ -109,7 +110,7 @@ describe('countRecentClientReports', () => {
     expect(mock.callsFor('error_logs')).toEqual([
       { method: 'select', args: ['id', { count: 'exact', head: true }] },
       { method: 'eq', args: ['user_id', USER_ID] },
-      { method: 'eq', args: ['details->>origin', 'client'] },
+      { method: 'eq', args: ['origin', 'client'] },
       { method: 'gte', args: ['created_at', '2026-10-05T13:00:00.000Z'] },
     ]);
   });
@@ -128,6 +129,60 @@ describe('countRecentClientReports', () => {
     await expect(
       countRecentClientReports(mock.client, USER_ID, '2026-10-05T13:00:00.000Z'),
     ).rejects.toMatchObject({ code: 'error_logs.read_failed' });
+  });
+});
+
+// Atomic client report - database function counts and inserts under a per-user lock.
+describe('insertClientErrorReport', () => {
+  const report = {
+    orgId: ORG_ID,
+    source: 'web' as const,
+    level: 'error' as const,
+    message: 'Render failed',
+    details: { url: '/inbox' },
+    traceId: row.trace_id,
+    userId: USER_ID,
+  };
+
+  it('calls insert_client_error_report with the row, limit and window, and returns the id', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('rpc:insert_client_error_report', { data: ERROR_ID, error: null });
+
+    await expect(
+      insertClientErrorReport(mock.client, report, { limit: 10, windowSeconds: 60 }),
+    ).resolves.toBe(ERROR_ID);
+    expect(mock.callsFor('rpc:insert_client_error_report')).toEqual([
+      {
+        method: 'rpc',
+        args: [
+          {
+            p_org_id: ORG_ID,
+            p_user_id: USER_ID,
+            p_trace_id: row.trace_id,
+            p_message: 'Render failed',
+            p_details: { url: '/inbox' },
+            p_limit: 10,
+            p_window_seconds: 60,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('returns null when the database rejects the report as over the limit', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('rpc:insert_client_error_report', { data: null, error: null });
+
+    await expect(insertClientErrorReport(mock.client, report, { limit: 10, windowSeconds: 60 })).resolves.toBeNull();
+  });
+
+  it('throws error_logs.write_failed when the call errors', async () => {
+    const mock = createSupabaseMock();
+    mock.queue('rpc:insert_client_error_report', { data: null, error: { message: 'denied' } });
+
+    await expect(
+      insertClientErrorReport(mock.client, report, { limit: 10, windowSeconds: 60 }),
+    ).rejects.toMatchObject({ code: 'error_logs.write_failed' });
   });
 });
 

@@ -137,8 +137,8 @@
 
 - [x] 16.1 Update specs (error-tracking, org-tenancy), `design.md` D12, and this section before code
 - [x] 16.2 N-3/N-4 (TDD): regression tests for quoted/single-quoted/inspect/escaped secrets and DNIs glued to `_`, `.`, letters (confirmed green against `65eb994`); fix `redact.ts` keeping bounded quantifiers and the 200 KB performance test
-- [ ] 16.3 N-1/N-2 DB (TDD, pgTAP): migration `20261005000200_report_rate_limit.sql` with `error_logs.origin`, partial index, `insert_client_error_report` (advisory lock, count, insert; service role only)
-- [ ] 16.4 N-1/N-2 app (TDD): `reportError` auth → pre-check (429) → `readBody` (413) → schema → trace → `storeClientReport` (`stored`/`rate_limited`/`failed`); repository `insertClientErrorReport` (rpc) and `countRecentClientReports` on the column; route wiring; regenerate DB types
+- [x] 16.3 N-1/N-2 DB (TDD, pgTAP): migration `20261005000200_report_rate_limit.sql` with `error_logs.origin`, partial index, `insert_client_error_report` (advisory lock, count, insert; service role only)
+- [x] 16.4 N-1/N-2 app (TDD): `reportError` auth → pre-check (429) → `readBody` (413) → schema → trace → `storeClientReport` (`stored`/`rate_limited`/`failed`); repository `insertClientErrorReport` (rpc) and `countRecentClientReports` on the column; route wiring; regenerate DB types
 - [ ] 16.5 N-8 (TDD): year range 2000–2100 in the calendar-date refine
 - [ ] 16.6 N-9/N-11 (pgTAP first): revoke `maintain`; Unicode-blank-aware name check; tests for MAINTAIN and tab/NBSP/ZWSP names
 - [ ] 16.7 N-12: SSR `renderToString` test asserting `method="POST"` on the login form
