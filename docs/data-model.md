@@ -39,11 +39,12 @@ erDiagram
 `id = auth.users.id` (on delete cascade), `org_id`, `full_name` (2–80 caracteres), `role user_role default 'operator'`, `avatar_path`, `is_active bool default true`, `created_at`, `updated_at` (trigger `set_updated_at`). Índice `org_id`.
 - `email` **[pendiente]**: el email vive en `auth.users`; el cambio `areas-operators-admin` decide si se replica para listar operadores.
 - `deactivated_at` **[pendiente]**: llega con la desactivación desde la UI (`areas-operators-admin`).
-- Trigger `profiles_guard_privileged_columns`: solo un admin puede cambiar `role`, `org_id` o `is_active` (si no, error `P0001 forbidden_column`).
-- Altas y bajas solo con service role (seed o futura pantalla de admin).
+- Trigger `profiles_guard_privileged_columns`: solo un admin puede cambiar `role`, `org_id` o `is_active`, y nadie desde la API puede cambiar `id` ni `created_at` (si no, error `P0001 forbidden_column`).
+- Checks: `profiles_full_name_trimmed_length` (nombre sin espacios de borde entre 2 y 80) y `profiles_avatar_path_own_folder` (`avatar_path` null o dentro de `{org_id}/{id}/`, sin `..`).
+- Altas y bajas solo con service role (seed o futura pantalla de admin); `authenticated` no tiene `INSERT` ni `DELETE`.
 
 ### Bucket `avatars` (Storage) [implementado]
-Público para lectura, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user_id}/{uuid}.{ext}`; un usuario solo puede subir, reemplazar o borrar en su propia carpeta.
+Público para lectura por URL, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user_id}/{uuid}.{ext}`; un usuario solo puede subir, reemplazar o borrar en su propia carpeta, y listar objetos solo de la carpeta de su organización.
 
 ### `areas`
 `name`, `description`, `color`, `is_active`, `is_default bool` (una sola por org: "Mesa de Entrada"), `sla_warning_minutes`, `sla_critical_minutes`.
@@ -183,7 +184,8 @@ Una por `(org_id, line_id, phone_normalized)`.
 `actor_user_id`, `action activity_action`, `citizen_id`, `conversation_id`, `task_id`, `details jsonb`.
 
 ### `error_logs` [implementado]
-`org_id null` (null = error sin operador identificado, p. ej. antes del login), `source (web|api|worker|db)`, `level error_level`, `status error_status default 'open'`, `trace_id`, `message`, `details jsonb` (redactado; incluye `digestRef` para unir el reporte del navegador con el del servidor), `user_id null`, `resolved_by`, `resolved_at`, `created_at`. Índices `(org_id, status, created_at desc)` y `trace_id`.
+`org_id null` (null = error sin operador identificado, p. ej. antes del login), `source (web|api|worker|db)`, `level error_level`, `status error_status default 'open'`, `trace_id`, `message`, `details jsonb` (redactado; incluye `digestRef` para unir el reporte del navegador con el del servidor), `user_id null`, `resolved_by`, `resolved_at`, `created_at`. Índices `(org_id, status, created_at desc)`, `trace_id` y `(user_id, created_at desc)` (límite de 10 reportes por minuto; los reportes del navegador llevan `details.origin = 'client'`).
+- Los errores del servidor guardan `org_id` y `user_id` del operador conectado cuando hay sesión.
 - Los errores del futuro webhook de Evolution se registran con `source = 'api'` (es un route handler); no hay valor `webhook`.
 - Inserción solo con service role (la app usa el cliente admin en el servidor).
 - Trigger `error_logs_guard_update`: solo se puede cambiar `status`; al pasar a `resolved` sella `resolved_by = auth.uid()` y `resolved_at = now()`, y los limpia al reabrir.
@@ -234,7 +236,7 @@ Una por `(org_id, line_id, phone_normalized)`.
 | Secretos | nadie (service role) | | | |
 | error_logs | lectura + cambiar estado (su org) | — | — | lectura + cambiar estado (su org y filas con `org_id` null) |
 
-**Implementado hoy (nivel organización):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org. `anon` no tiene permisos. El filtro por área (`current_area_ids()`) llega en `areas-operators-admin`.
+**Implementado hoy (nivel organización):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org. `anon` no tiene permisos. `authenticated` solo tiene `SELECT` y `UPDATE` sobre `organizations`, `profiles` y `error_logs` (sin `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`), y no puede ejecutar las funciones de trigger. El filtro por área (`current_area_ids()`) llega en `areas-operators-admin`.
 
 ## 11. Funciones SQL (transiciones atómicas)
 

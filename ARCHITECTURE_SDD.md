@@ -83,16 +83,18 @@ AvatarUploader (client pre-check type/size) → uploadAvatarAction (body limit 3
 Server error (render / action / route) → instrumentation.ts onRequestError (Node runtime)
   → toRequestErrorLog: skip Next control flow (redirect / notFound / forbidden)
      source 'api' for route handlers, 'web' otherwise; traceId from x-trace-id; details.digestRef
-  → logServerError → logError (redact message + details) → insertErrorLog (service role)
+  → attachRequestOperator(cookie header): session → active profile → org_id / user_id (never throws; null if anonymous)
+  → logServerError → logError (cap raw message, redact message + details) → insertErrorLog (service role)
 
 UI crash → (panel)/error.tsx or global-error.tsx → ErrorFallback
   → generateTraceId(); shows "Ocurrió un error. Código: XXXXXXXX"
   → POST /api/errors/report  header x-trace-id = body.traceId (+ optional note, digest)
-  → reportError: active profile? (401) → errorReportSchema (400) → trace match (400)
-  → logError(source 'web', org/user of the operator) → 201 { code }
+  → reportError: active profile? (401) → ≥ 10 client reports in the last 60 s? (429)
+     → readBoundedJson (> 16 KB: 413, stream cancelled) → errorReportSchema (400) → trace match (400)
+  → logError(source 'web', details.origin 'client', org/user of the operator) → 201 { code }
 
 Support (admin | support) → /support/errors?status&source&level&from&to&id
-  → errorFiltersSchema (invalid values dropped) → toLogFilters (Argentina day bounds, UTC-3)
+  → errorFiltersSchema (invalid values and impossible calendar dates dropped) → toLogFilters (Argentina day bounds, UTC-3)
   → listErrorLogs / findErrorLogById (user-scoped client, RLS)
   → ErrorStatusActions → changeErrorStatusAction → errorStatusChangeSchema → changeErrorLogStatus
      DB trigger allows only status; stamps resolved_by/resolved_at on 'resolved', clears otherwise
@@ -100,7 +102,7 @@ Support (admin | support) → /support/errors?status&source&level&from&to&id
 Retention: purge_error_logs() deletes rows older than 30 days; pg_cron daily 06:00 UTC where available.
 ```
 
-Redaction (`packages/shared/src/redact.ts`): secrets first (authorization/cookie lines, bearer, JWT, `token|api_key|password|secret` key=value), then email, CUIT, AR phones (≥ 10 digits, optional `+54 9`), DNI (7–8 digits or dotted). `redactDetails` walks objects (max depth 5, sensitive keys replaced, circular refs marked) and truncates beyond 8 KB serialized. Next digests are numeric, so they are stored as `digestRef` (letters-only SHA-256 prefix) to survive redaction and still correlate the client report with the server row.
+Redaction (`packages/shared/src/redact.ts`, design D11): input capped at 16 384 chars (`[truncated]`) and every regex quantifier bounded, so worst-case time is linear (200 KB adversarial input < 200 ms). Order: secrets first (authorization/cookie lines, JWT, `sb_secret_…`, bearer, JSON pairs and escaped JSON whose key ends in `token|secret|password|key`, `key=value` / `key: value`), then email, CUIT, AR phones (structured match: optional `+54`/`9`, area code with optional parentheses or leading `0`, optional `15`, masked when ≥ 10 digits), DNI (2-3-3 grouping with one consistent separator or none). `logError` slices the raw message to 2× the stored limit before redacting. `redactDetails` walks objects (max depth 5, sensitive keys replaced, circular refs marked) and truncates beyond 8 KB serialized. Next digests are numeric, so they are stored as `digestRef` (letters-only SHA-256 prefix) to survive redaction and still correlate the client report with the server row.
 
 ## 4. Routes
 
@@ -108,7 +110,7 @@ Redaction (`packages/shared/src/redact.ts`): secrets first (authorization/cookie
 
 | Path | Access | Notes |
 |---|---|---|
-| `/login` | public | `?next=` (sanitized), `?reason=inactive|no_profile` notice |
+| `/login` | public | `?next=` (sanitized), `?reason=inactive|no_profile` notice; form is bound to `signInAction` so pre-hydration submits POST (credentials never in a URL) |
 | `/inbox`, `/citizens`, `/tasks` | active operator | Empty states (filled in Phases 2–5) |
 | `/settings/profile` | active operator | Name and avatar |
 | `/support/errors` | `admin`, `support` | Filters + detail panel (`?id=`); others get 403 |
@@ -117,7 +119,7 @@ Redaction (`packages/shared/src/redact.ts`): secrets first (authorization/cookie
 
 | Method | Path | Auth | Request schema | Response | Feature |
 |---|---|---|---|---|---|
-| POST | `/api/errors/report` | Supabase session + active profile | header `x-trace-id`; body `errorReportSchema` | 201 `{code}` / 400 `{error:'invalid_body'|'trace_mismatch'}` / 401 `{error:'unauthenticated'}` / 500 `{error:'not_stored'}` | `features/errors/report-error` |
+| POST | `/api/errors/report` | Supabase session + active profile; 10 reports / 60 s / user | header `x-trace-id`; body `errorReportSchema`, ≤ 16 KB (read only after auth and rate checks) | 201 `{code}` / 400 `{error:'invalid_body'|'trace_mismatch'}` / 401 `{error:'unauthenticated'}` / 413 `{error:'too_large'}` / 429 `{error:'rate_limited'}` / 500 `{error:'not_stored'}` | `features/errors/report-error`, `infrastructure/http/read-bounded-json` |
 
 ### 4.3 Server actions
 
@@ -140,17 +142,17 @@ Redaction (`packages/shared/src/redact.ts`): secrets first (authorization/cookie
 | `avatarFileSchema` | `apps/web/src/contracts/profile.ts` | `type` (jpeg/png/webp), `size` (≤ 2 097 152) |
 | `errorReportSchema` | `apps/web/src/contracts/errors.ts` | `traceId` (8–64), `message` (≤ 2000), `stack?` (≤ 8000), `url` (≤ 500), `note?` (≤ 500), `digest?` (≤ 200) |
 | `errorStatusChangeSchema` | `apps/web/src/contracts/errors.ts` | `id` (uuid), `status` (`open|acknowledged|resolved`) |
-| `errorFiltersSchema` | `apps/web/src/contracts/errors.ts` | `status?`, `source?`, `level?`, `from?`/`to?` (`YYYY-MM-DD`), `id?` (uuid); invalid values become `undefined` |
+| `errorFiltersSchema` | `apps/web/src/contracts/errors.ts` | `status?`, `source?`, `level?`, `from?`/`to?` (`YYYY-MM-DD`, must be a real calendar date), `id?` (uuid); invalid values become `undefined` |
 | `roleSchema`, `profileSchema`, `errorLogSchema` | `packages/shared/src/contracts/*` | Domain entities used to validate repository rows |
 | `Database` types | `packages/shared/src/contracts/database.types.ts` | Generated by `npm run db:types` |
 
-### 5.2 Persistence (migration `supabase/migrations/20260930000100_foundation.sql`)
+### 5.2 Persistence (migrations `20260930000100_foundation.sql` + `20261005000100_foundation_hardening.sql`)
 
 | Table | Key columns | Notes |
 |---|---|---|
 | `organizations` | `id`, `name`, `slug unique` | Seeded `epuyen` |
-| `profiles` | `id = auth.users.id`, `org_id`, `full_name (2–80)`, `avatar_path`, `role user_role`, `is_active`, `created_at`, `updated_at` | Index `org_id`; `updated_at` trigger |
-| `error_logs` | `org_id?`, `source (web|api|worker|db)`, `level error_level`, `message`, `details jsonb`, `trace_id`, `user_id?`, `status error_status`, `resolved_by?`, `resolved_at?` | Indexes `(org_id, status, created_at desc)`, `trace_id` |
+| `profiles` | `id = auth.users.id`, `org_id`, `full_name (2–80)`, `avatar_path`, `role user_role`, `is_active`, `created_at`, `updated_at` | Index `org_id`; `updated_at` trigger; checks `profiles_full_name_trimmed_length` (trimmed 2–80) and `profiles_avatar_path_own_folder` (`{org_id}/{id}/…`, no `..`) |
+| `error_logs` | `org_id?`, `source (web|api|worker|db)`, `level error_level`, `message`, `details jsonb`, `trace_id`, `user_id?`, `status error_status`, `resolved_by?`, `resolved_at?` | Indexes `(org_id, status, created_at desc)`, `trace_id`, `(user_id, created_at desc)` (report rate limit) |
 | `storage.buckets.avatars` | public, 2 MB, JPEG/PNG/WebP | Objects `{org_id}/{user_id}/{uuid}.{ext}` |
 
 RLS helpers (`security definer`, `stable`, `search_path = ''`, return null without an **active** profile, so every policy matches nothing for inactive/orphan users): `current_org_id()`, `current_user_role()`.
@@ -158,9 +160,13 @@ RLS helpers (`security definer`, `stable`, `search_path = ''`, return null witho
 | Object | Select | Update | Insert / delete |
 |---|---|---|---|
 | `organizations` | own org | — | service role |
-| `profiles` | own org | self (own row) or admin (own org); trigger `profiles_guard_privileged_columns` rejects non-admin changes to `role`, `org_id`, `is_active` (`P0001 forbidden_column`) | service role |
+| `profiles` | own org | self (own row) or admin (own org); trigger `profiles_guard_privileged_columns` rejects any API change to `id`/`created_at` and non-admin changes to `role`, `org_id`, `is_active` (`P0001 forbidden_column`) | service role |
 | `error_logs` | `admin`/`support` of the org; null-org rows `support` only | same set; trigger `error_logs_guard_update` allows only `status` and stamps resolution | service role; `purge_error_logs()` service role only |
-| `storage.objects` (`avatars`) | authenticated | own folder | own folder |
+| `storage.objects` (`avatars`) | authenticated, own org folder only | own folder | own folder |
+
+Grants: `authenticated` holds only `SELECT`/`UPDATE` on the three business tables (no `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`); trigger functions are not executable by `public`/`anon`/`authenticated`.
+
+Auth server (`supabase/config.toml`): `[auth] enable_signup = false` (operators are provisioned by the seed or the service role), `minimum_password_length = 10`. `[auth.email] enable_signup` stays `true` because it enables the email provider itself; turning it off breaks password sign-in. The cloud project must mirror this (see README).
 
 ## 6. AI / LLM boundaries
 
@@ -193,3 +199,4 @@ This snapshot: areas, area membership and area-level RLS, operator CRUD/role edi
 |---|---|---|
 | 2026-09-30 | Design baseline at SDD bootstrap | — |
 | 2026-10-01 | Monorepo, local Supabase on Podman, org RLS, auth/session/guards, profile editing, error tracking + support screen, panel shell | `foundation-workspace-auth` |
+| 2026-10-05 | Adversarial-review hardening (D11): POST-bound login form, linear-time redaction with AR formats, report endpoint auth → rate limit → 16 KB cap, server errors attach operator org/user, calendar-date filters, least-privilege grants, immutable profile identity, profile checks, org-scoped avatar listing, signup disabled + 10-char passwords | `foundation-workspace-auth` |

@@ -55,6 +55,8 @@ If `npm run db:start` cannot run on Podman:
    npm run db:push
    ```
 
+4. Mirror the local auth settings in the dashboard (`config.toml` is not pushed): **Authentication → Sign In / Providers**: turn "Allow new users to sign up" **off** and keep the **Email** provider **enabled**; in the password settings set the minimum length to **10**.
+
 ## Scripts
 
 | Script | What it does |
@@ -74,23 +76,26 @@ If `npm run db:start` cannot run on Podman:
 
 ## Seeding and first login
 
-1. Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env.local` (never commit them).
+1. Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` (at least 10 characters) in `.env.local` (never commit them).
 2. `npm run db:seed` (safe to run again; it does not duplicate rows or reset the password).
 3. Open http://localhost:3000/login and sign in with those credentials.
 
-Inactive accounts or users without a profile are signed out and sent back to `/login` with a notice. Operators, areas and role editing arrive with the next change (`areas-operators-admin`); until then, extra local users are created with the Supabase admin API or Studio plus a `profiles` row.
+Inactive accounts or users without a profile are signed out and sent back to `/login` with a notice. Public signup is disabled (`[auth] enable_signup = false`, passwords ≥ 10 characters). Operators, areas and role editing arrive with the next change (`areas-operators-admin`); until then, extra local users are created with the Supabase admin API or Studio plus a `profiles` row.
+
+Do not set `[auth.email] enable_signup = false` in `supabase/config.toml`: it disables the email provider itself, and password sign-in fails with `email_provider_disabled`.
 
 ## Error tracking and support screen
 
 - Every request gets an `x-trace-id` header (middleware). Server errors are captured by `apps/web/src/instrumentation.ts` (`onRequestError`); UI crashes show "Ocurrió un error. Código: XXXXXXXX" and report to `POST /api/errors/report`.
-- Messages and details are redacted before storage (emails, DNI, CUIT, phones, tokens, passwords). Rows live in `error_logs` and are purged after 30 days.
+- Messages and details are redacted before storage (emails, DNI, CUIT, Argentine phone formats, tokens, passwords, JSON secrets). Redaction input is capped at 16 KB and runs in linear time. Rows live in `error_logs` and are purged after 30 days.
+- `POST /api/errors/report` limits: signed-in active operator (401), 10 reports per user per minute (429), body ≤ 16 KB (413). Server errors record the signed-in operator's organization and user when there is a session.
 - Users with role `admin` or `support` open **`/support/errors`**: filter by status, source, level and date (Argentina time), open the detail, and mark incidents acknowledged, resolved or reopened. Other roles get HTTP 403.
 - To find a reported incident, match the code the user dictates with the first 8 characters of `trace_id`.
 
 ## Testing notes
 
 - `npm run test` runs unit and component tests with no database; features receive fake ports.
-- `npm run test:db` needs the local stack (`npm run db:start`); it checks RLS isolation between organizations, inactive-user lockout, guard triggers, storage policies and error-log purge.
+- `npm run test:db` needs the local stack (`npm run db:start`); it checks RLS isolation between organizations, inactive-user lockout, guard triggers, table grants, profile constraints, storage policies and error-log purge.
 - Before a change is closed, run `npm run typecheck`, `npm run lint`, `npm run test` and `npm run test:db`; all must exit 0.
 - Verification evidence (curl, E2E screenshots) lives in `openspec/changes/<change>/reports/`.
 - After editing modules imported by `instrumentation.ts`, restart `npm run dev`; Turbopack HMR may keep the old version.

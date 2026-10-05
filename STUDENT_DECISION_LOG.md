@@ -46,6 +46,8 @@ Cada pedido al panel
 Algo falla en el servidor → instrumentation.ts lo captura
 Algo falla en la pantalla → error.tsx muestra "Ocurrió un error. Código: XXXXXXXX"
                             y envía un reporte a POST /api/errors/report
+                            (primero sesión, después máximo 10 por minuto, después cuerpo ≤ 16 KB)
+  → se anota el municipio y el operador que estaba conectado (si lo hay)
   → redactar: se borran emails, DNI, CUIT, teléfonos, tokens y contraseñas
   → error_logs (solo el servidor puede escribir)
 Soporte → /support/errors → filtra, abre el detalle, marca "resuelto"
@@ -74,7 +76,8 @@ Vecino (WhatsApp)
 - **Casos de uso con "puertos" inyectados.** `signIn`, `updateName`, `uploadAvatar`, `reportError`, `logError` reciben como parámetros las funciones que hablan con Supabase. Así los tests unitarios usan funciones falsas y prueban la lógica sin base ni Next. Los archivos `server.ts` y `actions.ts` son los únicos que conectan las piezas reales.
 - **Repositorios como única puerta a Supabase.** Si mañana cambia una columna, se toca un archivo. Además validan cada fila con Zod: si la base devuelve algo raro, el error es claro (`profiles.invalid_row`) en lugar de una pantalla rota más adelante.
 - **Por qué RLS con funciones auxiliares (`current_org_id()`, `current_user_role()`).** Las reglas de seguridad viven en la base, no en la aplicación. Las dos funciones devuelven "nada" si el perfil está desactivado, entonces **todas** las reglas dejan de coincidir de golpe: desactivar a alguien lo bloquea en todas las tablas sin tocar cada política. El CRM de seguros no tenía desactivación de usuarios; al portar sus helpers agregamos el chequeo de `is_active` adentro, sin ningún valor "por defecto" permisivo.
-- **Triggers de guardia.** Un operador puede editar su propia fila de perfil, pero un trigger impide que cambie su rol, su municipio o su estado activo (error `forbidden_column`). En `error_logs`, otro trigger permite cambiar solo el estado y anota quién resolvió. La aplicación también controla roles, pero si alguien llama a la API directamente con su token, la base lo frena igual (lo probamos con curl).
+- **Triggers de guardia.** Un operador puede editar su propia fila de perfil, pero un trigger impide que cambie su rol, su municipio o su estado activo (error `forbidden_column`). Nadie desde la API, ni siquiera un admin, puede cambiar el `id` o la fecha de creación de un perfil: eso evitaría "reasignar" un perfil a otra cuenta.
+- **Mínimo privilegio también en los permisos (`GRANT`).** RLS decide *qué filas*; los permisos deciden *qué operaciones*. El rol `authenticated` solo conserva `SELECT` y `UPDATE` en las tablas de negocio: crear o borrar perfiles queda para el service role. Los checks de la tabla (`profiles_full_name_trimmed_length`, `profiles_avatar_path_own_folder`) protegen el dato aunque alguien se salte la pantalla. En `error_logs`, otro trigger permite cambiar solo el estado y anota quién resolvió. La aplicación también controla roles, pero si alguien llama a la API directamente con su token, la base lo frena igual (lo probamos con curl).
 - **`forbidden()` de Next para el 403.** Elegimos activar `experimental.authInterrupts` en lugar de redirigir con código 200: un operador que entra a `/support/errors` recibe un 403 real, que es lo correcto y se puede testear.
 - **Excepción consciente (futura)**: tomar, delegar, aceptar o resolver se harán en funciones SQL. Si dos operadores aprietan "tomar" al mismo tiempo, solo la base puede garantizar que gane uno (bloqueo de fila en una transacción).
 
@@ -86,7 +89,10 @@ Vecino (WhatsApp)
 - Los objetos se recorren hasta 5 niveles; claves como `password`, `token` o `cookie` se reemplazan enteras; si el detalle supera 8 KB se recorta.
 - `logError` **nunca** lanza una excepción: si la base falla, escribe en consola (también redactado). Un error al registrar errores no puede tumbar la pantalla.
 - **Lección aprendida en la prueba E2E:** Next identifica cada error del servidor con un "digest" numérico largo. Nuestra redacción lo confundía con un teléfono y lo guardaba como `[phone]`, así que no se podía unir el reporte de la pantalla con el del servidor. La solución, primero en la spec y después en código con TDD, fue guardar `digestRef`: un resumen SHA-256 de 16 caracteres escrito solo con letras (a–p). No tiene dígitos, así que la redacción no lo toca, y no expone el digest original. Moraleja: los filtros de privacidad deben probarse con datos reales del sistema, no solo con ejemplos inventados.
-- El trace id viaja en la cabecera `x-trace-id` y en el cuerpo del reporte; si no coinciden, se rechaza (400). Al usuario se le muestran solo los primeros 8 caracteres en mayúsculas como "código" para dictar por teléfono.
+- **Lección de la revisión adversarial (2026-10-05):** la primera versión de la redacción fallaba de dos formas. (1) No reconocía formatos argentinos reales, como `(0294) 15-412-3456`, `+54 9 294 …` o un DNI con espacios, ni secretos en JSON como `"password":"…"`. (2) Algunas expresiones regulares tardaban **minutos** con un texto de 200 KB armado a propósito (*backtracking* cuadrático), y eso se puede usar para colgar el servidor. La solución (decisión D11) fue limitar la entrada a 16 384 caracteres y poner un tope a cada repetición de las regex, para que el tiempo crezca en forma lineal. Hoy hay un test que exige menos de 200 ms con 200 KB. Moraleja: un filtro de seguridad también es una superficie de ataque.
+- El trace id viaja en la cabecera `x-trace-id` y en el cuerpo del reporte; si no coinciden, se rechaza (400).
+- **El endpoint de reportes revisa en orden barato → caro:** primero la sesión (401), después el límite de 10 reportes por minuto por usuario (429) y recién entonces lee el cuerpo, cortándolo a los 16 KB (413). Así un atacante no puede obligar al servidor a leer megas ni a escribir miles de filas.
+- **Login sin JavaScript:** si el formulario se envía antes de que la página termine de cargar, el navegador hace un POST al server action. Antes hacía un GET y la contraseña podía quedar en la URL y en el historial. Al usuario se le muestran solo los primeros 8 caracteres en mayúsculas como "código" para dictar por teléfono.
 
 ### 4.2 Bot (planeado, fase 6)
 
@@ -99,6 +105,7 @@ Vecino (WhatsApp)
 - **Decisión:** Supabase corre en la máquina con Podman (no hay Docker instalado). Se hizo un spike con límite de 2 horas; funcionó en unos 25 minutos. Evidencia: `openspec/changes/foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md`.
 - **Problemas resueltos:** faltaba la carpeta `supabase/snippets/` (Studio la monta) y se apagaron `analytics` y `edge_runtime` para ahorrar memoria.
 - **Por qué local:** las pruebas de seguridad (pgTAP) y los `db reset` son gratis e instantáneos, y no se arriesgan datos reales. El proyecto en la nube queda para `db push` y el despliegue.
+- **Registro cerrado:** en `supabase/config.toml` se apagó el alta pública (`[auth] enable_signup = false`) y la contraseña mínima pasó a 10 caracteres. Trampa encontrada al verificar: `[auth.email] enable_signup` **no** significa "alta por email" sino "proveedor de email encendido"; si se apaga, nadie puede iniciar sesión (`email_provider_disabled`). Por eso queda en `true`.
 - **Riesgo:** la máquina de Podman tiene 2 GiB y comparte memoria con otros contenedores; si aparece falta de memoria, se sube con `podman machine set --memory 4096`.
 
 ## 6. Glosario técnico
@@ -118,6 +125,10 @@ Vecino (WhatsApp)
 | Webhook | Dirección del panel a la que Evolution avisa cada mensaje nuevo | `apps/web/src/app/api/webhooks/evolution` (planeado) |
 | RAG | El bot busca primero en los documentos oficiales y responde solo con eso | `worker/src/features/bot` (planeado) |
 | Transacción atómica | Varias escrituras que pasan todas juntas o ninguna | Funciones SQL (planeado) |
+| ReDoS / backtracking | Una regex mal acotada puede tardar muchísimo con un texto armado a propósito y colgar el servidor | `packages/shared/src/redact.ts` (cuantificadores acotados) |
+| Rate limit | Tope de pedidos por usuario en una ventana de tiempo (acá: 10 reportes por minuto) | `apps/web/src/features/errors/report-error.ts` |
+| GRANT / mínimo privilegio | Permisos por operación (leer, actualizar, borrar) que se suman a RLS | `supabase/migrations/20261005000100_foundation_hardening.sql` |
+| Revisión adversarial | Un revisor independiente (otra sesión) intenta romper el cambio antes de cerrarlo | `openspec/changes/foundation-workspace-auth/reports/2026-10-05-adversarial-review.md` |
 
 ## 7. Qué aprendí / qué defendería en una oral
 
@@ -125,7 +136,8 @@ Vecino (WhatsApp)
 - Por qué la seguridad vive en la base: probamos con curl y el token de un operador que no puede leer errores ni cambiarse el rol, aunque se salte la pantalla.
 - Por qué validar archivos por su contenido: un `.png` renombrado puede ser cualquier cosa; leemos los primeros bytes.
 - Por qué el error tracking redacta: los mensajes de error suelen arrastrar lo que escribió el vecino (DNI, teléfono). Guardar eso en un log viola la privacidad.
-- Por qué TDD: 248 tests unitarios y 69 tests de base dieron confianza para corregir el defecto del digest sin romper nada.
+- Por qué TDD: 248 tests unitarios y 69 tests de base dieron confianza para corregir el defecto del digest sin romper nada. Después de la revisión adversarial son 306 unitarios y 89 de base.
+- Por qué "quien escribe no revisa": la verificación mecánica (`/opsx:verify`) dio todo en verde, pero un revisor independiente encontró 3 fallas mayores. Pasar los checks no significa que el código sea seguro.
 - Por qué el webhook no llamará al LLM (fase 2): velocidad y reintentos de Evolution.
 - Por qué documentar primero: 78 requisitos con ID y 7 fases permiten verificar cada entrega contra algo escrito.
 
@@ -135,3 +147,4 @@ Vecino (WhatsApp)
 |---|---|---|
 | 2026-09-30 | — (bootstrap SDD) | Línea base: flujo planeado, justificación de capas, control de salida, glosario |
 | 2026-10-01 | `foundation-workspace-auth` | Flujo real de login y errores, RLS con funciones auxiliares, triggers de guardia, redacción y lección del digest, decisión Podman, glosario ampliado |
+| 2026-10-05 | `foundation-workspace-auth` (endurecimiento) | Lecciones de la revisión adversarial: redacción lineal con formatos argentinos, endpoint de reportes barato → caro, login por POST, permisos mínimos, alta pública cerrada y la trampa de `auth.email.enable_signup` |
