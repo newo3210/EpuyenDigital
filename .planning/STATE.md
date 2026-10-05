@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-09-30)
 
 Phase: 1 of 7 (Fundación)
 Plan: 1 of 2 changes implemented (`foundation-workspace-auth`); next `areas-operators-admin`
-Status: Verified + hardened seven times — pending short confirmation of V-1..V-4 (separate session), acceptance matrix, human OK, archive
+Status: Verified + hardened seven times — V-1..V-4 confirmation PASS (`9a8940e`); pending acceptance matrix (separate session), human OK, archive
 Last activity: 2026-10-05 — sixth (targeted) re-review FAIL (V-1..V-3 latent header/cookie secret leaks, V-4 D16 regression); step 21 fixes done (tasks 21.1–21.4, design D17): 469 unit / 136 pgTAP, contract corpus 0 leaks
 
 Progress: [█░░░░░░░░░] ~7% (Phase 1: 1 of 2 changes)
@@ -48,8 +48,9 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Cerrar `foundation-workspace-auth`: verificación corta de V-1..V-4 del diff `d603110..HEAD` en sesión separada → `acceptance-matrix.md` → OK humano → `/opsx:archive` → merge a `main`
+- Cerrar `foundation-workspace-auth`: `acceptance-matrix.md` en sesión separada → OK humano → `/opsx:archive` → merge a `main`
 - Backlog de la sexta re-revisión (2026-10-05, no bloqueante): B-1 (objetos de cookie `{ name, value }` dejan ver el valor de sesión; fuera de contrato; candidato: regla para valores `base64-eyJ…` de Supabase), B-2 (arrays de pares de headers `[["apikey","…"]]`; fuera de contrato), B-3 (DSN con carácter especial en la contraseña deja ver el comienzo; familia N-7), B-4 (valores sin comillas se cortan en el primer blanco: PEM en texto plano, frases de contraseña; fuera de contrato; candidato: regla de bloque PEM), B-6 (`EVOLUTION_API_KEY=\nADMIN_PHONE=…`: un secreto vacío se come el `KEY=` de la línea siguiente y deja ver parte del teléfono), B-7 (JSON escapado pierde la forma; solo tapa de más). Antes de que el worker registre headers o cookies, revisar B-1, B-2 y B-4
+- Backlog de la verificación V-1..V-4 (2026-10-05, PASS, no bloqueante): C-1 (`password: user: <v>` deja ver `<v>`; recorte intencional de D17, una palabra común seguida de blanco ya no es eslabón), C-2 (`token= (2945 451234)` deja ver `451234`; ya existía), C-3 (`session_id: 30 123 456` deja ver `123 456`; ya existía), C-4 (teórico: un `[` sin cerrar bajo una clave secreta consume hasta 4 096 caracteres y podría cortar un par posterior)
 - Proponer `areas-operators-admin` (FND-02..05, FND-06 nivel área) incluyendo Q-3 (protección del último admin activo)
 - Backlog de hallazgos diferidos (review 2026-10-05): M-2 (una fila inválida rompe la lista de errores), M-8 (bloqueo de inactivos solo en el layout), M-9 (subidas directas a Storage sin sniffing), M-11 (trace ids son pistas del cliente), M-12 (errores de Auth colapsados en "credenciales incorrectas"), Q-2 (cookies viejas tras sign-out en el layout)
 - Backlog de la re-revisión (2026-10-05): N-5 (el corte por longitud puede partir un email o token y dejar ver la mitad), N-6 (formatos de teléfono no cubiertos: pares, `/`, ` - `, pegados a `tel`, `15-xxxxxx`), N-7 (emails muy largos o no ASCII, DSN `scheme://user:pass@host` sin punto, claves `key`/`service_key` en objetos, DNI con separadores inconsistentes), N-10 (resolver del operador sin tests ni timeout; usar `getClaims()` en vez de `getUser()`), N-13 (toda función `security definer` futura que escriba `profiles`/`error_logs` debe re-chequear roles, documentado en `ARCHITECTURE_SDD.md`)
