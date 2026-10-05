@@ -25,13 +25,13 @@ export type Database = {
           Tables: {
             "error_logs": {
                   Row: {
-                    "created_at": string,"details": NonNullable<Json>,"id": string,"level": Database["public"]['Enums']["error_level"],"message": string,"org_id": string | null,"resolved_at": string | null,"resolved_by": string | null,"source": string,"status": Database["public"]['Enums']["error_status"],"trace_id": string,"user_id": string | null
+                    "created_at": string,"details": NonNullable<Json>,"id": string,"level": Database["public"]['Enums']["error_level"],"message": string,"org_id": string | null,"origin": string,"resolved_at": string | null,"resolved_by": string | null,"source": string,"status": Database["public"]['Enums']["error_status"],"trace_id": string,"user_id": string | null
                   }
                   Insert: {
-                    "created_at"?: string,"details"?: NonNullable<Json>,"id"?: string,"level": Database["public"]['Enums']["error_level"],"message": string,"org_id"?: string | null,"resolved_at"?: string | null,"resolved_by"?: string | null,"source": string,"status"?: Database["public"]['Enums']["error_status"],"trace_id": string,"user_id"?: string | null
+                    "created_at"?: string,"details"?: NonNullable<Json>,"id"?: string,"level": Database["public"]['Enums']["error_level"],"message": string,"org_id"?: string | null,"origin"?: string,"resolved_at"?: string | null,"resolved_by"?: string | null,"source": string,"status"?: Database["public"]['Enums']["error_status"],"trace_id": string,"user_id"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"details"?: NonNullable<Json>,"id"?: string,"level"?: Database["public"]['Enums']["error_level"],"message"?: string,"org_id"?: string | null,"resolved_at"?: string | null,"resolved_by"?: string | null,"source"?: string,"status"?: Database["public"]['Enums']["error_status"],"trace_id"?: string,"user_id"?: string | null
+                    "created_at"?: string,"details"?: NonNullable<Json>,"id"?: string,"level"?: Database["public"]['Enums']["error_level"],"message"?: string,"org_id"?: string | null,"origin"?: string,"resolved_at"?: string | null,"resolved_by"?: string | null,"source"?: string,"status"?: Database["public"]['Enums']["error_status"],"trace_id"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -91,6 +91,9 @@ isOneToOne: false
                            },
 "current_user_role":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["user_role"]
+                           },
+"insert_client_error_report":
+{ Args: { "p_details": Json,"p_limit": number,"p_message": string,"p_org_id": string,"p_trace_id": string,"p_user_id": string,"p_window_seconds": number }; Returns: string
                            },
 "purge_error_logs":
 { Args: Record<PropertyKey, never>; Returns: number

@@ -49,7 +49,7 @@ select ok(
   and not has_function_privilege('anon', 'public.error_logs_guard_update()', 'execute'),
   'anon cannot execute trigger functions directly'
 );
-select has_index('public', 'error_logs', 'error_logs_user_created_idx', 'error_logs has the per-user recent index');
+select has_index('public', 'error_logs', 'error_logs_client_reports_idx', 'error_logs has the per-user client-report index');
 
 -- ---------------------------------------------------------------------------
 -- Operator: truncate, immutable columns, constraints (spec org-tenancy: Profile self-service limits)
