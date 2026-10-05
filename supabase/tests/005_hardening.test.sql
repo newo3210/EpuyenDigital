@@ -144,7 +144,7 @@ select throws_ok(
   '23514', null,
   'full_name of tag characters and a variation selector is rejected'
 );
--- One letter padded with the remaining default-ignorables (design D14, S-5)
+-- One letter padded with assigned default-ignorables (design D14, S-5)
 select throws_ok(
   $$update public.profiles set full_name = 'A' || chr(917760) where id = '00000000-0000-4000-8000-0000000000a2'$$,
   '23514', null,
