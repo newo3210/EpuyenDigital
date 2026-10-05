@@ -70,6 +70,30 @@ describe('LoginForm - submit', () => {
   });
 });
 
+// Pre-hydration fallback - native submit must target the server action, never a GET with credentials.
+describe('LoginForm - native submit', () => {
+  it('binds the form to an action instead of the default GET to the current URL', () => {
+    const { container } = render(<LoginForm next="/inbox" />);
+
+    const form = container.querySelector('form');
+    expect(form?.getAttribute('action')).toBeTruthy();
+    expect(form?.getAttribute('method')?.toLowerCase()).not.toBe('get');
+  });
+
+  it('carries the next target in a hidden input', () => {
+    const { container } = render(<LoginForm next="/support/errors" />);
+
+    const hidden = container.querySelector<HTMLInputElement>('input[type="hidden"][name="next"]');
+    expect(hidden?.value).toBe('/support/errors');
+  });
+
+  it('omits the hidden next input when there is no target', () => {
+    const { container } = render(<LoginForm />);
+
+    expect(container.querySelector('input[name="next"]')).toBeNull();
+  });
+});
+
 // Lockout notice - reason message from requireOperator is shown on arrival.
 describe('LoginForm - notice', () => {
   it('shows the lockout notice', () => {

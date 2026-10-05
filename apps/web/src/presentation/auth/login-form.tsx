@@ -41,8 +41,11 @@ export function LoginForm({ next, notice }: LoginFormProps) {
   const emailError = errors.email?.message ?? state.fieldErrors?.email;
   const passwordError = errors.password?.message ?? state.fieldErrors?.password;
 
+  // Native action - pre-hydration submits POST to the server action, so credentials never land in a URL.
   return (
-    <form onSubmit={handleSubmit(onValid)} noValidate className="flex flex-col gap-5">
+    <form action={formAction} onSubmit={handleSubmit(onValid)} noValidate className="flex flex-col gap-5">
+      {next && <input type="hidden" name="next" value={next} />}
+
       {/* Notices - lockout reason on arrival, generic sign-in failure after submit. */}
       {notice && (
         <p role="status" className="rounded-lg bg-notice-soft px-3 py-2 text-sm text-notice">

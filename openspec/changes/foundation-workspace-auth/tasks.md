@@ -122,7 +122,7 @@
 ## 15. Adversarial Review Fixes (2026-10-05, design D11)
 
 - [x] 15.1 Update specs (error-tracking, operator-auth, org-tenancy, operator-profile, local-dev-environment), `design.md` D11 and layer table, and this section before code
-- [ ] 15.2 J-1 (TDD): login form posts via `action={formAction}` with a hidden `next` input; test that the form has an action and carries `next`
+- [x] 15.2 J-1 (TDD): login form posts via `action={formAction}` with a hidden `next` input; test that the form has an action and carries `next`
 - [ ] 15.3 J-2 (TDD): redaction rules for Argentine phone/DNI formats, JSON/`key=` secrets, `sb_secret_`; one test per format; dates, IPs and UUIDs stay intact
 - [ ] 15.4 J-3a/b (TDD): bounded quantifiers, `redactText` input cap, message slice before redaction in `logError`; performance test on 200 KB adversarial inputs (< 200 ms)
 - [ ] 15.5 J-3c/d (TDD): `reportError` auth → rate limit (429) → `readBody` (413 over 16 KB) → schema → trace; `countRecentClientReports` repository; route adapter with content-length and text-length checks
