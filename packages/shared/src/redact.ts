@@ -36,7 +36,10 @@ const CUIT_RE = /(?<!\d)\d{2}-?\d{8}-?\d(?!\d)/g;
 const PHONE_RE =
   /(?<![\w+-])(?:\+?54[\s.-]?)?(?:9[\s.-]?)?(?:\(\s?0?\d{2,4}\s?\)|0?\d{2,4})[\s.-]?(?:15[\s.-]?)?\d{2,4}[\s.-]?\d{2,4}(?![\w-])/g;
 const PHONE_MIN_DIGITS = 10;
-const DNI_RE = /(?<!\d)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d|-[0-9a-f]{4}-)/gi;
+const DNI_RE = /(?<!\d)\d{1,2}([.\s-]?)\d{3}\1\d{3}(?!\d)/g;
+
+// UUID tokens - canonical 8-4-4-4-12 hex ids (trace/row ids) exempt from the CUIT/phone/DNI passes (D13).
+const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 
 // Sensitive keys - object properties whose values are always replaced.
 const SENSITIVE_KEY_RE = /passw(?:or)?d|secret|token|api[-_]?key|authorization|cookie|session|credential/i;
@@ -47,11 +50,28 @@ function maskPhone(match: string): string {
   return digits >= PHONE_MIN_DIGITS ? '[phone]' : match;
 }
 
-// Text redaction - bounded input; secrets first (they may contain digits), then personal data.
+// Numeric personal data - CUIT, phone and DNI passes on a segment that holds no UUID token.
+function redactNumericData(segment: string): string {
+  return segment.replace(CUIT_RE, '[cuit]').replace(PHONE_RE, maskPhone).replace(DNI_RE, '[dni]');
+}
+
+// UUID-aware pass - numeric passes run between UUID tokens; the tokens are kept verbatim.
+function redactOutsideUuids(text: string): string {
+  let output = '';
+  let cursor = 0;
+  for (const match of text.matchAll(UUID_RE)) {
+    const start = match.index ?? 0;
+    output += redactNumericData(text.slice(cursor, start)) + match[0];
+    cursor = start + match[0].length;
+  }
+  return output + redactNumericData(text.slice(cursor));
+}
+
+// Text redaction - bounded input; secrets first (they may contain digits), then emails, then numeric data.
 export function redactText(text: string): string {
   const bounded =
     text.length > MAX_REDACT_INPUT_CHARS ? `${text.slice(0, MAX_REDACT_INPUT_CHARS)}${TRUNCATED}` : text;
-  return bounded
+  const withoutSecrets = bounded
     .replace(AUTHORIZATION_LINE_RE, `$1: ${REDACTED}`)
     .replace(COOKIE_LINE_RE, `$1: ${REDACTED}`)
     .replace(JWT_RE, REDACTED)
@@ -59,10 +79,8 @@ export function redactText(text: string): string {
     .replace(BEARER_RE, `$1 ${REDACTED}`)
     .replace(JSON_SECRET_RE, `"$1":"${REDACTED}"`)
     .replace(KEY_VALUE_SECRET_RE, `$1=${REDACTED}`)
-    .replace(EMAIL_RE, '[email]')
-    .replace(CUIT_RE, '[cuit]')
-    .replace(PHONE_RE, maskPhone)
-    .replace(DNI_RE, '[dni]');
+    .replace(EMAIL_RE, '[email]');
+  return redactOutsideUuids(withoutSecrets);
 }
 
 // Number redaction - integers that look like DNI/CUIT/phone become their placeholder.

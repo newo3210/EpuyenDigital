@@ -169,6 +169,31 @@ describe('redactText - DNIs next to digits and dots', () => {
   });
 });
 
+// UUID exemption (design D13) - spec scenario "UUIDs stay intact"; trace and row ids are never personal data.
+describe('redactText - UUIDs stay intact', () => {
+  const SAMPLES = 20_000;
+
+  it(`leaves ${SAMPLES} random UUIDs unchanged, alone and inside a support URL`, () => {
+    const changed: string[] = [];
+    for (let i = 0; i < SAMPLES; i += 1) {
+      const id = crypto.randomUUID();
+      const url = `/support/errors?id=${id}`;
+      if (redactText(id) !== id || redactText(url) !== url) changed.push(id);
+    }
+    expect(changed.slice(0, 5)).toEqual([]);
+  });
+
+  it('keeps upper-case UUIDs and masks personal data right next to one', () => {
+    const id = '550E8400-E29B-41D4-A716-446655440000';
+    expect(redactText(`${id} dni 30123456`)).toBe(`${id} dni [dni]`);
+    expect(redactText(`trace=${id};tel 2945451234`)).toBe(`trace=${id};tel [phone]`);
+  });
+
+  it('still masks an email whose local part is a UUID', () => {
+    expect(redactText('550e8400-e29b-41d4-a716-446655440000@epuyen.gob.ar')).toBe('[email]');
+  });
+});
+
 // Superset property (design D13) - whatever the 65eb994 redaction removed, the current one removes too.
 describe('redactText - superset of the 65eb994 redaction', () => {
   const jwt = ['eyJ' + 'hbGciOiJIUzI1NiJ9', 'eyJzdWIiOiJ0ZXN0In0', 'c2lnbmF0dXJlX3Rlc3Q'].join('.');
@@ -261,6 +286,7 @@ describe('redactText - performance', () => {
     ['unclosed JSON secrets', '"token":"\\x'.repeat(SIZE / 11)],
     ['escape runs after a secret key', `secret='${'\\\\'.repeat(SIZE / 2)}`],
     ['glued digit runs', 'a1234567.'.repeat(SIZE / 9)],
+    ['UUID runs between digits', '550e8400-e29b-41d4-a716-446655440000 30123456 '.repeat(SIZE / 46)],
   ])('redacts 200 KB of %s within 200 ms', (_label, input) => {
     const start = performance.now();
     redactText(input);
