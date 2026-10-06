@@ -5,7 +5,7 @@
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
 **Última actualización:** 2026-10-05
-**Change relacionado:** `openspec/changes/foundation-workspace-auth/` (Fase 1, cambio 1 de 2)
+**Change relacionado:** `openspec/changes/archive/2026-10-05-foundation-workspace-auth/` (Fase 1, cambio 1 de 2)
 
 ---
 
@@ -112,7 +112,7 @@ Vecino (WhatsApp)
 
 ## 5. Entorno local: Podman en lugar de la nube
 
-- **Decisión:** Supabase corre en la máquina con Podman (no hay Docker instalado). Se hizo un spike con límite de 2 horas; funcionó en unos 25 minutos. Evidencia: `openspec/changes/foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md`.
+- **Decisión:** Supabase corre en la máquina con Podman (no hay Docker instalado). Se hizo un spike con límite de 2 horas; funcionó en unos 25 minutos. Evidencia: `openspec/changes/archive/2026-10-05-foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md`.
 - **Problemas resueltos:** faltaba la carpeta `supabase/snippets/` (Studio la monta) y se apagaron `analytics` y `edge_runtime` para ahorrar memoria.
 - **Por qué local:** las pruebas de seguridad (pgTAP) y los `db reset` son gratis e instantáneos, y no se arriesgan datos reales. El proyecto en la nube queda para `db push` y el despliegue.
 - **Registro cerrado:** en `supabase/config.toml` se apagó el alta pública (`[auth] enable_signup = false`) y la contraseña mínima pasó a 10 caracteres. Trampa encontrada al verificar: `[auth.email] enable_signup` **no** significa "alta por email" sino "proveedor de email encendido"; si se apaga, nadie puede iniciar sesión (`email_provider_disabled`). Por eso queda en `true`.
@@ -143,9 +143,9 @@ Vecino (WhatsApp)
 | Code point | Un "carácter" para Postgres (`char_length`); un emoji es 1 code point pero 2 unidades en JavaScript (`.length`). Por eso el formulario cuenta con `[...texto].length`, igual que la base | `visibleNameLength` en `packages/shared/src/contracts/profile.ts` |
 | Leer más permisivo que escribir | La validación al leer una fila no puede ser más estricta que la base: si la base aceptó un nombre y la lectura lo rechaza, el operador queda bloqueado. Las reglas estrictas van solo en los formularios | `profileSchema.fullName` (solo no vacío) vs. `fullNameSchema` |
 | Test de corpus (contrato) | En vez de probar ejemplos sueltos, se genera una grilla de datos sensibles × contextos × pares y se exige que todos queden tapados. Es el contrato ejecutable, no una prueba sobre todas las entradas posibles | `redactText - redaction contract corpus` en `packages/shared/src/redact.test.ts` |
-| Modelo de amenaza | Preguntarse quién puede ver o tocar un dato y qué daño haría, antes de decidir cuánta protección necesita | Decisión D14 en `openspec/changes/foundation-workspace-auth/design.md` |
+| Modelo de amenaza | Preguntarse quién puede ver o tocar un dato y qué daño haría, antes de decidir cuánta protección necesita | Decisión D14 en `openspec/changes/archive/2026-10-05-foundation-workspace-auth/design.md` |
 | GRANT / mínimo privilegio | Permisos por operación (leer, actualizar, borrar) que se suman a RLS | `supabase/migrations/20261005000100_foundation_hardening.sql` |
-| Revisión adversarial | Un revisor independiente (otra sesión) intenta romper el cambio antes de cerrarlo | `openspec/changes/foundation-workspace-auth/reports/2026-10-05-adversarial-review.md` |
+| Revisión adversarial | Un revisor independiente (otra sesión) intenta romper el cambio antes de cerrarlo | `openspec/changes/archive/2026-10-05-foundation-workspace-auth/reports/2026-10-05-adversarial-review.md` |
 
 ## 7. Qué aprendí / qué defendería en una oral
 
@@ -164,4 +164,5 @@ Vecino (WhatsApp)
 |---|---|---|
 | 2026-09-30 | — (bootstrap SDD) | Línea base: flujo planeado, justificación de capas, control de salida, glosario |
 | 2026-10-01 | `foundation-workspace-auth` | Flujo real de login y errores, RLS con funciones auxiliares, triggers de guardia, redacción y lección del digest, decisión Podman, glosario ampliado |
+| 2026-10-05 | `foundation-workspace-auth` (cierre) | Lecciones D13–D17 (contrato de redacción, modelo de amenaza, corpus con salida real de librerías); matriz de aceptación 65/65; cambio archivado y specs integrados a `openspec/specs/` |
 | 2026-10-05 | `foundation-workspace-auth` (endurecimiento) | Lecciones de la revisión adversarial: redacción lineal con formatos argentinos, endpoint de reportes barato → caro, login por POST, permisos mínimos, alta pública cerrada y la trampa de `auth.email.enable_signup` |

@@ -10,8 +10,8 @@ See: .planning/PROJECT.md (updated 2026-09-30)
 ## Current Position
 
 Phase: 1 of 7 (Fundación)
-Plan: 1 of 2 changes implemented (`foundation-workspace-auth`); next `areas-operators-admin`
-Status: Verified + hardened seven times — V-1..V-4 confirmation PASS (`9a8940e`); acceptance matrix PASS 65/65 (independent pass 64 + "Reset and seed" after a user-authorized reset); pending human OK, archive
+Plan: 1 of 2 changes done (`foundation-workspace-auth`, archived 2026-10-05); next `areas-operators-admin`
+Status: `foundation-workspace-auth` archived after human OK — acceptance matrix PASS 65/65, specs merged into `openspec/specs/` (5 capabilities, 24 requirements); merge to `main` via pull request
 Last activity: 2026-10-05 — sixth (targeted) re-review FAIL (V-1..V-3 latent header/cookie secret leaks, V-4 D16 regression); step 21 fixes done (tasks 21.1–21.4, design D17): 469 unit / 136 pgTAP, contract corpus 0 leaks
 
 Progress: [█░░░░░░░░░] ~7% (Phase 1: 1 of 2 changes)
@@ -48,7 +48,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Cerrar `foundation-workspace-auth`: OK humano → OK humano → `/opsx:archive` → merge a `main`
+- Mergear el pull request de `feature/foundation-workspace-auth` a `main`
 - Backlog de la sexta re-revisión (2026-10-05, no bloqueante): B-1 (objetos de cookie `{ name, value }` dejan ver el valor de sesión; fuera de contrato; candidato: regla para valores `base64-eyJ…` de Supabase), B-2 (arrays de pares de headers `[["apikey","…"]]`; fuera de contrato), B-3 (DSN con carácter especial en la contraseña deja ver el comienzo; familia N-7), B-4 (valores sin comillas se cortan en el primer blanco: PEM en texto plano, frases de contraseña; fuera de contrato; candidato: regla de bloque PEM), B-6 (`EVOLUTION_API_KEY=\nADMIN_PHONE=…`: un secreto vacío se come el `KEY=` de la línea siguiente y deja ver parte del teléfono), B-7 (JSON escapado pierde la forma; solo tapa de más). Antes de que el worker registre headers o cookies, revisar B-1, B-2 y B-4
 - Backlog de la verificación V-1..V-4 (2026-10-05, PASS, no bloqueante): C-1 (`password: user: <v>` deja ver `<v>`; recorte intencional de D17, una palabra común seguida de blanco ya no es eslabón), C-2 (`token= (2945 451234)` deja ver `451234`; ya existía), C-3 (`session_id: 30 123 456` deja ver `123 456`; ya existía), C-4 (teórico: un `[` sin cerrar bajo una clave secreta consume hasta 4 096 caracteres y podría cortar un par posterior)
 - Proponer `areas-operators-admin` (FND-02..05, FND-06 nivel área) incluyendo Q-3 (protección del último admin activo)
@@ -70,7 +70,7 @@ Recent decisions affecting current work:
 - 2026-09-30: SDD/OpenSpec instalado (copy-fallback desde OpenSpecs-Template). Cada fase del roadmap se entrega con cambios en `openspec/changes/`; entrada `/director`.
 - 2026-10-01: repo remoto `github.com/newo3210/EpuyenDigital` (rama `main`); identidad git local configurada.
 - 2026-10-01: cambio `foundation-workspace-auth` (Phase 1, 1 de 2) planificado y aprobado; Tailwind v4.
-- 2026-10-01: `foundation-workspace-auth` implementado en `feature/foundation-workspace-auth` (248 tests unitarios, 69 pgTAP, curl y E2E en `openspec/changes/foundation-workspace-auth/reports/`).
+- 2026-10-01: `foundation-workspace-auth` implementado en `feature/foundation-workspace-auth` (248 tests unitarios, 69 pgTAP, curl y E2E en `openspec/changes/archive/2026-10-05-foundation-workspace-auth/reports/`).
 - 2026-10-05: `/opsx:verify` PASS; adversarial review FAIL (J-1 login GET, J-2 redacción incompleta/ReDoS, J-3 endpoint de reportes sin límites); paso 15 de hardening aplicado con TDD y re-verificado (`reports/2026-10-05-step-15-hardening.md`). GitHub push protection bloqueó un fixture `sb_secret_`; ahora se arma en runtime.
 - 2026-10-05: re-review adversarial (subagente) FAIL: límite de reportes salteable por truncado (N-1) y por concurrencia (N-2), regresiones de redacción (N-3, N-4). Paso 16 aplicado con TDD (`reports/2026-10-05-step-16-rereview-fixes.md`).
 - 2026-10-05: segunda re-review (subagente) FAIL: R-1, DNIs junto a `dígito.` volvían a filtrarse (excepción para IPs/decimales nunca consultada). El usuario eligió superconjunto estricto. Paso 17 aplicado con TDD (`reports/2026-10-05-step-17-rereview-2-fixes.md`).

@@ -5,7 +5,7 @@
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
 **Last updated:** 2026-10-05
-**Related OpenSpec change:** `openspec/changes/foundation-workspace-auth/` (Phase 1, change 1 of 2)
+**Related OpenSpec change:** `openspec/changes/archive/2026-10-05-foundation-workspace-auth/` (Phase 1, change 1 of 2; archived 2026-10-05, specs merged into `openspec/specs/`)
 
 ---
 
@@ -191,7 +191,7 @@ None in this change. Planned (Phase 6): provider behind `contracts/llm.ts` (`cha
 
 ## 8. Local environment
 
-- Supabase CLI on **Podman** (Windows, WSL2 machine); `scripts/supabase.mjs` sets `DOCKER_HOST=npipe:////./pipe/podman-machine-default`. Spike evidence: `openspec/changes/foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md`.
+- Supabase CLI on **Podman** (Windows, WSL2 machine); `scripts/supabase.mjs` sets `DOCKER_HOST=npipe:////./pipe/podman-machine-default`. Spike evidence: `openspec/changes/archive/2026-10-05-foundation-workspace-auth/reports/2026-09-30-spike-supabase-podman.md`.
 - Fallback: dedicated Supabase cloud project for development (`npm run db:push`).
 - Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, optional `SUPABASE_PROJECT_REF`, `SUPABASE_CLOUD_*`.
 - Next config: `experimental.authInterrupts` (for `forbidden()`), `experimental.serverActions.bodySizeLimit = '3mb'`.
