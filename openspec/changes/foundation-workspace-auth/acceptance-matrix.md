@@ -820,8 +820,13 @@ All temp scripts were deleted before the commit. Test account: `e2e.operator@epu
 **Evidence (required):**
 - Tool used: manual + DB read-only (partial)
 - Command / steps: NOT run: `npm run db:reset` wipes local users and data, which this verification is forbidden to do. Partial evidence: migration list (7/7 applied); `select count(*) from organizations where slug='epuyen' and name='Municipalidad de Epuyén'` → 1; admin profiles → 1; a node one-liner compared the admin's auth email with `SEED_ADMIN_EMAIL` and printed only a boolean.
-- Result: BLOCKED
+- Result: BLOCKED (reviewer pass) → **PASS (follow-up, 2026-10-05, user-authorized reset)**
 - Notes: Missing env: a disposable database where a reset is allowed. On the current DB the end state matches the THEN: org exists, exactly 1 admin profile, email equals `SEED_ADMIN_EMAIL` → `true`. The reset path itself is unverified here; `npm run test:db` (136 tests on the migrated schema) is supporting evidence only. To close it, run on a throwaway stack or the CI database.
+- **Follow-up evidence (executed by the apply session after explicit user authorization to run the reset once; recorded here for traceability):**
+  - `npm run db:reset` → exit 0; output "Applying migration" for all 7 files (`20260930000100_foundation.sql` … `20261005000600_complete_invisible_name_set.sql`) and "Finished supabase db reset".
+  - `npm run db:seed` → exit 0; "Seed OK - organization "epuyen" (…); admin user created; admin profile created." The admin password came from `.env.local` and was never typed or printed.
+  - Service-role check script: organizations `['Municipalidad de Epuyén']`; admin profiles `1`; admin auth email equals `SEED_ADMIN_EMAIL` → `true` (boolean only); auth users after seed `1`.
+  - The reset wiped the local-only test operator; it was recreated (`e2e.operator@epuyen.local`, "E2E Operator", role `operator`, active) and signs in. `npm run test:db` after the reset: Files=7, Tests=136, PASS.
 
 ---
 
@@ -885,10 +890,10 @@ All temp scripts were deleted before the commit. Test account: `e2e.operator@epu
 | org-tenancy | 12 | 12 | 0 | 0 |
 | operator-profile | 8 | 8 | 0 | 0 |
 | error-tracking | 26 | 26 | 0 | 0 |
-| local-dev-environment | 7 | 6 | 0 | 1 |
-| **Total** | **65** | **64** | **0** | **1** |
+| local-dev-environment | 7 | 7 | 0 | 0 |
+| **Total** | **65** | **65** | **0** | **0** |
 
-**Verdict:** BLOCKED (missing env). No functional failures. The only open item is `local-dev-environment` / "Reset and seed", which needs a disposable database where `npm run db:reset` is allowed. Every other scenario passes with independent evidence.
+**Verdict:** PASS. The independent reviewer pass ended BLOCKED (missing env) with 64/65 PASS and no functional failures. The only open item, `local-dev-environment` / "Reset and seed", was then run once with explicit user authorization (follow-up evidence in that scenario) and passes.
 
 ### Restoration and cleanup
 
