@@ -1,0 +1,68 @@
+# Evolution API gateway for the Epuyén WhatsApp channel (local dev).
+# Usage (from repo root):
+#   copy infra/evolution/.env.example to infra/evolution/.env and set secrets
+#   podman compose -f infra/evolution/docker-compose.yml --env-file infra/evolution/.env up -d
+#
+# Manager UI: http://localhost:8080/manager  (or EVOLUTION_PORT)
+# Webhooks from the container reach the host via host.containers.internal.
+
+services:
+  evolution-redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: epuyen-evolution-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - evolution_redis_data:/data
+
+  evolution-postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: epuyen-evolution-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${EVOLUTION_POSTGRES_USER:-evolution}
+      POSTGRES_PASSWORD: ${EVOLUTION_POSTGRES_PASSWORD:?set EVOLUTION_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${EVOLUTION_POSTGRES_DB:-evolution}
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${EVOLUTION_POSTGRES_USER:-evolution}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  evolution-api:
+    # Pinned Evolution API v2 image; bump intentionally.
+    image: docker.io/${EVOLUTION_IMAGE:-evoapicloud/evolution-api:v2.3.7}
+    container_name: epuyen-evolution-api
+    restart: unless-stopped
+    depends_on:
+      evolution-redis:
+        condition: service_started
+      evolution-postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${EVOLUTION_PORT:-8080}:8080"
+    environment:
+      SERVER_URL: ${EVOLUTION_SERVER_URL:-http://localhost:8080}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?set EVOLUTION_API_KEY}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${EVOLUTION_POSTGRES_USER:-evolution}:${EVOLUTION_POSTGRES_PASSWORD}@evolution-postgres:5432/${EVOLUTION_POSTGRES_DB:-evolution}?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: epuyen_mesa_digital
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: "false"
+      LOG_LEVEL: ERROR,WARN,INFO,LOG,WEBHOOKS
+      DEL_INSTANCE: "false"
+      CONFIG_SESSION_PHONE_CLIENT: Epuyen Mesa Digital
+      CONFIG_SESSION_PHONE_NAME: Chrome
+    volumes:
+      - evolution_instances:/evolution/instances
+
+volumes:
+  evolution_redis_data:
+  evolution_postgres_data:
+  evolution_instances:
