@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 1 — Fundación
+**Current focus:** Phase 2.1 INSERTED — Inspectoría pet registry MVP (standalone), in parallel with Phase 1 planning
 
 ## Current Position
 
-Phase: 1 of 7 (Fundación)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-09-30 — Proyecto reiniciado como nuevo; documentación de diseño creada (PROJECT, REQUIREMENTS, ROADMAP, docs/)
+Phase: 2.1 of 7+ (INSERTED Inspectoría pets) alongside Phase 1
+Plan: OpenSpec `inspectoria-pet-registry-bot` — proposed, awaiting human approval
+Status: Plan ready for approval
+Last activity: 2026-10-12 — Enriched US + OpenSpec proposal/specs/design/tasks for Inspectoría pet registry MVP
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -35,10 +35,11 @@ Recent decisions affecting current work:
 - [Init]: Arrancar limpio, documentación primero; portar desde `newo3210/seguros` pieza por pieza
 - [Init]: Evolution API único transporte v1; tabla única `citizens`; áreas como entidad de primera clase
 - [Init]: Bot pausado por conversación con dueño humano (corrige bug del CRM)
+- [2026-10-12]: MVP Inspectoría suelto (no espera panel Mesa de Entrada); caballo en pausa; registro automático; GPS vía ubicación nativa WhatsApp; ID `{BARRIO3}-{YYYY}-{SEQ5}`
 
 ### Pending Todos
 
-None yet.
+- Human approval of OpenSpec change `inspectoria-pet-registry-bot` before `/opsx:apply`
 
 ### Blockers/Concerns
 

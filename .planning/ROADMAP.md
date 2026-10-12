@@ -12,6 +12,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
 
 - [ ] **Phase 1: Fundación** - Repo, Supabase, auth, roles, áreas, RLS por organización y área, registro de errores
 - [ ] **Phase 2: Canal WhatsApp** - Evolution API: webhook seguro, entrada con adjuntos, salida multimedia, modo de envío seguro
+- [ ] **Phase 2.1: Registro de mascotas Inspectoría (INSERTED)** - MVP suelto WhatsApp: ciudadano + animal geolocalizado, fotos, ID municipal; integra después a Mesa de Entrada
 - [ ] **Phase 3: Panel de mensajería** - Cola de triage FIFO, claim, delegación con aceptación, eventos, tiempo real, flags
 - [ ] **Phase 4: Pobladores** - Registro automático, ficha editable, registro progresivo, timeline, duplicados
 - [ ] **Phase 5: Tareas, notas y trazabilidad** - Tareas delegables a áreas y números externos, resultado de cierre, auditoría atómica
@@ -19,6 +20,19 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
 - [ ] **Phase 7: Operación y métricas** - Panel de métricas, CI, runbooks de despliegue y backups
 
 ## Phase Details
+
+### Phase 2.1: Registro de mascotas Inspectoría (INSERTED)
+**Goal**: Un vecino registra perro/gato/otro por WhatsApp (línea `+5492944216586`) con consentimiento, GPS nativo, fotos y recibe un ID municipal; el registro queda activo sin aprobación humana.
+**Depends on**: Nothing for the standalone MVP (later integrates into Phases 2/4).
+**Requirements**: INSP-PET-01, INSP-PET-02, INSP-PET-03, INSP-PET-04, INSP-PET-05, INSP-PET-06, INSP-PET-07, INSP-PET-08
+**Success Criteria** (what must be TRUE):
+  1. Webhook Evolution con secreto válido acepta mensajes; sin secreto rechaza
+  2. Ciudadano nuevo completa consentimiento + datos + ubicación GPS y queda persistido
+  3. Ciudadano conocido es saludado por nombre y puede registrar otro animal
+  4. Animal dog/cat/other queda `active` con ≥1 foto, traits vision o `pending_manual`, y municipal ID `{BARRIO3}-{YYYY}-{SEQ5}`
+  5. Confirmación por WhatsApp incluye el ID; modo `dry_run` no llama a Evolution
+**Plans**: OpenSpec change `inspectoria-pet-registry-bot`
+**Out of this phase**: caballo, planteles, panel operador, PDF/QR, aprobación humana
 
 ### Phase 1: Fundación
 **Goal**: Un admin puede entrar al panel, crear áreas y operadores con roles, y la base de datos garantiza aislamiento por organización y área.
