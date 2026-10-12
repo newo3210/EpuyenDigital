@@ -103,3 +103,17 @@
 
 - [x] 14.1 Mark tasks `[x]` only with evidence
 - [x] 14.2 Ready for `/opsx:verify` + acceptance-matrix + adversarial-review subagent after apply
+
+## 15. Adversarial fix loop
+
+- [x] 15.1 Photo→finish race: gate completion until pending `download_media` have `storagePath`; re-prompt “estamos guardando la foto…”; Vitest without mid-drain
+- [x] 15.2 Idempotent completion: `completing`/`done` + `completedAnimalId`; `mark_session_completion` RPC; double-finish test
+- [x] 15.3 Session lock: `lock_registration_session` SQL `FOR UPDATE`; memory per-phone async mutex via `runWithSessionLock`
+- [x] 15.4 Per-line `webhookSecret` after resolve (503 if null; constant-time compare); Vitest coverage
+- [x] 15.5 Ignore `fromMe` for bot drive (persist outbound echo, no `process_inbound` enqueue)
+- [x] 15.6 `health_card` kind from session `pendingMediaKinds`; link with correct kind
+- [x] 15.7 Returning citizen geo copied into animal completion payload
+- [x] 15.8 `confirm_citizen` narrowed to explicit OK; i18n + conversation spec updated
+- [x] 15.9 Enforce `citizenUpsertSchema` before `upsertCitizenFromPayload`
+- [x] 15.10 Missing Evolution `key.id` → ignore (no invented `externalId`)
+- [x] 15.11 Report `reports/adversarial-fixes-2026-10-12.md`; `npm run test` / typecheck / lint green
