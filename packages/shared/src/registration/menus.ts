@@ -79,12 +79,26 @@ export function parsePhotoFinish(raw: string): "finish" | "another" | null {
   return null;
 }
 
-// parseReturningMenu - register animal / update data
+// parseReturningMenu - register animal / confirm data
 export function parseReturningMenu(raw: string): "register_animal" | "confirm_citizen" | null {
   const v = normalizeChoice(raw);
   if (v === "1" || v.includes("animal") || v.includes("registrar")) return "register_animal";
-  if (v === "2" || v.includes("dato") || v.includes("actualizar")) return "confirm_citizen";
+  if (v === "2" || v.includes("dato") || v.includes("confirmar")) return "confirm_citizen";
   return null;
+}
+
+// parseConfirmCitizenOk - explicit OK/confirm only (no free-text corrections in MVP)
+export function parseConfirmCitizenOk(raw: string): boolean {
+  const v = normalizeChoice(raw);
+  return (
+    v === "ok" ||
+    v === "okay" ||
+    v === "confirmo" ||
+    v === "confirm" ||
+    v === "si" ||
+    v === "sí" ||
+    v === "1"
+  );
 }
 
 export const SPECIES_MENU_LINES = ["1 Perro", "2 Gato", "3 Otro"] as const;

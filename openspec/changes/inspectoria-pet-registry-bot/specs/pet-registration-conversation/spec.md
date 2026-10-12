@@ -19,11 +19,19 @@ Registration SHALL collect citizen data first, then animal data; the bot SHALL n
 - **THEN** steps run in order: consent → full name → document → address → neighborhood → location → animal fields → photos → confirmation
 
 ### Requirement: Returning citizen friendly greeting
-If the inbound phone already belongs to a registered citizen, the bot SHALL greet them by name and offer to register another animal (or confirm/update citizen data).
+If the inbound phone already belongs to a registered citizen, the bot SHALL greet them by name and offer to register another animal or confirm citizen data (MVP: confirm is explicit OK only; free-text profile corrections are out of scope).
 
 #### Scenario: Known phone
 - **WHEN** a registered citizen messages the line
 - **THEN** the bot greets them using their stored full name in es-AR and offers to register a new animal
+
+#### Scenario: Confirm citizen data with OK
+- **WHEN** a returning citizen chooses confirm data and replies `OK` (or equivalent confirm keyword)
+- **THEN** the session advances to animal registration without changing stored citizen fields
+
+#### Scenario: Non-OK text at confirm does not advance
+- **WHEN** a returning citizen is on the confirm step and sends free-text that is not an explicit OK/confirm
+- **THEN** the bot re-prompts for OK and does not advance
 
 #### Scenario: Unknown phone
 - **WHEN** the phone is not in the registry

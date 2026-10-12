@@ -1,5 +1,6 @@
 import { validateDocumentId } from "./document.js";
 import {
+  parseConfirmCitizenOk,
   parseConsentAccept,
   parseConsentDecline,
   parsePhotoFinish,
@@ -40,6 +41,10 @@ export type SessionPayload = {
   microchip?: string;
   animalPhotoCount?: number;
   pendingMediaMessageIds?: string[];
+  /** messageId → photo kind for completion linking */
+  pendingMediaKinds?: Record<string, "animal" | "health_card">;
+  completedAnimalId?: string;
+  completedMunicipalId?: string;
 };
 
 export type InboundKind = "text" | "image" | "location" | "button_reply" | "unknown";
@@ -201,8 +206,8 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
       break;
     }
     case "confirm_citizen": {
-      // MVP: any non-empty confirmation advances to animal; empty re-prompts
-      if (!requireNonEmpty(textOf(input))) {
+      // MVP narrowed: only explicit OK/confirm advances (no free-text corrections)
+      if (!parseConfirmCitizenOk(textOf(input))) {
         effects.push({ messageKey: "returning.confirm_citizen" });
         break;
       }

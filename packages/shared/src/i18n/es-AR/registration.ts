@@ -29,9 +29,11 @@ export const registrationMessages = {
   "citizen.ask_location_again":
     "Necesitamos la ubicación de WhatsApp (no texto). Usá el clip → Ubicación → Ubicación actual.",
   "returning.greeting":
-    "Hola {name}. ¿Qué querés hacer?\n1 Registrar otra mascota\n2 Confirmar o actualizar mis datos",
+    "Hola {name}. ¿Qué querés hacer?\n1 Registrar otra mascota\n2 Confirmar mis datos",
   "returning.confirm_citizen":
-    "Escribí *OK* para confirmar tus datos actuales, o enviá las correcciones (nombre, domicilio, barrio).",
+    "Escribí *OK* para confirmar tus datos actuales y continuar con el registro de la mascota. (En este MVP no se aceptan correcciones por texto; si necesitás cambiar datos, contactá a Inspectoría.)",
+  "animal.photos_saving":
+    "Estamos guardando la foto… esperá un momento y respondé *listo* cuando quieras terminar.",
   "animal.ask_name": "¿Cómo se llama tu mascota?",
   "animal.ask_name_again": "Indicá el nombre de la mascota, por favor.",
   "animal.ask_species": `¿Qué especie es?\n${SPECIES_MENU_LINES.join("\n")}`,

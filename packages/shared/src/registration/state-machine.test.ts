@@ -143,4 +143,25 @@ describe("applyRegistrationTransition", () => {
     });
     expect(r.nextStep).toBe("document_id");
   });
+
+  it("confirm_citizen advances only on explicit OK", () => {
+    const blocked = applyRegistrationTransition({
+      step: "confirm_citizen",
+      payload: { citizenId: "00000000-0000-4000-8000-000000000099" },
+      kind: "text",
+      text: "cambiar domicilio a Ruta 40",
+      isReturningCitizen: true,
+    });
+    expect(blocked.nextStep).toBe("confirm_citizen");
+    expect(blocked.effects[0]?.messageKey).toBe("returning.confirm_citizen");
+
+    const ok = applyRegistrationTransition({
+      step: "confirm_citizen",
+      payload: { citizenId: "00000000-0000-4000-8000-000000000099" },
+      kind: "text",
+      text: "OK",
+      isReturningCitizen: true,
+    });
+    expect(ok.nextStep).toBe("animal_name");
+  });
 });

@@ -46,6 +46,11 @@ export const sessionPayloadSchema = z.object({
   microchip: z.string().optional(),
   animalPhotoCount: z.number().int().nonnegative().optional(),
   pendingMediaMessageIds: z.array(z.string()).optional(),
+  pendingMediaKinds: z
+    .record(z.enum(["animal", "health_card"]))
+    .optional(),
+  completedAnimalId: z.string().uuid().optional(),
+  completedMunicipalId: z.string().min(1).optional(),
 });
 
 export const registrationSessionSchema = z.object({

@@ -16,7 +16,7 @@ The system SHALL accept inbound WhatsApp events only for the configured Inspecto
 - **THEN** the handler returns HTTP 503 and does not process the payload
 
 ### Requirement: Idempotent inbound text and media
-Inbound messages SHALL be stored at most once per `(line_id, external_id)` and groups, broadcasts, and newsletters SHALL be ignored.
+Inbound messages SHALL be stored at most once per `(line_id, external_id)` and groups, broadcasts, and newsletters SHALL be ignored. Payloads without a stable Evolution message id SHALL NOT invent an `external_id`.
 
 #### Scenario: Duplicate delivery
 - **WHEN** the same Evolution message id is delivered twice
@@ -25,6 +25,14 @@ Inbound messages SHALL be stored at most once per `(line_id, external_id)` and g
 #### Scenario: Group ignored
 - **WHEN** the payload is from a WhatsApp group
 - **THEN** the system returns 200 and creates no citizen or registration session
+
+#### Scenario: Missing message id ignored
+- **WHEN** the Evolution payload has no `key.id` (and no alternate stable message id)
+- **THEN** the handler returns HTTP 200 with `ignored` and does not persist a message
+
+#### Scenario: fromMe does not drive the bot
+- **WHEN** the payload has `fromMe: true` (typed on the linked handset)
+- **THEN** the system may persist it as outbound phone echo but SHALL NOT enqueue `process_inbound`
 
 ### Requirement: Phone normalization and automatic capture
 Citizen phone numbers SHALL be normalized to Argentine canonical `549…` form and captured from the webhook (not typed by the citizen).

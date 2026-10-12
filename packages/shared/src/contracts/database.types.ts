@@ -208,6 +208,32 @@ export type Database = {
         };
         Returns: { animal_id: string; municipal_id: string }[];
       };
+      lock_registration_session: {
+        Args: { p_line_id: string; p_phone: string };
+        Returns: Database["public"]["Tables"]["registration_sessions"]["Row"][];
+      };
+      mark_session_completion: {
+        Args: {
+          p_session_id: string;
+          p_animal_id: string;
+          p_municipal_id: string;
+          p_payload?: Json | null;
+        };
+        Returns: {
+          animal_id: string;
+          municipal_id: string;
+          already_done: boolean;
+        }[];
+      };
+      claim_next_job: {
+        Args: Record<string, never>;
+        Returns: {
+          id: string;
+          payload: Json;
+          attempts: number;
+          max_attempts: number;
+        }[];
+      };
     };
   };
 };
