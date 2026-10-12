@@ -125,6 +125,8 @@ export type Database = {
           payload: Json;
           expires_at: string;
           lock_version: number;
+          processing_owner: string | null;
+          processing_until: string | null;
         };
         Insert: {
           id?: string;
@@ -135,6 +137,8 @@ export type Database = {
           payload?: Json;
           expires_at?: string;
           lock_version?: number;
+          processing_owner?: string | null;
+          processing_until?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["registration_sessions"]["Insert"]>;
       };
@@ -213,6 +217,19 @@ export type Database = {
       lock_registration_session: {
         Args: { p_line_id: string; p_phone: string };
         Returns: Database["public"]["Tables"]["registration_sessions"]["Row"][];
+      };
+      claim_session_processing: {
+        Args: {
+          p_line_id: string;
+          p_phone: string;
+          p_owner: string;
+          p_ttl_seconds?: number;
+        };
+        Returns: Database["public"]["Tables"]["registration_sessions"]["Row"] | null;
+      };
+      release_session_processing: {
+        Args: { p_line_id: string; p_phone: string; p_owner: string };
+        Returns: undefined;
       };
       upsert_registration_session: {
         Args: {

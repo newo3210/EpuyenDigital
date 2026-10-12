@@ -50,10 +50,12 @@ Single seeded organization `epuyen`. Service-role worker/webhook access for writ
 Table `registration_sessions` with `phone_normalized`, `line_id`, `step`, `payload jsonb`, `expires_at`, `lock_version`. Pure transition helpers in `packages/shared` (input → next step / effects).
 
 **Concurrency (PostgREST reality):** a JS `FOR UPDATE` RPC cannot hold a lock across later JS calls. Therefore:
-- Session writes go through `upsert_registration_session` (advisory xact lock + row `FOR UPDATE` in one SQL transaction).
-- Completion goes through `finalize_registration_completion` (session `FOR UPDATE` + animal insert + photo links + mark `done` in one SQL transaction).
+- `process_inbound` claims a DB lease via `claim_session_processing` / `release_session_processing` (advisory + row lock inside claim; lease columns hold exclusivity across JS).
+- Session writes go through `upsert_registration_session` (advisory xact lock **then** row `FOR UPDATE`).
+- Completion goes through `finalize_registration_completion` (same lock order: advisory **then** row; animal + photos + `done` in one TX).
 - Memory store uses a per-phone async mutex for Vitest.
 - Crash resume: step `completing` without `completedAnimalId` re-triggers finalize (state machine).
+- Job consumer retries on `SESSION_BUSY`.
 Steps (new citizen): `consent` → `full_name` → `document_id` → `address_line` → `neighborhood` → `location` → `animal_name` → `species` → `sex` → `breed_color` → `size` → `age_stage` → `sterilized` → `rabies_status` → `health_card_photo_optional` → `animal_photos` → `completing` → `done`.
 Returning citizen: `returning_menu` → (optional `confirm_citizen`) → animal steps…
 

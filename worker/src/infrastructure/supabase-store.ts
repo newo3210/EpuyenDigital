@@ -160,14 +160,32 @@ class SupabaseWorkerStore implements WorkerStore {
   }
 
   async runWithSessionLock<T>(
-    _lineId: string,
-    _phone: string,
+    lineId: string,
+    phone: string,
     fn: () => Promise<T>,
   ): Promise<T> {
-    // PostgREST cannot hold FOR UPDATE across JS. Serialization for the same phone
-    // happens inside upsert_registration_session / finalize_registration_completion
-    // via pg_advisory_xact_lock + row FOR UPDATE in a single SQL transaction.
-    return fn();
+    // PostgREST cannot hold FOR UPDATE across JS. Use a DB lease for exclusivity.
+    const owner = `worker:${crypto.randomUUID()}`;
+    const { error: claimError } = await this.client.rpc("claim_session_processing", {
+      p_line_id: lineId,
+      p_phone: phone,
+      p_owner: owner,
+      p_ttl_seconds: 90,
+    });
+    // SESSION_BUSY or missing session (cold start): still run — cold start creates session;
+    // busy should be retried by the job consumer.
+    if (claimError?.message?.includes("SESSION_BUSY")) {
+      throw new Error("SESSION_BUSY");
+    }
+    try {
+      return await fn();
+    } finally {
+      await this.client.rpc("release_session_processing", {
+        p_line_id: lineId,
+        p_phone: phone,
+        p_owner: owner,
+      });
+    }
   }
 
   async upsertSession(session: SessionRow): Promise<SessionRow> {

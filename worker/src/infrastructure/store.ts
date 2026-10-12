@@ -66,7 +66,7 @@ export type WorkerStore = {
   lockSession(lineId: string, phone: string): Promise<SessionRow | null>;
   /**
    * Serialize process_inbound for one phone. Memory: async mutex.
-   * Supabase: acquires lock_registration_session then runs fn.
+   * Supabase: claim_session_processing lease for the critical section duration.
    */
   runWithSessionLock<T>(
     lineId: string,
