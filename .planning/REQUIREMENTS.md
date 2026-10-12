@@ -109,6 +109,17 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 - [ ] **OPS-04**: El proyecto tiene CI que corre lint, typecheck y tests en cada push
 - [ ] **OPS-05**: Existe un runbook de despliegue de Evolution API y del panel, con backups de base de datos
 
+### Inspectoría — registro de mascotas (INSP-PET) — Phase 2.1 INSERTED (MVP suelto)
+
+- [x] **INSP-PET-01**: El webhook Evolution de la línea de Inspectoría (`+5492944216586`) acepta solo mensajes con secreto válido, es idempotente e ignora grupos/difusiones
+- [x] **INSP-PET-02**: El bot muestra aviso de privacidad (Ley 25.326) y no pide datos personales hasta el consentimiento explícito
+- [x] **INSP-PET-03**: El bot registra ciudadano (nombre, DNI/pasaporte, domicilio, barrio/paraje) y captura teléfono desde el webhook; si el teléfono ya existe, saluda por nombre
+- [x] **INSP-PET-04**: El bot exige geolocalización vía "compartir ubicación" nativa de WhatsApp (lat/lng) antes de pasar al animal
+- [x] **INSP-PET-05**: El bot registra animal (nombre, especie perro/gato/otro, sexo, raza/color, porte, edad/etapa, esterilizado, antirrábica, microchip opcional, foto de libreta opcional, ≥1 foto libre) y deja el registro activo sin aprobación humana
+- [x] **INSP-PET-06**: El sistema genera ID municipal `{BARRIO3}-{YYYY}-{SEQ5}` (fallback `EPU`) al completar el flujo y lo envía en el mensaje de confirmación por WhatsApp
+- [x] **INSP-PET-07**: El worker descarga fotos a storage privado y extrae rasgos distintivos con visión (Zod); si falla, el animal queda activo con `traits_status = pending_manual`
+- [x] **INSP-PET-08**: Todo envío del bot respeta el modo `dry_run` / `allowlist` / `production`
+
 ## v2 Requirements
 
 Diferidos. Se trackean pero no entran al roadmap actual.
@@ -148,6 +159,7 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 |-------------|-------|--------|
 | FND-01..08 | Phase 1 | Pending |
 | WA-01..12 | Phase 2 | Pending |
+| INSP-PET-01..08 | Phase 2.1 (INSERTED) | Done — archived `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot` |
 | INB-01..15 | Phase 3 | Pending |
 | POB-01..09 | Phase 4 | Pending |
 | TSK-01..12 | Phase 5 | Pending |
@@ -156,10 +168,10 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 | OPS-01..05 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 78 total
-- Mapped to phases: 78
+- v1 requirements: 86 total (78 + 8 INSP-PET)
+- Mapped to phases: 86
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-09-30 after restart as new project*
+*Last updated: 2026-10-12 — inserted INSP-PET MVP (Phase 2.1)*
