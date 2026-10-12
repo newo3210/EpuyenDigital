@@ -15,6 +15,12 @@ Implemented product UX v2 on branch `cursor/inspectoria-pet-registry-ux-v2-4cd2`
 
 `worker/assets/inspectoria/location-help.png` is a minimal valid 1×1 PNG. Replace with official Inspectoría artwork before citizen-facing production (documented in runbook).
 
+## Test results
+
+- `npm run test`: **77 passed** (16 files)
+- `npm run typecheck`: pass
+- `npm run lint`: pass
+
 ## Remaining for real WhatsApp production test
 
 - Apply migration on target Supabase.
