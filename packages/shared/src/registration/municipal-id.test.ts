@@ -29,6 +29,15 @@ describe("formatMunicipalId", () => {
       formatMunicipalId({ barrioCode: null, year: 2026, sequence: 1 }),
     ).toBe("EPU-2026-00001");
   });
+
+  it("uses EPU when neighborhood/barrio is empty (UX v2)", () => {
+    expect(
+      formatMunicipalId({ barrioCode: "", year: 2026, sequence: 12 }),
+    ).toBe("EPU-2026-00012");
+    expect(
+      formatMunicipalId({ barrioCode: undefined, year: 2026, sequence: 3 }),
+    ).toBe("EPU-2026-00003");
+  });
 });
 
 describe("registrationYearBuenosAires", () => {

@@ -27,6 +27,8 @@ export const sendOutboundJobSchema = z.object({
     .array(z.object({ id: z.string(), label: z.string() }))
     .max(3)
     .optional(),
+  /** Absolute or worker-relative path to an image file (e.g. location help) */
+  mediaPath: z.string().min(1).optional(),
 });
 
 export const analyzeTraitsJobSchema = z.object({

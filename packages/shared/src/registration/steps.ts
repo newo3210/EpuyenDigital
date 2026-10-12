@@ -1,11 +1,12 @@
 // Registration steps - ordered conversation steps for new and returning citizens
 
 export const NEW_CITIZEN_STEPS = [
-  "consent",
+  "welcome",
   "full_name",
   "document_id",
   "address_line",
-  "neighborhood",
+  "location_help_offer",
+  "location_help",
   "location",
   "animal_name",
   "species",

@@ -9,7 +9,7 @@ export const animalDraftSchema = z.object({
   size: z.enum(["small", "medium", "large"]),
   ageStage: z.string().min(1),
   sterilized: z.enum(["yes", "no", "unknown"]),
-  rabiesStatus: z.enum(["up_to_date", "pending"]),
+  rabiesStatus: z.enum(["up_to_date", "pending", "unknown"]),
   microchip: z.string().optional(),
 });
 

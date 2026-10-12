@@ -1,8 +1,9 @@
 import { validateDocumentId } from "./document.js";
 import {
   parseConfirmCitizenOk,
-  parseConsentAccept,
-  parseConsentDecline,
+  parseHealthCardSkip,
+  parseLocationHelpChoice,
+  parseLocationSkip,
   parsePhotoFinish,
   parseRabiesStatus,
   parseReturningMenu,
@@ -66,7 +67,16 @@ export type TransitionInput = {
 export type OutboundEffect = {
   messageKey: string;
   params?: Record<string, string | number>;
-  menu?: "consent" | "species" | "sex" | "size" | "sterilized" | "rabies" | "photos" | "returning";
+  menu?:
+    | "location_help"
+    | "species"
+    | "sex"
+    | "size"
+    | "sterilized"
+    | "rabies"
+    | "returning";
+  /** Static help image (or other outbound media) to attach */
+  sendMedia?: "location_help";
 };
 
 export type TransitionResult = {
@@ -90,7 +100,7 @@ function requireNonEmpty(text: string): string | null {
 export function applyRegistrationTransition(input: TransitionInput): TransitionResult {
   const now = input.now ?? new Date();
   if (input.expiresAt && input.expiresAt.getTime() <= now.getTime()) {
-    const startStep: RegistrationStep = input.isReturningCitizen ? "returning_menu" : "consent";
+    const startStep: RegistrationStep = input.isReturningCitizen ? "returning_menu" : "welcome";
     return {
       nextStep: startStep,
       payload: input.isReturningCitizen
@@ -103,7 +113,7 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
               params: { name: input.citizenFullName ?? "" },
               menu: "returning",
             }
-          : { messageKey: "consent.notice", menu: "consent" },
+          : { messageKey: "welcome.intro" },
       ],
       completeRegistration: false,
       expired: true,
@@ -116,17 +126,7 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
   let completeRegistration = false;
 
   switch (step) {
-    case "consent": {
-      if (parseConsentDecline(textOf(input))) {
-        effects.push({ messageKey: "consent.declined" });
-        break;
-      }
-      if (!parseConsentAccept(textOf(input))) {
-        effects.push({ messageKey: "consent.unclear", menu: "consent" });
-        break;
-      }
-      payload.privacyConsentAt = now.toISOString();
-      payload.privacyNoticeVersion = input.privacyNoticeVersion ?? "v1";
+    case "welcome": {
       step = "full_name";
       effects.push({ messageKey: "citizen.ask_full_name" });
       break;
@@ -160,30 +160,53 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
         break;
       }
       payload.addressLine = address;
-      step = "neighborhood";
-      effects.push({ messageKey: "citizen.ask_neighborhood" });
+      step = "location_help_offer";
+      effects.push({ messageKey: "citizen.location_help_offer", menu: "location_help" });
       break;
     }
-    case "neighborhood": {
-      const neighborhood = requireNonEmpty(textOf(input));
-      if (!neighborhood) {
-        effects.push({ messageKey: "citizen.ask_neighborhood_again" });
+    case "location_help_offer": {
+      const choice = parseLocationHelpChoice(textOf(input));
+      if (choice === "help") {
+        step = "location_help";
+        effects.push({
+          messageKey: "citizen.location_help",
+          sendMedia: "location_help",
+        });
         break;
       }
-      payload.neighborhood = neighborhood;
+      if (choice === "skip_help") {
+        step = "location";
+        effects.push({ messageKey: "citizen.ask_location" });
+        break;
+      }
+      effects.push({
+        messageKey: "citizen.location_help_offer_again",
+        menu: "location_help",
+      });
+      break;
+    }
+    case "location_help": {
+      // Defensive: if inbound arrives while still on help step, ask for location
       step = "location";
       effects.push({ messageKey: "citizen.ask_location" });
       break;
     }
     case "location": {
-      if (input.kind !== "location" || input.latitude == null || input.longitude == null) {
-        effects.push({ messageKey: "citizen.ask_location_again" });
+      if (input.kind === "location" && input.latitude != null && input.longitude != null) {
+        payload.latitude = input.latitude;
+        payload.longitude = input.longitude;
+        step = ANIMAL_START_STEP;
+        effects.push({ messageKey: "animal.ask_name" });
         break;
       }
-      payload.latitude = input.latitude;
-      payload.longitude = input.longitude;
-      step = ANIMAL_START_STEP;
-      effects.push({ messageKey: "animal.ask_name" });
+      if (parseLocationSkip(textOf(input))) {
+        delete payload.latitude;
+        delete payload.longitude;
+        step = ANIMAL_START_STEP;
+        effects.push({ messageKey: "animal.ask_name" });
+        break;
+      }
+      effects.push({ messageKey: "citizen.ask_location_again" });
       break;
     }
     case "returning_menu": {
@@ -310,8 +333,7 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
         effects.push({ messageKey: "animal.ask_photos" });
         break;
       }
-      const skip = normalizeSkip(textOf(input));
-      if (skip || requireNonEmpty(textOf(input))) {
+      if (parseHealthCardSkip(textOf(input))) {
         step = "animal_photos";
         effects.push({ messageKey: "animal.ask_photos" });
         break;
@@ -322,33 +344,34 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
     case "animal_photos": {
       if (input.kind === "image") {
         payload.animalPhotoCount = (payload.animalPhotoCount ?? 0) + 1;
-        effects.push({ messageKey: "animal.photo_ack", menu: "photos" });
+        effects.push({ messageKey: "animal.photo_ack" });
         break;
       }
       if (input.kind !== "text" && input.kind !== "button_reply") {
         effects.push({ messageKey: "animal.ask_photos_image" });
         break;
       }
-      const finish = parsePhotoFinish(textOf(input));
-      if (finish === "another") {
-        effects.push({ messageKey: "animal.ask_photos" });
-        break;
-      }
-      if (finish === "finish") {
+      const raw = textOf(input);
+      if (!requireNonEmpty(raw)) {
         if ((payload.animalPhotoCount ?? 0) < 1) {
           effects.push({ messageKey: "animal.photos_required" });
-          break;
+        } else {
+          effects.push({ messageKey: "animal.photo_ack" });
         }
-        step = "completing";
-        completeRegistration = true;
-        effects.push({ messageKey: "registration.completing" });
         break;
+      }
+      // Option A: Listo/OK/any non-image text after ≥1 photo completes
+      const finishHint = parsePhotoFinish(raw);
+      if (finishHint === "another" && (payload.animalPhotoCount ?? 0) >= 1) {
+        // Product: any non-image text finishes; "otra" still completes after ≥1 photo
       }
       if ((payload.animalPhotoCount ?? 0) < 1) {
         effects.push({ messageKey: "animal.photos_required" });
         break;
       }
-      effects.push({ messageKey: "animal.photo_ack", menu: "photos" });
+      step = "completing";
+      completeRegistration = true;
+      effects.push({ messageKey: "registration.completing" });
       break;
     }
     case "completing": {
@@ -367,7 +390,7 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
     }
     default: {
       effects.push({ messageKey: "registration.restart" });
-      step = input.isReturningCitizen ? "returning_menu" : "consent";
+      step = input.isReturningCitizen ? "returning_menu" : "welcome";
     }
   }
 
@@ -399,17 +422,8 @@ export function startRegistrationSession(params: {
     };
   }
   return {
-    step: "consent",
+    step: "welcome",
     payload: {},
-    effects: [{ messageKey: "consent.notice", menu: "consent" }],
+    effects: [{ messageKey: "welcome.intro" }],
   };
-}
-
-function normalizeSkip(raw: string): boolean {
-  const v = raw
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .trim()
-    .toLowerCase();
-  return v === "saltar" || v === "skip" || v === "no" || v === "omitir";
 }

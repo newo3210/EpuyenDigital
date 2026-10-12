@@ -27,6 +27,8 @@ const envSchema = z.object({
     ),
   REGISTRATION_SESSION_TTL_HOURS: z.coerce.number().int().positive().default(24),
   PRIVACY_NOTICE_VERSION: z.string().default("v1"),
+  /** Absolute path to static location-help PNG; defaults to worker asset */
+  LOCATION_HELP_IMAGE_PATH: z.string().min(1).optional(),
   LLM_VISION_PROVIDER: z.string().default("openai"),
   LLM_VISION_MODEL: z.string().default("gpt-4o-mini"),
   LLM_VISION_BASE_URL: z.string().url().optional(),

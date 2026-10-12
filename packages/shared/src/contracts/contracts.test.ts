@@ -26,7 +26,7 @@ describe("Zod contracts", () => {
         orgId: "00000000-0000-4000-8000-000000000001",
         lineId: "00000000-0000-4000-8000-000000000002",
         phoneNormalized: "5492944216586",
-        step: "consent",
+        step: "welcome",
         expiresAt: new Date().toISOString(),
       }),
     ).not.toThrow();
@@ -36,13 +36,22 @@ describe("Zod contracts", () => {
         fullName: "Ana",
         documentId: "30111222",
         addressLine: "Calle 1",
-        neighborhood: "Centro",
-        latitude: -42.1,
-        longitude: -71.3,
-        privacyConsentAt: new Date().toISOString(),
         phoneNormalized: "5491111111111",
       }).fullName,
     ).toBe("Ana");
+
+    expect(
+      citizenUpsertSchema.parse({
+        fullName: "Ana",
+        documentId: "30111222",
+        addressLine: "Calle 1",
+        neighborhood: null,
+        latitude: null,
+        longitude: null,
+        privacyConsentAt: null,
+        phoneNormalized: "5491111111111",
+      }).latitude,
+    ).toBeNull();
 
     expect(
       animalDraftSchema.parse({
@@ -53,9 +62,9 @@ describe("Zod contracts", () => {
         size: "medium",
         ageStage: "adulto",
         sterilized: "yes",
-        rabiesStatus: "up_to_date",
-      }).species,
-    ).toBe("dog");
+        rabiesStatus: "unknown",
+      }).rabiesStatus,
+    ).toBe("unknown");
   });
 
   it("validates vision traits and outbound/job payloads", () => {

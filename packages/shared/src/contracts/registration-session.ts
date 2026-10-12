@@ -3,11 +3,12 @@ import { z } from "zod";
 // Registration session contract - step + payload partials
 
 export const registrationStepSchema = z.enum([
-  "consent",
+  "welcome",
   "full_name",
   "document_id",
   "address_line",
-  "neighborhood",
+  "location_help_offer",
+  "location_help",
   "location",
   "returning_menu",
   "confirm_citizen",
@@ -42,7 +43,7 @@ export const sessionPayloadSchema = z.object({
   size: z.enum(["small", "medium", "large"]).optional(),
   ageStage: z.string().min(1).optional(),
   sterilized: z.enum(["yes", "no", "unknown"]).optional(),
-  rabiesStatus: z.enum(["up_to_date", "pending"]).optional(),
+  rabiesStatus: z.enum(["up_to_date", "pending", "unknown"]).optional(),
   microchip: z.string().optional(),
   animalPhotoCount: z.number().int().nonnegative().optional(),
   pendingMediaMessageIds: z.array(z.string()).optional(),

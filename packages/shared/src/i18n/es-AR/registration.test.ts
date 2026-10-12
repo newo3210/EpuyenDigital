@@ -12,16 +12,19 @@ describe("registration i18n es-AR", () => {
     }
   });
 
-  it("formats confirmation with municipal id", () => {
+  it("formats confirmation with animal, citizen name, and municipal id", () => {
     const text = formatRegistrationMessage("registration.confirmation", {
       animalName: "Luna",
-      municipalId: "CENT-2026-00001",
+      citizenFullName: "Ana Pérez",
+      municipalId: "EPU-2026-00001",
     });
-    expect(text).toContain("CENT-2026-00001");
+    expect(text).toContain("EPU-2026-00001");
     expect(text).toContain("Luna");
+    expect(text).toContain("Ana Pérez");
   });
 
-  it("consent notice mentions Ley 25.326", () => {
-    expect(registrationMessages["consent.notice"]).toMatch(/25\.326/);
+  it("welcome introduces Inspectoría without consent gate", () => {
+    expect(registrationMessages["welcome.intro"]).toMatch(/Inspectoría/);
+    expect(registrationMessages["welcome.intro"]).not.toMatch(/25\.326/);
   });
 });
