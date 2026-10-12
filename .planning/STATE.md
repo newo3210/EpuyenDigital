@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 2.1 INSERTED — Inspectoría pet registry MVP (standalone), in parallel with Phase 1 planning
+**Current focus:** Phase 1 — Fundación (Phase 2.1 Inspectoría pets archived)
 
 ## Current Position
 
-Phase: 2.1 of 7+ (INSERTED Inspectoría pets) alongside Phase 1
-Plan: OpenSpec `inspectoria-pet-registry-bot` — proposed, awaiting human approval
-Status: Plan ready for approval
-Last activity: 2026-10-12 — Enriched US + OpenSpec proposal/specs/design/tasks for Inspectoría pet registry MVP
+Phase: 1 of 7 (Fundación); Phase 2.1 archived
+Plan: OpenSpec `inspectoria-pet-registry-bot` archived 2026-10-12
+Status: Phase 2.1 done (PASS WITH GAPS — live SQL/Evolution pairing deferred)
+Last activity: 2026-10-12 — Archived inspectoria-pet-registry-bot; specs synced to `openspec/specs/`
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -39,7 +39,9 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Human approval of OpenSpec change `inspectoria-pet-registry-bot` before `/opsx:apply`
+- Run `supabase test db` when CLI/Podman available
+- Link Evolution QR for `+5492944216586` and allowlist smoke test
+- Later: integrate pet registry into Mesa de Entrada panel (areas / citizens)
 
 ### Blockers/Concerns
 

@@ -12,7 +12,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
 
 - [ ] **Phase 1: Fundación** - Repo, Supabase, auth, roles, áreas, RLS por organización y área, registro de errores
 - [ ] **Phase 2: Canal WhatsApp** - Evolution API: webhook seguro, entrada con adjuntos, salida multimedia, modo de envío seguro
-- [ ] **Phase 2.1: Registro de mascotas Inspectoría (INSERTED)** - MVP suelto WhatsApp: ciudadano + animal geolocalizado, fotos, ID municipal; integra después a Mesa de Entrada
+- [x] **Phase 2.1: Registro de mascotas Inspectoría (INSERTED)** - MVP suelto WhatsApp: ciudadano + animal geolocalizado, fotos, ID municipal; integra después a Mesa de Entrada
 - [ ] **Phase 3: Panel de mensajería** - Cola de triage FIFO, claim, delegación con aceptación, eventos, tiempo real, flags
 - [ ] **Phase 4: Pobladores** - Registro automático, ficha editable, registro progresivo, timeline, duplicados
 - [ ] **Phase 5: Tareas, notas y trazabilidad** - Tareas delegables a áreas y números externos, resultado de cierre, auditoría atómica
