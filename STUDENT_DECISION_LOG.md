@@ -5,15 +5,15 @@
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
 **Última actualización:** 2026-10-12
-**Change relacionado:** `inspectoria-pet-registry-bot`
+**Change relacionado:** `inspectoria-pet-registry-ux-v2`
 
 ---
 
 ## 1. Resumen de la decisión
 
-Entregamos un MVP vertical del bot de registro de mascotas por WhatsApp para la Inspectoría (línea `+5492944216586`), sin esperar el panel completo de Mesa de Entrada. El vecino acepta el aviso de privacidad (Ley 25.326), carga sus datos y la ubicación, describe al animal (perro/gato/otro), manda fotos y recibe un identificador municipal al instante. Las características visuales las completa un LLM de visión en segundo plano.
+El bot de registro de mascotas de Inspectoría (WhatsApp `+5492944216586`) pasa a **UX v2**: sin paso de consentimiento de privacidad (temporal), sin preguntar barrio, ubicación GPS opcional con ayuda (texto + imagen estática) o “No puedo ahora”, fotos múltiples hasta Listo/texto, antirrábica con “No sé”, y confirmación que nombra al vecino y al animal con ID siempre `EPU-AAAA-#####`.
 
-Arrancamos el monorepo (`apps/web`, `worker`, `packages/shared`, `supabase`) para que Mesa de Entrada reutilice las mismas carpetas después.
+La arquitectura (webhook delgado → worker → shared state machine → SQL) se mantiene; cambian el guion, contratos y el envío de imagen de ayuda.
 
 ## 2. Mapa de flujo de datos
 
@@ -24,47 +24,46 @@ Vecino (WhatsApp)
       → verifica secreto + Zod
       → guarda mensaje (idempotente) y encola process_inbound
   → Worker
-      → máquina de estados (packages/shared)
+      → máquina de estados UX v2 (packages/shared)
+      → send_outbound texto y, en ayuda de ubicación, mediaPath → sendImage
       → download_media → bucket privado animal-media
-      → send_outbound (dry_run / allowlist / production)
-      → complete_animal_registration (SQL) → ID municipal
+      → complete/finalize (p_neighborhood null → EPU) + confirmación con nombre del ciudadano
       → analyze_traits (visión + Zod) sin bloquear el alta
 ```
 
-- **Webhook → store**: JSON de Evolution normalizado; secreto obligatorio; grupos ignorados.
-- **Worker → shared**: la lógica pura de pasos vive en `packages/shared` (testeable sin I/O).
-- **Worker → SQL**: el ID municipal y el contador se asignan en una función atómica.
-- **Worker → LLM**: solo fotos; respuesta JSON estricta; si falla, `pending_manual`.
+- **Sin consentimiento:** `privacy_consent_at` puede quedar null (columna ya nullable).
+- **GPS opcional:** lat/lng null en citizen/animal si el vecino salta.
+- **Imagen de ayuda:** `LOCATION_HELP_IMAGE_PATH` o `worker/assets/inspectoria/location-help.png` (placeholder hasta arte oficial).
 
 ## 3. Justificación de Clean Architecture
 
-- El webhook no llama al LLM ni descarga media: Evolution reintenta si tarda, y no queremos respuestas duplicadas.
-- La máquina de estados es pura en `packages/shared` para TDD rápido y para reutilizar parsers de botones/números.
-- `complete_animal_registration` está en SQL porque el contador anual necesita `FOR UPDATE` contra carreras.
-- El modo de envío (`dry_run` por defecto) permite probar en local sin spamear WhatsApp real.
+- El guion vive en `packages/shared` (pasos + i18n es-AR) para TDD sin I/O.
+- Evolution `sendImage` queda en infraestructura; el job solo lleva `mediaPath`.
+- Forzar `p_neighborhood = null` en el worker concentra la decisión de producto “siempre EPU” sin reescribir la función SQL que aún entiende barrios a futuro.
 
 ## 4. Control de salida (anti-alucinación)
 
-- Visión: schema Zod `visionTraitsSchema`; reintento único; si sigue mal → `traits_status = pending_manual` y el animal sigue `active` con su ID.
-- No hay chatbot libre: solo prompts de registro con menús cerrados (especie, sexo, tamaño, etc.).
-- Logs pasan por redacción de teléfono y DNI.
+- Visión: schema Zod; reintento; si falla → `pending_manual`.
+- Menús cerrados (especie, sexo, tamaño, esterilizado, antirrábica incl. No sé).
+- Confirmación interpola solo datos persistidos (`animalName`, `citizenFullName`, `municipalId`).
 
 ## 5. Glosario técnico
 
 | Concepto | Qué significa aquí | Dónde aparece en el código |
 |---|---|---|
-| Webhook delgado | Solo secreto + Zod + persistir + encolar | `apps/web/src/app/api/webhooks/evolution` |
-| Sesión de registro | Paso actual + payload JSON con TTL 24h | `registration_sessions`, `packages/shared/.../state-machine.ts` |
-| ID municipal | `{BARRIO3}-{YYYY}-{SEQ5}` o `EPU-…` | `complete_animal_registration`, `formatMunicipalId` |
+| Welcome | Primer mensaje sin gate de consentimiento | `welcome.intro`, paso `welcome` |
+| Location help | Oferta 1/2 + texto + PNG estático | `location_help_offer` / `location_help`, `LOCATION_HELP_IMAGE_PATH` |
+| Skip GPS | “No puedo ahora” | `parseLocationSkip`, paso `location` |
+| ID EPU | Prefijo municipal fijo en este slice | `formatMunicipalId(null…)`, `p_neighborhood: null` |
+| Rabies unknown | Opción “3 No sé” | `RabiesStatus`, migración check SQL |
 | Send mode | `dry_run` / `allowlist` / `production` | `worker/src/infrastructure/send-mode.ts` |
-| VisionClient | Adaptador de visión agnóstico al proveedor | `worker/src/infrastructure/llm/vision-client.ts` |
 
 ## 6. Qué aprendí / qué defendería en una oral
 
-- Por qué el MVP es standalone: valor para Inspectoría sin esperar auth/panel.
-- Por qué especie no va en el ID: evita colisiones con códigos de barrio; la especie vive en la fila.
-- Por qué `dry_run` es el default: seguridad en local y en CI.
-- Por qué foundation-workspace-auth no es dependencia: el producto pidió vertical-only; al integrar hay que unificar el scaffold con cuidado.
+- Por qué sacar el consentimiento ahora: decisión de producto temporal; la columna nullable evita migración destructiva al volver.
+- Por qué GPS opcional: baja fricción; el mapa municipal pierde cobertura hasta re-exigirlo.
+- Por qué placeholder de imagen: desbloquea el flujo; el runbook exige reemplazo antes de producción ciudadana.
+- Por qué siempre EPU: sin índice de barrio no inventamos códigos desde texto libre.
 
 ## 7. Historial de entradas
 
@@ -72,3 +71,4 @@ Vecino (WhatsApp)
 |---|---|---|
 | 2026-09-30 | — (bootstrap SDD) | Línea base: flujo planeado, justificación de capas, control de salida, glosario |
 | 2026-10-12 | `inspectoria-pet-registry-bot` | Flujo webhook→worker→registro, ID municipal, visión async, send-mode, glosario MVP |
+| 2026-10-12 | `inspectoria-pet-registry-ux-v2` | UX v2: sin consent/barrio, GPS opcional + imagen, EPU, rabies unknown, confirmación con nombre |

@@ -5,17 +5,19 @@
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
 **Last updated:** 2026-10-12
-**Related OpenSpec change:** `inspectoria-pet-registry-bot`
+**Related OpenSpec change:** `inspectoria-pet-registry-ux-v2`
 
 ---
 
 ## 1. System overview
 
-"Mesa de Entrada Digital" is a web messaging panel for the Municipality of Epuyén. This change ships a **standalone MVP vertical**: WhatsApp pet registration on the Inspectoría line (`+5492944216586`) via Evolution API, without the operator panel.
+"Mesa de Entrada Digital" is a web messaging panel for the Municipality of Epuyén. The Inspectoría vertical registers pets on WhatsApp line `+5492944216586` via Evolution API.
 
-Citizens register dog/cat/other pets through a guided chat (consent → citizen + GPS → animal fields → photos). The worker activates the animal immediately, assigns a municipal ID `{BARRIO3}-{YYYY}-{SEQ5}` (fallback `EPU`), and sends a confirmation. Vision traits run asynchronously.
+**UX v2** guided chat (no privacy consent step, no barrio question): welcome → citizen name/DNI/address → optional location help (static image) → optional GPS (`No puedo ahora` skips) → animal fields (rabies may be `unknown`) → optional health-card photo (`No` skips) → ≥1 animal photo then Listo/text → confirmation with animal name, citizen full name, and municipal ID always `EPU-{YYYY}-{SEQ5}`.
 
-Status: **MVP code present** under `apps/web`, `worker/`, `packages/shared`, `supabase/`, `infra/evolution/`. Broader panel design remains in `docs/architecture.md`.
+Vision traits still run asynchronously after activation.
+
+Status: **MVP + UX v2** under `apps/web`, `worker/`, `packages/shared`, `supabase/`, `infra/evolution/`.
 
 ## 2. Layer mapping (this project)
 
@@ -23,8 +25,8 @@ Status: **MVP code present** under `apps/web`, `worker/`, `packages/shared`, `su
 |---|---|---|
 | Presentation / HTTP thin | `apps/web/src/app/api/webhooks/evolution/route.ts`, `apps/web/src/app/api/health/route.ts` | Secret check + Zod normalize + persist/enqueue only. No LLM/media/outbound. |
 | Application / services | `worker/src/features/registration/**`, `worker/src/jobs/**`, `packages/shared/src/registration/**` | State machine, confirmation, vision orchestration, job handlers |
-| Infrastructure / repositories | `apps/web/src/infrastructure/**`, `worker/src/infrastructure/**`, `supabase/migrations/**`, `infra/evolution/**` | Supabase, Evolution, storage, LLM vision adapter |
-| Contracts / schemas | `packages/shared/src/contracts/**` | Webhook, session, citizen, animal, vision traits, outbound, jobs; `database.types.ts` |
+| Infrastructure / repositories | `apps/web/src/infrastructure/**`, `worker/src/infrastructure/**`, `supabase/migrations/**`, `infra/evolution/**`, `worker/assets/inspectoria/` | Supabase, Evolution (text + image), storage, LLM vision, static help PNG |
+| Contracts / schemas | `packages/shared/src/contracts/**` | Webhook, session, citizen (nullable GPS/consent), animal (`rabies unknown`), jobs (`mediaPath`) |
 
 Deliberate deviation: `complete_animal_registration` and `claim_next_job` are SQL functions (transaction / SKIP LOCKED boundary).
 
@@ -40,10 +42,12 @@ Citizen (WhatsApp) → Evolution API → POST /api/webhooks/evolution
 
 Worker → claim_next_job (FOR UPDATE SKIP LOCKED) / in-memory claim in tests
   → process_inbound: load/create registration_sessions, apply shared transitions
-      → enqueue send_outbound / download_media
-      → on complete: upsert citizen, complete_animal_registration, analyze_traits, confirmation
+      → enqueue send_outbound (text and/or mediaPath help image)
+      → enqueue download_media for inbound images
+      → on complete: upsert citizen (lat/lng/consent may be null), finalizeRegistrationCompletion
+         (p_neighborhood forced null → EPU id), analyze_traits, confirmation with citizen name
   → download_media: Evolution fetch → private bucket animal-media
-  → send_outbound: send-mode guard (dry_run|allowlist|production) → Evolution or simulate
+  → send_outbound: send-mode guard → Evolution text/buttons or sendImage, or dry_run simulate
   → analyze_traits: VisionClient + visionTraitsSchema → traits_status ready|pending_manual
 ```
 
@@ -59,14 +63,15 @@ Worker → claim_next_job (FOR UPDATE SKIP LOCKED) / in-memory claim in tests
 ### 5.1 Contracts (Zod)
 
 - `evolutionWebhookSchema` — text | image | location | button_reply | unknown
-- `registrationSessionSchema` / `sessionPayloadSchema`
-- `citizenUpsertSchema`, `animalDraftSchema` (species: dog|cat|other)
-- `visionTraitsSchema` — summary, colors, markings, notableFeatures
-- `outboundTextSchema`, `jobPayloadSchema` (`process_inbound`, `download_media`, `send_outbound`, `analyze_traits`)
+- `registrationSessionSchema` / `sessionPayloadSchema` — steps include `welcome`, `location_help_offer`, `location_help` (no `consent` / `neighborhood`)
+- `citizenUpsertSchema` — neighborhood, lat/lng, `privacyConsentAt` optional/nullable
+- `animalDraftSchema` — `rabiesStatus`: `up_to_date` | `pending` | `unknown`
+- `jobPayloadSchema` — `send_outbound` may include `mediaPath`
+- Env: `LOCATION_HELP_IMAGE_PATH` optional override for help PNG
 
 ### 5.2 Persistence
 
-Tables: `organizations`, `org_settings`, `whatsapp_lines`, `whatsapp_line_secrets`, `citizens`, `citizen_phones`, `animals`, `animal_photos`, `neighborhood_codes`, `animal_id_counters`, `registration_sessions`, `messages`, `jobs`. Seed org `epuyen`, line display phone `+5492944216586`, codes `CENT`/`EPU`.
+Tables unchanged structurally; migration `20261012120000_rabies_status_unknown.sql` widens `animals.rabies_status` check. Seed org `epuyen`, line `+5492944216586`. Municipal ID generation still supports barrio codes in SQL, but worker always passes `p_neighborhood = null` in this slice → `EPU`.
 
 ## 6. AI / LLM boundaries
 
@@ -84,7 +89,7 @@ Tables: `organizations`, `org_settings`, `whatsapp_lines`, `whatsapp_line_secret
 
 ## 8. Non-goals / out of scope
 
-Operator panel, triage/RAG mesa bot, horse/livestock plantels, human approval, PDF/QR certificates, Meta Cloud API, full foundation auth.
+Operator panel, triage/RAG mesa bot, horse/livestock plantels, human approval, PDF/QR certificates, Meta Cloud API, Ley 25.326 consent UI (deferred), barrio-indexed municipal IDs (deferred).
 
 ## 9. Change log (architecture)
 
@@ -92,3 +97,4 @@ Operator panel, triage/RAG mesa bot, horse/livestock plantels, human approval, P
 |---|---|---|
 | 2026-09-30 | Design baseline at SDD bootstrap | — |
 | 2026-10-12 | Inspectoria pet registry WhatsApp MVP (webhook, worker, SQL, vision) | `inspectoria-pet-registry-bot` |
+| 2026-10-12 | UX v2: no consent/barrio, optional GPS + help image, rabies unknown, EPU id, confirmation with citizen name | `inspectoria-pet-registry-ux-v2` |
