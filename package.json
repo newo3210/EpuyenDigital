@@ -7,9 +7,10 @@
     "packages/shared"
   ],
   "scripts": {
-    "dev": "npm run dev -w @epuyen/web",
-    "dev:worker": "npm run dev -w @epuyen/worker",
+    "dev": "npm run build -w @epuyen/shared && npm run dev -w @epuyen/web",
+    "dev:worker": "npm run build -w @epuyen/shared && npm run dev -w @epuyen/worker",
     "build": "npm run build -w @epuyen/shared && npm run build -w @epuyen/web && npm run build -w @epuyen/worker",
+    "pretest": "npm run build -w @epuyen/shared",
     "typecheck": "npm run typecheck -w @epuyen/shared && npm run typecheck -w @epuyen/web && npm run typecheck -w @epuyen/worker",
     "lint": "npm run lint -w @epuyen/shared && npm run lint -w @epuyen/web && npm run lint -w @epuyen/worker",
     "test": "vitest run",
