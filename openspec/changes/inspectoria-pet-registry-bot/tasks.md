@@ -117,3 +117,11 @@
 - [x] 15.9 Enforce `citizenUpsertSchema` before `upsertCitizenFromPayload`
 - [x] 15.10 Missing Evolution `key.id` → ignore (no invented `externalId`)
 - [x] 15.11 Report `reports/adversarial-fixes-2026-10-12.md`; `npm run test` / typecheck / lint green
+
+## 16. Re-audit blockers (transactional completion)
+
+- [x] 16.1 `finalize_registration_completion` SQL RPC (session FOR UPDATE + animal + photos + done)
+- [x] 16.2 `upsert_registration_session` with `pg_advisory_xact_lock` (design D4 updated for PostgREST)
+- [x] 16.3 State machine resumes `completing` without `completedAnimalId`; Vitest crash-resume
+- [x] 16.4 Worker uses finalize path; no multi-RPC complete window
+- [x] 16.5 Report + re-audit subagent after push

@@ -88,6 +88,18 @@ describe("applyRegistrationTransition", () => {
     expect(r.effects[0]?.messageKey).toBe("citizen.ask_location_again");
   });
 
+  it("resumes completing without animal id (crash recovery)", () => {
+    const r = applyRegistrationTransition({
+      step: "completing",
+      payload: { animalName: "Luna", animalPhotoCount: 1 },
+      kind: "text",
+      text: "hola",
+      isReturningCitizen: false,
+    });
+    expect(r.completeRegistration).toBe(true);
+    expect(r.nextStep).toBe("completing");
+  });
+
   it("blocks finish without photos then completes with photo", () => {
     const blocked = applyRegistrationTransition({
       step: "animal_photos",

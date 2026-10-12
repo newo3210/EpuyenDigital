@@ -47,7 +47,13 @@ Single seeded organization `epuyen`. Service-role worker/webhook access for writ
 *Alternative:* Meta Cloud API — out of project v1 strategy.
 
 ### D4 — Registration session state machine (DB-backed)
-Table `registration_sessions` with `phone_normalized`, `line_id`, `step`, `payload jsonb`, `expires_at`. Pure transition helpers in `packages/shared` (input → next step / effects). Worker applies transitions inside a transaction with `select … for update` on the session row.
+Table `registration_sessions` with `phone_normalized`, `line_id`, `step`, `payload jsonb`, `expires_at`, `lock_version`. Pure transition helpers in `packages/shared` (input → next step / effects).
+
+**Concurrency (PostgREST reality):** a JS `FOR UPDATE` RPC cannot hold a lock across later JS calls. Therefore:
+- Session writes go through `upsert_registration_session` (advisory xact lock + row `FOR UPDATE` in one SQL transaction).
+- Completion goes through `finalize_registration_completion` (session `FOR UPDATE` + animal insert + photo links + mark `done` in one SQL transaction).
+- Memory store uses a per-phone async mutex for Vitest.
+- Crash resume: step `completing` without `completedAnimalId` re-triggers finalize (state machine).
 Steps (new citizen): `consent` → `full_name` → `document_id` → `address_line` → `neighborhood` → `location` → `animal_name` → `species` → `sex` → `breed_color` → `size` → `age_stage` → `sterilized` → `rabies_status` → `health_card_photo_optional` → `animal_photos` → `completing` → `done`.
 Returning citizen: `returning_menu` → (optional `confirm_citizen`) → animal steps…
 

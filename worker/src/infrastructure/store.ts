@@ -93,6 +93,20 @@ export type WorkerStore = {
     municipalId: string;
     payload: SessionPayload;
   }): Promise<CompleteAnimalResult & { alreadyDone: boolean }>;
+  /**
+   * Atomic completion: lock session, insert animal once, link photos, mark done.
+   * Preferred over completeAnimalRegistration + markSessionCompleted + link loops.
+   */
+  finalizeRegistrationCompletion(params: {
+    sessionId: string;
+    citizenId: string;
+    payload: SessionPayload;
+    photos: {
+      kind: "animal" | "health_card";
+      storagePath: string;
+      messageId?: string;
+    }[];
+  }): Promise<CompleteAnimalResult & { alreadyDone: boolean }>;
   enqueueJob(orgId: string | null, payload: JobPayload): Promise<void>;
   persistOutbound(params: {
     orgId: string;

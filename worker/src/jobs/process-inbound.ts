@@ -64,8 +64,16 @@ async function processInboundLocked(
 
   let session = await ctx.store.lockSession(payload.lineId, message.phoneNormalized);
 
-  // Idempotent short-circuit: already completed this session
-  if (session?.payload.completedAnimalId && session.step === "done") {
+  // Idempotent short-circuit: already completed this session (any step)
+  if (session?.payload.completedAnimalId) {
+    if (session.step !== "done") {
+      await ctx.store.upsertSession({
+        ...session,
+        step: "done",
+        payload: session.payload,
+        expiresAt: session.expiresAt,
+      });
+    }
     const confirmation = formatRegistrationMessage("registration.already_done");
     await ctx.store.enqueueJob(payload.orgId, {
       type: "send_outbound",
@@ -195,45 +203,13 @@ async function processInboundLocked(
         text: formatRegistrationMessage("animal.photos_saving"),
       });
     } else {
-      // Mark completing first under lock before animal insert (idempotency guard)
-      nextStep = "completing";
+      // Persist latest payload (still animal_photos/completing) then atomic finalize
       await ctx.store.upsertSession({
         ...session,
         step: "completing",
         payload: nextPayload,
         expiresAt: session.expiresAt,
       });
-
-      // Re-read under lock in case a concurrent worker finished
-      const reloaded = await ctx.store.lockSession(
-        payload.lineId,
-        message.phoneNormalized,
-      );
-      if (reloaded?.payload.completedAnimalId) {
-        nextPayload = {
-          ...nextPayload,
-          completedAnimalId: reloaded.payload.completedAnimalId,
-          completedMunicipalId: reloaded.payload.completedMunicipalId,
-        };
-        nextStep = "done";
-        const confirmation = formatRegistrationMessage("registration.confirmation", {
-          animalName: nextPayload.animalName ?? "",
-          municipalId: nextPayload.completedMunicipalId ?? "",
-        });
-        await ctx.store.enqueueJob(payload.orgId, {
-          type: "send_outbound",
-          lineId: payload.lineId,
-          phone: message.phoneNormalized,
-          text: confirmation,
-        });
-        await ctx.store.upsertSession({
-          ...session,
-          step: "done",
-          payload: nextPayload,
-          expiresAt: session.expiresAt,
-        });
-        return;
-      }
 
       const ensuredCitizen = await ctx.store.upsertCitizenFromPayload({
         orgId: payload.orgId,
@@ -242,46 +218,35 @@ async function processInboundLocked(
       });
       nextPayload = { ...nextPayload, citizenId: ensuredCitizen.id };
 
-      const completed = await ctx.store.completeAnimalRegistration({
-        orgId: payload.orgId,
+      const finalized = await ctx.store.finalizeRegistrationCompletion({
+        sessionId: session.id,
         citizenId: ensuredCitizen.id,
         payload: nextPayload,
+        photos: pendingReady.map((m) => ({
+          kind: m.kind,
+          storagePath: m.storagePath,
+          messageId: m.id,
+        })),
       });
 
-      const marked = await ctx.store.markSessionCompleted({
-        sessionId: session.id,
-        animalId: completed.animalId,
-        municipalId: completed.municipalId,
-        payload: nextPayload,
-      });
       nextPayload = {
         ...nextPayload,
-        completedAnimalId: marked.animalId,
-        completedMunicipalId: marked.municipalId,
+        completedAnimalId: finalized.animalId,
+        completedMunicipalId: finalized.municipalId,
       };
       nextStep = "done";
 
-      if (!marked.alreadyDone) {
-        for (const media of pendingReady) {
-          await ctx.store.linkAnimalPhoto({
-            orgId: payload.orgId,
-            animalId: marked.animalId,
-            kind: media.kind,
-            storagePath: media.storagePath,
-            messageId: media.id,
-          });
-        }
-
+      if (!finalized.alreadyDone) {
         await ctx.store.enqueueJob(payload.orgId, {
           type: "analyze_traits",
-          animalId: marked.animalId,
+          animalId: finalized.animalId,
           orgId: payload.orgId,
         });
       }
 
       const confirmation = formatRegistrationMessage("registration.confirmation", {
         animalName: nextPayload.animalName ?? "",
-        municipalId: marked.municipalId,
+        municipalId: finalized.municipalId,
       });
       await ctx.store.enqueueJob(payload.orgId, {
         type: "send_outbound",
@@ -290,7 +255,6 @@ async function processInboundLocked(
         text: confirmation,
       });
 
-      // Session already marked done by markSessionCompleted; ensure in-memory shape
       await ctx.store.upsertSession({
         ...session,
         step: "done",

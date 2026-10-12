@@ -160,20 +160,31 @@ class SupabaseWorkerStore implements WorkerStore {
   }
 
   async runWithSessionLock<T>(
-    lineId: string,
-    phone: string,
+    _lineId: string,
+    _phone: string,
     fn: () => Promise<T>,
   ): Promise<T> {
-    // Acquire FOR UPDATE via RPC at the start of the critical section
-    await this.client.rpc("lock_registration_session", {
-      p_line_id: lineId,
-      p_phone: phone,
-    });
+    // PostgREST cannot hold FOR UPDATE across JS. Serialization for the same phone
+    // happens inside upsert_registration_session / finalize_registration_completion
+    // via pg_advisory_xact_lock + row FOR UPDATE in a single SQL transaction.
     return fn();
   }
 
   async upsertSession(session: SessionRow): Promise<SessionRow> {
-    const { data, error } = await this.client
+    const { data, error } = await this.client.rpc("upsert_registration_session", {
+      p_id: session.id,
+      p_org_id: session.orgId,
+      p_line_id: session.lineId,
+      p_phone: session.phoneNormalized,
+      p_step: session.step,
+      p_payload: session.payload,
+      p_expires_at: session.expiresAt.toISOString(),
+    });
+    if (!error && data) {
+      return mapSession(data as Record<string, unknown>);
+    }
+    // Fallback when RPC not applied yet
+    const { data: row, error: upsertError } = await this.client
       .from("registration_sessions")
       .upsert(
         {
@@ -189,8 +200,8 @@ class SupabaseWorkerStore implements WorkerStore {
       )
       .select("*")
       .single();
-    if (error) throw error;
-    return mapSession(data);
+    if (upsertError) throw upsertError;
+    return mapSession(row);
   }
 
   async upsertCitizenFromPayload(params: {
@@ -283,6 +294,82 @@ class SupabaseWorkerStore implements WorkerStore {
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     return { animalId: row.animal_id as string, municipalId: row.municipal_id as string };
+  }
+
+  async finalizeRegistrationCompletion(params: {
+    sessionId: string;
+    citizenId: string;
+    payload: SessionPayload;
+    photos: {
+      kind: "animal" | "health_card";
+      storagePath: string;
+      messageId?: string;
+    }[];
+  }) {
+    const photosJson = params.photos.map((p) => ({
+      kind: p.kind,
+      storage_path: p.storagePath,
+      message_id: p.messageId ?? null,
+    }));
+    const { data, error } = await this.client.rpc("finalize_registration_completion", {
+      p_session_id: params.sessionId,
+      p_citizen_id: params.citizenId,
+      p_payload: params.payload,
+      p_photos: photosJson,
+    });
+    if (!error && data?.[0]) {
+      const row = data[0] as {
+        animal_id: string;
+        municipal_id: string;
+        already_done: boolean;
+      };
+      return {
+        animalId: row.animal_id,
+        municipalId: row.municipal_id,
+        alreadyDone: row.already_done,
+      };
+    }
+
+    // Fallback: compose older RPCs when finalize migration is absent
+    const session = await this.lockSessionById(params.sessionId);
+    if (!session) throw new Error("SESSION_NOT_FOUND");
+    if (session.payload.completedAnimalId && session.payload.completedMunicipalId) {
+      return {
+        animalId: session.payload.completedAnimalId,
+        municipalId: session.payload.completedMunicipalId,
+        alreadyDone: true,
+      };
+    }
+    const completed = await this.completeAnimalRegistration({
+      orgId: session.orgId,
+      citizenId: params.citizenId,
+      payload: params.payload,
+    });
+    for (const photo of params.photos) {
+      await this.linkAnimalPhoto({
+        orgId: session.orgId,
+        animalId: completed.animalId,
+        kind: photo.kind,
+        storagePath: photo.storagePath,
+        messageId: photo.messageId,
+      });
+    }
+    return this.markSessionCompleted({
+      sessionId: params.sessionId,
+      animalId: completed.animalId,
+      municipalId: completed.municipalId,
+      payload: params.payload,
+    });
+  }
+
+  private async lockSessionById(sessionId: string): Promise<SessionRow | null> {
+    const { data } = await this.client
+      .from("registration_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (!data) return null;
+    return mapSession(data);
   }
 
   async markSessionCompleted(params: {

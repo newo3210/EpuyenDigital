@@ -304,6 +304,41 @@ describe("adversarial fixes", () => {
     expect(store.animals[0]?.longitude).toBeCloseTo(-71.2);
   });
 
+  it("resumes stranded completing session without animal id", async () => {
+    const store = new MemoryWorkerStore();
+    const ctx = makeCtx(store);
+    const phone = "5494444555666";
+    await advanceToPhotos(store, ctx, phone);
+    const photoId = await enqueueInbound(store, {
+      kind: "image",
+      mediaUrl: "https://cdn.example/pet.jpg",
+      phone,
+    });
+    await drain(ctx);
+
+    const session = [...store.sessions.values()][0]!;
+    // Simulate crash after marking completing and before finalize
+    session.step = "completing";
+    session.payload = {
+      ...session.payload,
+      pendingMediaMessageIds: [photoId],
+      pendingMediaKinds: { [photoId]: "animal" },
+      animalPhotoCount: 1,
+    };
+    delete session.payload.completedAnimalId;
+    delete session.payload.completedMunicipalId;
+    store.sessions.set(`${session.lineId}:${session.phoneNormalized}`, session);
+
+    expect(store.animals.length).toBe(0);
+
+    await enqueueInbound(store, { kind: "text", body: "hola", phone });
+    await drain(ctx);
+
+    expect(store.animals.length).toBe(1);
+    expect([...store.sessions.values()][0]?.step).toBe("done");
+    expect([...store.sessions.values()][0]?.payload.completedAnimalId).toBeTruthy();
+  });
+
   it("serializes concurrent process_inbound via per-phone mutex", async () => {
     const store = new MemoryWorkerStore();
     const ctx = makeCtx(store);

@@ -124,6 +124,7 @@ export type Database = {
           step: string;
           payload: Json;
           expires_at: string;
+          lock_version: number;
         };
         Insert: {
           id?: string;
@@ -133,6 +134,7 @@ export type Database = {
           step: string;
           payload?: Json;
           expires_at?: string;
+          lock_version?: number;
         };
         Update: Partial<Database["public"]["Tables"]["registration_sessions"]["Insert"]>;
       };
@@ -211,6 +213,31 @@ export type Database = {
       lock_registration_session: {
         Args: { p_line_id: string; p_phone: string };
         Returns: Database["public"]["Tables"]["registration_sessions"]["Row"][];
+      };
+      upsert_registration_session: {
+        Args: {
+          p_id: string;
+          p_org_id: string;
+          p_line_id: string;
+          p_phone: string;
+          p_step: string;
+          p_payload: Json;
+          p_expires_at: string;
+        };
+        Returns: Database["public"]["Tables"]["registration_sessions"]["Row"];
+      };
+      finalize_registration_completion: {
+        Args: {
+          p_session_id: string;
+          p_citizen_id: string;
+          p_payload: Json;
+          p_photos?: Json;
+        };
+        Returns: {
+          animal_id: string;
+          municipal_id: string;
+          already_done: boolean;
+        }[];
       };
       mark_session_completion: {
         Args: {

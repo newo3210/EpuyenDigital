@@ -351,7 +351,16 @@ export function applyRegistrationTransition(input: TransitionInput): TransitionR
       effects.push({ messageKey: "animal.photo_ack", menu: "photos" });
       break;
     }
-    case "completing":
+    case "completing": {
+      // Crash resume: completing without durable animal id must retry finalize
+      if (!payload.completedAnimalId) {
+        completeRegistration = true;
+        effects.push({ messageKey: "registration.completing" });
+        break;
+      }
+      effects.push({ messageKey: "registration.already_done" });
+      break;
+    }
     case "done": {
       effects.push({ messageKey: "registration.already_done" });
       break;

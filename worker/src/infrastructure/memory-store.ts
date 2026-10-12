@@ -266,6 +266,47 @@ export class MemoryWorkerStore implements WorkerStore {
     };
   }
 
+  async finalizeRegistrationCompletion(params: {
+    sessionId: string;
+    citizenId: string;
+    payload: SessionPayload;
+    photos: {
+      kind: "animal" | "health_card";
+      storagePath: string;
+      messageId?: string;
+    }[];
+  }) {
+    const session = [...this.sessions.values()].find((s) => s.id === params.sessionId);
+    if (!session) throw new Error("SESSION_NOT_FOUND");
+    if (session.payload.completedAnimalId && session.payload.completedMunicipalId) {
+      return {
+        animalId: session.payload.completedAnimalId,
+        municipalId: session.payload.completedMunicipalId,
+        alreadyDone: true,
+      };
+    }
+    const completed = await this.completeAnimalRegistration({
+      orgId: session.orgId,
+      citizenId: params.citizenId,
+      payload: params.payload,
+    });
+    for (const photo of params.photos) {
+      await this.linkAnimalPhoto({
+        orgId: session.orgId,
+        animalId: completed.animalId,
+        kind: photo.kind,
+        storagePath: photo.storagePath,
+        messageId: photo.messageId,
+      });
+    }
+    return this.markSessionCompleted({
+      sessionId: params.sessionId,
+      animalId: completed.animalId,
+      municipalId: completed.municipalId,
+      payload: { ...params.payload, citizenId: params.citizenId },
+    });
+  }
+
   async enqueueJob(orgId: string | null, payload: JobPayload) {
     this.jobs.push({
       id: crypto.randomUUID(),
