@@ -31,8 +31,9 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
   3. Ciudadano conocido es saludado por nombre y puede registrar otro animal
   4. Animal dog/cat/other queda `active` con ≥1 foto, traits vision o `pending_manual`, y municipal ID `{BARRIO3}-{YYYY}-{SEQ5}`
   5. Confirmación por WhatsApp incluye el ID; modo `dry_run` no llama a Evolution
-**Plans**: OpenSpec change `inspectoria-pet-registry-bot`
+**Plans**: OpenSpec change `inspectoria-pet-registry-bot` — **archived** `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot`
 **Out of this phase**: caballo, planteles, panel operador, PDF/QR, aprobación humana
+**Follow-ups**: live `supabase test db`; Evolution QR on `+5492944216586`; integrate into Mesa de Entrada panel later
 
 ### Phase 1: Fundación
 **Goal**: Un admin puede entrar al panel, crear áreas y operadores con roles, y la base de datos garantiza aislamiento por organización y área.
