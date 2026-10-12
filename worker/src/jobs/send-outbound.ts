@@ -2,7 +2,7 @@ import { jobPayloadSchema } from "@epuyen/shared";
 import { decideSend } from "../infrastructure/send-mode.js";
 import type { JobContext } from "./types.js";
 
-// send_outbound - send-mode guard then Evolution text/buttons
+// send_outbound - send-mode guard then Evolution text/buttons/image
 
 export async function handleSendOutbound(
   rawPayload: unknown,
@@ -33,25 +33,41 @@ export async function handleSendOutbound(
       orgId: line.orgId,
       lineId: payload.lineId,
       phone: payload.phone,
-      text: payload.text,
+      text: payload.mediaPath
+        ? `[media:${payload.mediaPath}] ${payload.text}`
+        : payload.text,
       deliveryStatus: decision.reason === "dry_run" ? "simulated" : "blocked",
     });
     return;
   }
 
-  const sent = await ctx.evolution.sendText({
-    instance: line.instance,
-    phone: payload.phone,
-    text: payload.text,
-    buttons: payload.buttons,
-  });
+  let externalId: string;
+  if (payload.mediaPath) {
+    const sent = await ctx.evolution.sendImage({
+      instance: line.instance,
+      phone: payload.phone,
+      mediaPath: payload.mediaPath,
+      caption: payload.text,
+    });
+    externalId = sent.externalId;
+  } else {
+    const sent = await ctx.evolution.sendText({
+      instance: line.instance,
+      phone: payload.phone,
+      text: payload.text,
+      buttons: payload.buttons,
+    });
+    externalId = sent.externalId;
+  }
 
   await ctx.store.persistOutbound({
     orgId: line.orgId,
     lineId: payload.lineId,
     phone: payload.phone,
-    text: payload.text,
+    text: payload.mediaPath
+      ? `[media:${payload.mediaPath}] ${payload.text}`
+      : payload.text,
     deliveryStatus: "sent",
-    externalId: sent.externalId,
+    externalId,
   });
 }

@@ -232,11 +232,12 @@ class SupabaseWorkerStore implements WorkerStore {
       fullName: params.payload.fullName ?? existing?.fullName,
       documentId: params.payload.documentId ?? existing?.documentId,
       addressLine: params.payload.addressLine ?? existing?.addressLine,
-      neighborhood: params.payload.neighborhood ?? existing?.neighborhood,
-      latitude: params.payload.latitude ?? existing?.latitude,
-      longitude: params.payload.longitude ?? existing?.longitude,
+      neighborhood:
+        params.payload.neighborhood ?? existing?.neighborhood ?? null,
+      latitude: params.payload.latitude ?? existing?.latitude ?? null,
+      longitude: params.payload.longitude ?? existing?.longitude ?? null,
       privacyConsentAt:
-        params.payload.privacyConsentAt ?? existing?.privacyConsentAt,
+        params.payload.privacyConsentAt ?? existing?.privacyConsentAt ?? null,
       phoneNormalized: params.phone,
     });
 
@@ -247,10 +248,10 @@ class SupabaseWorkerStore implements WorkerStore {
           full_name: parsed.fullName,
           document_id: parsed.documentId,
           address_line: parsed.addressLine,
-          neighborhood: parsed.neighborhood,
-          latitude: parsed.latitude,
-          longitude: parsed.longitude,
-          privacy_consent_at: parsed.privacyConsentAt,
+          neighborhood: parsed.neighborhood ?? null,
+          latitude: parsed.latitude ?? null,
+          longitude: parsed.longitude ?? null,
+          privacy_consent_at: parsed.privacyConsentAt ?? null,
           privacy_notice_version:
             params.payload.privacyNoticeVersion ?? existing.privacyNoticeVersion,
         })
@@ -265,10 +266,10 @@ class SupabaseWorkerStore implements WorkerStore {
         full_name: parsed.fullName,
         document_id: parsed.documentId,
         address_line: parsed.addressLine,
-        neighborhood: parsed.neighborhood,
-        latitude: parsed.latitude,
-        longitude: parsed.longitude,
-        privacy_consent_at: parsed.privacyConsentAt,
+        neighborhood: parsed.neighborhood ?? null,
+        latitude: parsed.latitude ?? null,
+        longitude: parsed.longitude ?? null,
+        privacy_consent_at: parsed.privacyConsentAt ?? null,
         privacy_notice_version: params.payload.privacyNoticeVersion ?? "v1",
       })
       .select("*")
@@ -307,7 +308,8 @@ class SupabaseWorkerStore implements WorkerStore {
       p_microchip: params.payload.microchip ?? null,
       p_latitude: params.payload.latitude ?? null,
       p_longitude: params.payload.longitude ?? null,
-      p_neighborhood: params.payload.neighborhood ?? null,
+      // UX v2: always EPU prefix (neighborhood indexing deferred)
+      p_neighborhood: null,
     });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;

@@ -4,6 +4,7 @@ import {
   jobPayloadSchema,
   startRegistrationSession,
   type InboundKind,
+  type OutboundEffect,
   type RegistrationStep,
   type SessionPayload,
 } from "@epuyen/shared";
@@ -105,14 +106,7 @@ async function processInboundLocked(
     });
 
     for (const effect of started.effects) {
-      const rendered = renderEffect(effect);
-      await ctx.store.enqueueJob(payload.orgId, {
-        type: "send_outbound",
-        lineId: payload.lineId,
-        phone: message.phoneNormalized,
-        text: rendered.text,
-        buttons: rendered.buttons,
-      });
+      await enqueueEffect(ctx, payload, message.phoneNormalized, effect);
     }
     // Cold start: opener only triggers greeting; next message advances the step
     return;
@@ -136,7 +130,17 @@ async function processInboundLocked(
 
   let nextPayload: SessionPayload = { ...result.payload };
   let nextStep: RegistrationStep = result.nextStep;
+  let effects: OutboundEffect[] = [...result.effects];
   hydrateCitizenGeo(nextPayload, citizen);
+
+  // location_help: after sending help text+image, advance to location ask
+  if (nextStep === "location_help") {
+    nextStep = "location";
+    effects = [
+      ...effects,
+      { messageKey: "citizen.ask_location" },
+    ];
+  }
 
   if (kind === "image" && message.mediaUrl) {
     const mediaKind =
@@ -159,12 +163,16 @@ async function processInboundLocked(
 
   let completeRegistration = result.completeRegistration;
 
+  const citizenFullName =
+    nextPayload.fullName ?? citizen?.fullName ?? "";
+
   // Short-circuit if a prior completion already stored the animal id
   if (completeRegistration && nextPayload.completedAnimalId) {
     nextStep = "done";
     completeRegistration = false;
     const confirmation = formatRegistrationMessage("registration.confirmation", {
       animalName: nextPayload.animalName ?? "",
+      citizenFullName,
       municipalId: nextPayload.completedMunicipalId ?? "",
     });
     await ctx.store.enqueueJob(payload.orgId, {
@@ -246,6 +254,7 @@ async function processInboundLocked(
 
       const confirmation = formatRegistrationMessage("registration.confirmation", {
         animalName: nextPayload.animalName ?? "",
+        citizenFullName: nextPayload.fullName ?? ensuredCitizen.fullName ?? "",
         municipalId: finalized.municipalId,
       });
       await ctx.store.enqueueJob(payload.orgId, {
@@ -277,7 +286,7 @@ async function processInboundLocked(
   });
 
   if (!completeRegistration) {
-    for (const effect of result.effects) {
+    for (const effect of effects) {
       // Skip completing noise when we overrode to photos_saving
       if (
         nextStep === "animal_photos" &&
@@ -285,16 +294,36 @@ async function processInboundLocked(
       ) {
         continue;
       }
-      const rendered = renderEffect(effect);
-      await ctx.store.enqueueJob(payload.orgId, {
-        type: "send_outbound",
-        lineId: payload.lineId,
-        phone: message.phoneNormalized,
-        text: rendered.text,
-        buttons: rendered.buttons,
-      });
+      await enqueueEffect(ctx, payload, message.phoneNormalized, effect);
     }
   }
+}
+
+// enqueueEffect - render effect and enqueue text (+ optional help image)
+async function enqueueEffect(
+  ctx: JobContext,
+  payload: { orgId: string; lineId: string },
+  phone: string,
+  effect: OutboundEffect,
+): Promise<void> {
+  const rendered = renderEffect(effect);
+  if (rendered.sendMedia === "location_help" && ctx.locationHelpImagePath) {
+    await ctx.store.enqueueJob(payload.orgId, {
+      type: "send_outbound",
+      lineId: payload.lineId,
+      phone,
+      text: rendered.text,
+      mediaPath: ctx.locationHelpImagePath,
+    });
+    return;
+  }
+  await ctx.store.enqueueJob(payload.orgId, {
+    type: "send_outbound",
+    lineId: payload.lineId,
+    phone,
+    text: rendered.text,
+    buttons: rendered.buttons,
+  });
 }
 
 function hydrateCitizenGeo(
@@ -317,9 +346,7 @@ function hydrateCitizenGeo(
   if (payload.longitude == null && citizen.longitude != null) {
     payload.longitude = citizen.longitude;
   }
-  if (payload.neighborhood == null && citizen.neighborhood) {
-    payload.neighborhood = citizen.neighborhood;
-  }
+  // UX v2: do not hydrate neighborhood — municipal ID stays EPU
   if (payload.fullName == null && citizen.fullName) {
     payload.fullName = citizen.fullName;
   }

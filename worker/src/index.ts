@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseEnv } from "@epuyen/shared";
 import { HttpEvolutionClient, MemoryEvolutionClient } from "./infrastructure/evolution/client.js";
 import {
@@ -11,6 +13,11 @@ import type { JobContext } from "./jobs/types.js";
 import type { WorkerStore } from "./infrastructure/store.js";
 
 // Worker entry - poll jobs and dispatch registration handlers
+
+const defaultLocationHelpPath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../assets/inspectoria/location-help.png",
+);
 
 async function main() {
   const env = parseEnv(process.env);
@@ -47,6 +54,7 @@ async function main() {
     petRegistryEnabled: env.PET_REGISTRY_BOT_ENABLED,
     defaultSendMode: env.SEND_MODE,
     defaultAllowlist: env.ALLOWLIST_PHONES,
+    locationHelpImagePath: env.LOCATION_HELP_IMAGE_PATH ?? defaultLocationHelpPath,
   };
 
   const controller = new AbortController();

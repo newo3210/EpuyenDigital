@@ -59,10 +59,6 @@ export class MemoryWorkerStore implements WorkerStore {
   }> = [];
   storage = new Map<string, { bytes: Uint8Array; mime: string }>();
   counters = new Map<string, number>();
-  neighborhoodCodes = new Map<string, string>([
-    ["centro", "CENT"],
-    ["epuyen", "EPU"],
-  ]);
   settings: OrgSettingsRow = {
     sendMode: "dry_run",
     allowlistPhones: ["5492944216586"],
@@ -162,11 +158,12 @@ export class MemoryWorkerStore implements WorkerStore {
       fullName: params.payload.fullName ?? existing?.fullName,
       documentId: params.payload.documentId ?? existing?.documentId,
       addressLine: params.payload.addressLine ?? existing?.addressLine,
-      neighborhood: params.payload.neighborhood ?? existing?.neighborhood,
-      latitude: params.payload.latitude ?? existing?.latitude,
-      longitude: params.payload.longitude ?? existing?.longitude,
+      neighborhood:
+        params.payload.neighborhood ?? existing?.neighborhood ?? null,
+      latitude: params.payload.latitude ?? existing?.latitude ?? null,
+      longitude: params.payload.longitude ?? existing?.longitude ?? null,
       privacyConsentAt:
-        params.payload.privacyConsentAt ?? existing?.privacyConsentAt,
+        params.payload.privacyConsentAt ?? existing?.privacyConsentAt ?? null,
       phoneNormalized: params.phone,
     });
 
@@ -174,10 +171,10 @@ export class MemoryWorkerStore implements WorkerStore {
       existing.fullName = parsed.fullName;
       existing.documentId = parsed.documentId;
       existing.addressLine = parsed.addressLine;
-      existing.neighborhood = parsed.neighborhood;
-      existing.latitude = parsed.latitude;
-      existing.longitude = parsed.longitude;
-      existing.privacyConsentAt = parsed.privacyConsentAt;
+      existing.neighborhood = parsed.neighborhood ?? null;
+      existing.latitude = parsed.latitude ?? null;
+      existing.longitude = parsed.longitude ?? null;
+      existing.privacyConsentAt = parsed.privacyConsentAt ?? null;
       existing.privacyNoticeVersion =
         params.payload.privacyNoticeVersion ?? existing.privacyNoticeVersion;
       return existing;
@@ -187,10 +184,10 @@ export class MemoryWorkerStore implements WorkerStore {
       fullName: parsed.fullName,
       documentId: parsed.documentId,
       addressLine: parsed.addressLine,
-      neighborhood: parsed.neighborhood,
-      latitude: parsed.latitude,
-      longitude: parsed.longitude,
-      privacyConsentAt: parsed.privacyConsentAt,
+      neighborhood: parsed.neighborhood ?? null,
+      latitude: parsed.latitude ?? null,
+      longitude: parsed.longitude ?? null,
+      privacyConsentAt: parsed.privacyConsentAt ?? null,
       privacyNoticeVersion: params.payload.privacyNoticeVersion ?? "v1",
     };
     this.citizens.push(citizen);
@@ -213,10 +210,9 @@ export class MemoryWorkerStore implements WorkerStore {
     const key = `${params.orgId}:${year}`;
     const seq = (this.counters.get(key) ?? 0) + 1;
     this.counters.set(key, seq);
-    const neighborhood = (params.payload.neighborhood ?? "").toLowerCase().trim();
-    const code = this.neighborhoodCodes.get(neighborhood) ?? null;
+    // UX v2: municipal ID prefix always EPU (neighborhood indexing deferred)
     const municipalId = formatMunicipalId({
-      barrioCode: code,
+      barrioCode: null,
       year,
       sequence: seq,
     });

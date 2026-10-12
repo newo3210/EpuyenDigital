@@ -82,6 +82,23 @@ describe("job handlers", () => {
     expect(evolution.sent.length).toBe(0);
   });
 
+  it("send_outbound dry_run simulates image mediaPath", async () => {
+    const store = new MemoryWorkerStore();
+    const evolution = new MemoryEvolutionClient();
+    const ctx = makeCtx(store, evolution);
+    await store.enqueueJob(store.line.orgId, {
+      type: "send_outbound",
+      lineId: store.line.id,
+      phone: "5491111111111",
+      text: "ayuda ubicación",
+      mediaPath: "/tmp/location-help.png",
+    });
+    await drain(ctx);
+    expect(store.outbounds[0]?.deliveryStatus).toBe("simulated");
+    expect(store.outbounds[0]?.text).toContain("[media:");
+    expect(evolution.sent.length).toBe(0);
+  });
+
   it("download_media stores private object", async () => {
     const store = new MemoryWorkerStore();
     const evolution = new MemoryEvolutionClient();

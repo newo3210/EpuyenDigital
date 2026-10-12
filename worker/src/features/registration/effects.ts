@@ -10,9 +10,9 @@ const MENU_BUTTONS: Record<
   NonNullable<OutboundEffect["menu"]>,
   { id: string; label: string }[] | undefined
 > = {
-  consent: [
-    { id: "accept", label: "Acepto" },
-    { id: "decline", label: "No acepto" },
+  location_help: [
+    { id: "help", label: "Sí" },
+    { id: "skip_help", label: "Ya sé" },
   ],
   species: [
     { id: "dog", label: "Perro" },
@@ -36,10 +36,7 @@ const MENU_BUTTONS: Record<
   rabies: [
     { id: "up_to_date", label: "Al día" },
     { id: "pending", label: "Pendiente" },
-  ],
-  photos: [
-    { id: "finish", label: "Listo" },
-    { id: "another", label: "Otra foto" },
+    { id: "unknown", label: "No sé" },
   ],
   returning: [
     { id: "register_animal", label: "Registrar" },
@@ -47,15 +44,16 @@ const MENU_BUTTONS: Record<
   ],
 };
 
-// renderEffect - produce text + optional buttons for an effect
+// renderEffect - produce text + optional buttons / media for an effect
 export function renderEffect(effect: OutboundEffect): {
   text: string;
   buttons?: { id: string; label: string }[];
+  sendMedia?: "location_help";
 } {
   const text = formatRegistrationMessage(
     effect.messageKey as RegistrationMessageKey,
     effect.params,
   );
   const buttons = effect.menu ? MENU_BUTTONS[effect.menu] : undefined;
-  return { text, buttons };
+  return { text, buttons, sendMedia: effect.sendMedia };
 }

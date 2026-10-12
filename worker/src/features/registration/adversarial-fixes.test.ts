@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { MemoryEvolutionClient } from "../../infrastructure/evolution/client.js";
 import { MemoryWorkerStore } from "../../infrastructure/memory-store.js";
@@ -5,6 +7,11 @@ import { MemoryVisionClient } from "../../infrastructure/llm/vision-client.js";
 import { processOneJob } from "../../jobs/consumer.js";
 import { handleProcessInbound } from "../../jobs/process-inbound.js";
 import type { JobContext } from "../../jobs/types.js";
+
+const locationHelpPath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../assets/inspectoria/location-help.png",
+);
 
 async function drain(ctx: JobContext, max = 80) {
   for (let i = 0; i < max; i++) {
@@ -66,7 +73,7 @@ async function runProcessInbound(
 async function advanceToPhotos(store: MemoryWorkerStore, ctx: JobContext, phone: string) {
   await enqueueInbound(store, { kind: "text", body: "hola", phone });
   await drain(ctx);
-  await enqueueInbound(store, { kind: "text", body: "Acepto", phone });
+  await enqueueInbound(store, { kind: "text", body: "ok", phone });
   await drain(ctx);
   await enqueueInbound(store, { kind: "text", body: "Ana Pérez", phone });
   await drain(ctx);
@@ -74,7 +81,7 @@ async function advanceToPhotos(store: MemoryWorkerStore, ctx: JobContext, phone:
   await drain(ctx);
   await enqueueInbound(store, { kind: "text", body: "Calle Falsa 123", phone });
   await drain(ctx);
-  await enqueueInbound(store, { kind: "text", body: "Centro", phone });
+  await enqueueInbound(store, { kind: "text", body: "2", phone }); // skip location help
   await drain(ctx);
   await enqueueInbound(store, {
     kind: "location",
@@ -99,7 +106,7 @@ async function advanceToPhotos(store: MemoryWorkerStore, ctx: JobContext, phone:
   await drain(ctx);
   await enqueueInbound(store, { kind: "text", body: "1", phone });
   await drain(ctx);
-  await enqueueInbound(store, { kind: "text", body: "saltar", phone });
+  await enqueueInbound(store, { kind: "text", body: "No", phone });
   await drain(ctx);
 }
 
@@ -125,6 +132,7 @@ function makeCtx(store: MemoryWorkerStore): JobContext {
     petRegistryEnabled: true,
     defaultSendMode: "dry_run",
     defaultAllowlist: ["5492944216586"],
+    locationHelpImagePath: locationHelpPath,
   };
 }
 
@@ -195,7 +203,7 @@ describe("adversarial fixes", () => {
 
     await enqueueInbound(store, { kind: "text", body: "hola", phone });
     await drain(ctx);
-    await enqueueInbound(store, { kind: "text", body: "Acepto", phone });
+    await enqueueInbound(store, { kind: "text", body: "ok", phone });
     await drain(ctx);
     await enqueueInbound(store, { kind: "text", body: "Ana Pérez", phone });
     await drain(ctx);
@@ -203,7 +211,7 @@ describe("adversarial fixes", () => {
     await drain(ctx);
     await enqueueInbound(store, { kind: "text", body: "Calle Falsa 123", phone });
     await drain(ctx);
-    await enqueueInbound(store, { kind: "text", body: "Centro", phone });
+    await enqueueInbound(store, { kind: "text", body: "2", phone });
     await drain(ctx);
     await enqueueInbound(store, {
       kind: "location",
@@ -260,11 +268,8 @@ describe("adversarial fixes", () => {
         fullName: "Carlos Gómez",
         documentId: "20111222",
         addressLine: "Ruta 40",
-        neighborhood: "Centro",
         latitude: -42.1,
         longitude: -71.2,
-        privacyConsentAt: new Date().toISOString(),
-        privacyNoticeVersion: "v1",
       },
     });
 
@@ -288,7 +293,7 @@ describe("adversarial fixes", () => {
     await drain(ctx);
     await enqueueInbound(store, { kind: "text", body: "2", phone });
     await drain(ctx);
-    await enqueueInbound(store, { kind: "text", body: "saltar", phone });
+    await enqueueInbound(store, { kind: "text", body: "No", phone });
     await drain(ctx);
     await enqueueInbound(store, {
       kind: "image",
@@ -302,6 +307,7 @@ describe("adversarial fixes", () => {
     expect(store.animals.length).toBe(1);
     expect(store.animals[0]?.latitude).toBeCloseTo(-42.1);
     expect(store.animals[0]?.longitude).toBeCloseTo(-71.2);
+    expect(store.animals[0]?.municipalId).toMatch(/^EPU-/);
   });
 
   it("resumes stranded completing session without animal id", async () => {

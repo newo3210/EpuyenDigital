@@ -11,6 +11,8 @@ export type JobContext = {
   petRegistryEnabled: boolean;
   defaultSendMode: "dry_run" | "allowlist" | "production";
   defaultAllowlist: string[];
+  /** Absolute path to location-help PNG (env LOCATION_HELP_IMAGE_PATH or default asset) */
+  locationHelpImagePath?: string;
 };
 
 export type JobHandler = (payload: JobPayload, ctx: JobContext) => Promise<void>;
