@@ -1,4 +1,5 @@
 import type { EvolutionWebhook, JobPayload } from "@epuyen/shared";
+import { verifyWebhookSecret } from "./webhook-secret";
 
 // Inbound repository - persist message idempotently and enqueue process_inbound
 
@@ -26,7 +27,10 @@ export type InboundStore = {
 // MemoryInboundStore - in-memory fake for webhook unit tests
 export class MemoryInboundStore implements InboundStore {
   lines = new Map<string, LineContext>();
-  messages = new Map<string, { id: string; event: EvolutionWebhook }>();
+  messages = new Map<
+    string,
+    { id: string; event: EvolutionWebhook; direction: "inbound" | "outbound" }
+  >();
   jobs: JobPayload[] = [];
 
   async findLineByInstance(instance: string): Promise<LineContext | null> {
@@ -43,7 +47,8 @@ export class MemoryInboundStore implements InboundStore {
       return { status: "duplicate", messageId: existing.id };
     }
     const id = crypto.randomUUID();
-    this.messages.set(key, { id, event: params.event });
+    const direction = params.event.fromMe ? "outbound" : "inbound";
+    this.messages.set(key, { id, event: params.event, direction });
     return { status: "inserted", messageId: id };
   }
 
@@ -56,15 +61,38 @@ export class MemoryInboundStore implements InboundStore {
 export async function ingestInboundEvent(
   store: InboundStore,
   event: EvolutionWebhook,
+  providedSecret?: string | null,
 ): Promise<{ httpStatus: number; body: Record<string, unknown> }> {
   const line = await store.findLineByInstance(event.instance);
   if (!line) {
     return { httpStatus: 404, body: { ok: false, code: "LINE_NOT_FOUND" } };
   }
 
+  // Per-line webhook secret is source of truth (spec: 503 if null)
+  const secretCheck = verifyWebhookSecret(line.webhookSecret, providedSecret);
+  if (!secretCheck.ok) {
+    return {
+      httpStatus: secretCheck.status,
+      body: { ok: false, code: secretCheck.code },
+    };
+  }
+
   const persisted = await store.persistInbound({ line, event });
   if (persisted.status === "ignored") {
     return { httpStatus: 200, body: { ok: true, ignored: true } };
+  }
+
+  // fromMe: persist as phone outbound echo; do not drive the bot
+  if (event.fromMe) {
+    return {
+      httpStatus: 200,
+      body: {
+        ok: true,
+        ignored: true,
+        reason: "from_me",
+        messageId: persisted.messageId,
+      },
+    };
   }
 
   if (persisted.status === "inserted") {

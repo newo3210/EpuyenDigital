@@ -57,10 +57,12 @@ export function normalizeEvolutionPayload(raw: unknown): {
     return { ignored: true, reason: "group" };
   }
 
+  // Never invent external ids — missing Evolution key.id breaks idempotency
   const externalId =
-    readString(key, "id") ??
-    readString(data, "id", "messageId") ??
-    cryptoRandomId();
+    readString(key, "id") ?? readString(data, "id", "messageId");
+  if (!externalId) {
+    return { ignored: true, reason: "invalid" };
+  }
 
   const phoneRaw = extractPhoneRaw(data);
   let phoneNormalized: string;
@@ -129,8 +131,4 @@ export function normalizeEvolutionPayload(raw: unknown): {
     return { ignored: true, reason: "invalid" };
   }
   return { ignored: false, event: parsed.data };
-}
-
-function cryptoRandomId(): string {
-  return `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

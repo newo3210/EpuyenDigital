@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { parseEnv } from "@epuyen/shared";
 import { ingestInboundEvent, MemoryInboundStore } from "@/infrastructure/inbound-repository";
 import { normalizeEvolutionPayload } from "@/infrastructure/normalize-evolution";
-import { verifyWebhookSecret } from "@/infrastructure/webhook-secret";
 import { getSupabaseInboundStore } from "@/infrastructure/supabase-inbound-store";
 
-// Evolution webhook - thin: secret + Zod normalize + persist/enqueue only
+// Evolution webhook - thin: Zod normalize + line secret + persist/enqueue only
 
 const memoryFallback = new MemoryInboundStore();
 
@@ -19,6 +18,7 @@ function resolveStore() {
     // fall through to memory for local fixture tests without DB
   }
   // Seed default line for dry local runs without Supabase
+  // Line webhookSecret is source of truth; seed from env when present for local MVP
   if (!memoryFallback.lines.has("inspectoria")) {
     memoryFallback.lines.set("inspectoria", {
       lineId: "00000000-0000-4000-8000-000000000002",
@@ -31,16 +31,10 @@ function resolveStore() {
 }
 
 export async function POST(request: Request) {
-  const env = parseEnv(process.env);
   const provided =
     request.headers.get("x-webhook-secret") ??
     request.headers.get("x-evolution-secret") ??
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-
-  const secretCheck = verifyWebhookSecret(env.WEBHOOK_SECRET, provided);
-  if (!secretCheck.ok) {
-    return NextResponse.json({ ok: false, code: secretCheck.code }, { status: secretCheck.status });
-  }
 
   let raw: unknown;
   try {
@@ -55,6 +49,7 @@ export async function POST(request: Request) {
   }
 
   const store = resolveStore();
-  const result = await ingestInboundEvent(store, normalized.event!);
+  // Secret verified against line.webhookSecret after resolve (see ingestInboundEvent)
+  const result = await ingestInboundEvent(store, normalized.event!, provided);
   return NextResponse.json(result.body, { status: result.httpStatus });
 }

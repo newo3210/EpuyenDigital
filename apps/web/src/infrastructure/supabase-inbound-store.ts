@@ -53,7 +53,8 @@ export class SupabaseInboundStore implements InboundStore {
       org_id: params.line.orgId,
       line_id: params.line.lineId,
       external_id: params.event.externalId,
-      direction: "inbound",
+      // fromMe is phone-side outbound echo; never drives process_inbound
+      direction: params.event.fromMe ? "outbound" : "inbound",
       phone_normalized: params.event.phoneNormalized,
       kind: params.event.kind,
       body: params.event.text ?? null,

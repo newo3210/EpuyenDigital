@@ -39,4 +39,32 @@ describe("evolution webhook thinness", () => {
     expect(result.event?.kind).toBe("text");
     expect(result.event?.phoneNormalized).toBe("5492944216586");
   });
+
+  it("ignores payloads without a stable Evolution message id", () => {
+    const result = normalizeEvolutionPayload({
+      instance: "inspectoria",
+      data: {
+        key: { remoteJid: "5492944216586@s.whatsapp.net" },
+        message: { conversation: "hola" },
+      },
+    });
+    expect(result.ignored).toBe(true);
+    expect(result.reason).toBe("invalid");
+  });
+
+  it("normalizes fromMe without inventing behavior in the thin route", () => {
+    const result = normalizeEvolutionPayload({
+      instance: "inspectoria",
+      data: {
+        key: {
+          id: "fm1",
+          remoteJid: "5492944216586@s.whatsapp.net",
+          fromMe: true,
+        },
+        message: { conversation: "escrito en el teléfono" },
+      },
+    });
+    expect(result.ignored).toBe(false);
+    expect(result.event?.fromMe).toBe(true);
+  });
 });
