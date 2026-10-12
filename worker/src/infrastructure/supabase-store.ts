@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
+  citizenUpsertSchema,
   jobPayloadSchema,
   type JobPayload,
   type RegistrationStep,
@@ -136,26 +137,39 @@ class SupabaseWorkerStore implements WorkerStore {
       .eq("id", phoneRow.citizen_id)
       .maybeSingle();
     if (!data) return null;
-    return {
-      id: data.id,
-      fullName: data.full_name,
-      documentId: data.document_id,
-      addressLine: data.address_line,
-      neighborhood: data.neighborhood,
-      latitude: data.latitude == null ? null : Number(data.latitude),
-      longitude: data.longitude == null ? null : Number(data.longitude),
-    };
+    return mapCitizen(data);
   }
 
   async lockSession(lineId: string, phone: string): Promise<SessionRow | null> {
-    const { data } = await this.client
+    const { data, error } = await this.client.rpc("lock_registration_session", {
+      p_line_id: lineId,
+      p_phone: phone,
+    });
+    if (!error && data?.[0]) {
+      return mapSession(data[0] as Record<string, unknown>);
+    }
+    // Fallback plain select if RPC unavailable (local without migration)
+    const { data: row } = await this.client
       .from("registration_sessions")
       .select("*")
       .eq("line_id", lineId)
       .eq("phone_normalized", phone)
       .maybeSingle();
-    if (!data) return null;
-    return mapSession(data);
+    if (!row) return null;
+    return mapSession(row);
+  }
+
+  async runWithSessionLock<T>(
+    lineId: string,
+    phone: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    // Acquire FOR UPDATE via RPC at the start of the critical section
+    await this.client.rpc("lock_registration_session", {
+      p_line_id: lineId,
+      p_phone: phone,
+    });
+    return fn();
   }
 
   async upsertSession(session: SessionRow): Promise<SessionRow> {
@@ -185,18 +199,31 @@ class SupabaseWorkerStore implements WorkerStore {
     payload: SessionPayload;
   }): Promise<CitizenRow> {
     const existing = await this.findCitizenByPhone(params.orgId, params.phone);
+    const parsed = citizenUpsertSchema.parse({
+      fullName: params.payload.fullName ?? existing?.fullName,
+      documentId: params.payload.documentId ?? existing?.documentId,
+      addressLine: params.payload.addressLine ?? existing?.addressLine,
+      neighborhood: params.payload.neighborhood ?? existing?.neighborhood,
+      latitude: params.payload.latitude ?? existing?.latitude,
+      longitude: params.payload.longitude ?? existing?.longitude,
+      privacyConsentAt:
+        params.payload.privacyConsentAt ?? existing?.privacyConsentAt,
+      phoneNormalized: params.phone,
+    });
+
     if (existing) {
       await this.client
         .from("citizens")
         .update({
-          full_name: params.payload.fullName,
-          document_id: params.payload.documentId,
-          address_line: params.payload.addressLine,
-          neighborhood: params.payload.neighborhood,
-          latitude: params.payload.latitude,
-          longitude: params.payload.longitude,
-          privacy_consent_at: params.payload.privacyConsentAt,
-          privacy_notice_version: params.payload.privacyNoticeVersion,
+          full_name: parsed.fullName,
+          document_id: parsed.documentId,
+          address_line: parsed.addressLine,
+          neighborhood: parsed.neighborhood,
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+          privacy_consent_at: parsed.privacyConsentAt,
+          privacy_notice_version:
+            params.payload.privacyNoticeVersion ?? existing.privacyNoticeVersion,
         })
         .eq("id", existing.id);
       return (await this.findCitizenByPhone(params.orgId, params.phone))!;
@@ -206,14 +233,14 @@ class SupabaseWorkerStore implements WorkerStore {
       .from("citizens")
       .insert({
         org_id: params.orgId,
-        full_name: params.payload.fullName,
-        document_id: params.payload.documentId,
-        address_line: params.payload.addressLine,
-        neighborhood: params.payload.neighborhood,
-        latitude: params.payload.latitude,
-        longitude: params.payload.longitude,
-        privacy_consent_at: params.payload.privacyConsentAt,
-        privacy_notice_version: params.payload.privacyNoticeVersion,
+        full_name: parsed.fullName,
+        document_id: parsed.documentId,
+        address_line: parsed.addressLine,
+        neighborhood: parsed.neighborhood,
+        latitude: parsed.latitude,
+        longitude: parsed.longitude,
+        privacy_consent_at: parsed.privacyConsentAt,
+        privacy_notice_version: params.payload.privacyNoticeVersion ?? "v1",
       })
       .select("*")
       .single();
@@ -223,15 +250,7 @@ class SupabaseWorkerStore implements WorkerStore {
       citizen_id: data.id,
       phone_normalized: params.phone,
     });
-    return {
-      id: data.id,
-      fullName: data.full_name,
-      documentId: data.document_id,
-      addressLine: data.address_line,
-      neighborhood: data.neighborhood,
-      latitude: data.latitude == null ? null : Number(data.latitude),
-      longitude: data.longitude == null ? null : Number(data.longitude),
-    };
+    return mapCitizen(data);
   }
 
   async completeAnimalRegistration(params: {
@@ -239,6 +258,12 @@ class SupabaseWorkerStore implements WorkerStore {
     citizenId: string;
     payload: SessionPayload;
   }) {
+    if (params.payload.completedAnimalId && params.payload.completedMunicipalId) {
+      return {
+        animalId: params.payload.completedAnimalId,
+        municipalId: params.payload.completedMunicipalId,
+      };
+    }
     const { data, error } = await this.client.rpc("complete_animal_registration", {
       p_org_id: params.orgId,
       p_citizen_id: params.citizenId,
@@ -258,6 +283,62 @@ class SupabaseWorkerStore implements WorkerStore {
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     return { animalId: row.animal_id as string, municipalId: row.municipal_id as string };
+  }
+
+  async markSessionCompleted(params: {
+    sessionId: string;
+    animalId: string;
+    municipalId: string;
+    payload: SessionPayload;
+  }) {
+    const { data, error } = await this.client.rpc("mark_session_completion", {
+      p_session_id: params.sessionId,
+      p_animal_id: params.animalId,
+      p_municipal_id: params.municipalId,
+      p_payload: params.payload,
+    });
+    if (!error && data?.[0]) {
+      const row = data[0] as {
+        animal_id: string;
+        municipal_id: string;
+        already_done: boolean;
+      };
+      return {
+        animalId: row.animal_id,
+        municipalId: row.municipal_id,
+        alreadyDone: row.already_done,
+      };
+    }
+
+    // Fallback without RPC: check payload then upsert
+    const { data: session } = await this.client
+      .from("registration_sessions")
+      .select("*")
+      .eq("id", params.sessionId)
+      .maybeSingle();
+    if (!session) throw new Error("SESSION_NOT_FOUND");
+    const payload = (session.payload ?? {}) as SessionPayload;
+    if (payload.completedAnimalId) {
+      return {
+        animalId: payload.completedAnimalId,
+        municipalId: payload.completedMunicipalId ?? params.municipalId,
+        alreadyDone: true,
+      };
+    }
+    const nextPayload = {
+      ...params.payload,
+      completedAnimalId: params.animalId,
+      completedMunicipalId: params.municipalId,
+    };
+    await this.client
+      .from("registration_sessions")
+      .update({ step: "done", payload: nextPayload })
+      .eq("id", params.sessionId);
+    return {
+      animalId: params.animalId,
+      municipalId: params.municipalId,
+      alreadyDone: false,
+    };
   }
 
   async enqueueJob(orgId: string | null, payload: JobPayload) {
@@ -366,9 +447,35 @@ class SupabaseWorkerStore implements WorkerStore {
       .eq("id", params.animalId);
   }
 
-  async getPendingAnimalIdForSession() {
-    return null;
+  async getPendingAnimalIdForSession(sessionId: string) {
+    const { data } = await this.client
+      .from("registration_sessions")
+      .select("payload")
+      .eq("id", sessionId)
+      .maybeSingle();
+    const payload = (data?.payload ?? {}) as SessionPayload;
+    return payload.completedAnimalId ?? null;
   }
+}
+
+function mapCitizen(data: Record<string, unknown>): CitizenRow {
+  const consent = data.privacy_consent_at;
+  return {
+    id: data.id as string,
+    fullName: (data.full_name as string | null) ?? null,
+    documentId: (data.document_id as string | null) ?? null,
+    addressLine: (data.address_line as string | null) ?? null,
+    neighborhood: (data.neighborhood as string | null) ?? null,
+    latitude: data.latitude == null ? null : Number(data.latitude),
+    longitude: data.longitude == null ? null : Number(data.longitude),
+    privacyConsentAt:
+      consent == null
+        ? null
+        : typeof consent === "string"
+          ? consent
+          : new Date(consent as string).toISOString(),
+    privacyNoticeVersion: (data.privacy_notice_version as string | null) ?? null,
+  };
 }
 
 function mapSession(data: Record<string, unknown>): SessionRow {

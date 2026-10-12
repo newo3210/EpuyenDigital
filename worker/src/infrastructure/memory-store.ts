@@ -1,4 +1,5 @@
 import {
+  citizenUpsertSchema,
   formatMunicipalId,
   registrationYearBuenosAires,
   type JobPayload,
@@ -42,6 +43,8 @@ export class MemoryWorkerStore implements WorkerStore {
     traitsStatus: string;
     distinctiveTraits: unknown;
     species: string;
+    latitude: number | null;
+    longitude: number | null;
   }> = [];
   photos: Array<{
     animalId: string;
@@ -71,6 +74,9 @@ export class MemoryWorkerStore implements WorkerStore {
     orgId: "00000000-0000-4000-8000-000000000001",
     instance: "inspectoria",
   };
+
+  /** Per-phone async mutex chain for concurrent process_inbound */
+  private lockChains = new Map<string, Promise<unknown>>();
 
   async claimNextJob() {
     const job = this.jobs.find((j) => j.status === "pending");
@@ -115,6 +121,29 @@ export class MemoryWorkerStore implements WorkerStore {
     return this.sessions.get(`${lineId}:${phone}`) ?? null;
   }
 
+  async runWithSessionLock<T>(
+    lineId: string,
+    phone: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const key = `${lineId}:${phone}`;
+    const prev = this.lockChains.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.lockChains.set(
+      key,
+      prev.then(() => gate).catch(() => gate),
+    );
+    await prev.catch(() => undefined);
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
+
   async upsertSession(session: SessionRow) {
     this.sessions.set(`${session.lineId}:${session.phoneNormalized}`, session);
     return session;
@@ -126,24 +155,43 @@ export class MemoryWorkerStore implements WorkerStore {
     payload: SessionPayload;
   }): Promise<CitizenRow> {
     const existingId = this.phones.get(params.phone);
-    if (existingId) {
-      const c = this.citizens.find((x) => x.id === existingId)!;
-      c.fullName = params.payload.fullName ?? c.fullName;
-      c.documentId = params.payload.documentId ?? c.documentId;
-      c.addressLine = params.payload.addressLine ?? c.addressLine;
-      c.neighborhood = params.payload.neighborhood ?? c.neighborhood;
-      c.latitude = params.payload.latitude ?? c.latitude;
-      c.longitude = params.payload.longitude ?? c.longitude;
-      return c;
+    const existing = existingId
+      ? this.citizens.find((x) => x.id === existingId) ?? null
+      : null;
+    const parsed = citizenUpsertSchema.parse({
+      fullName: params.payload.fullName ?? existing?.fullName,
+      documentId: params.payload.documentId ?? existing?.documentId,
+      addressLine: params.payload.addressLine ?? existing?.addressLine,
+      neighborhood: params.payload.neighborhood ?? existing?.neighborhood,
+      latitude: params.payload.latitude ?? existing?.latitude,
+      longitude: params.payload.longitude ?? existing?.longitude,
+      privacyConsentAt:
+        params.payload.privacyConsentAt ?? existing?.privacyConsentAt,
+      phoneNormalized: params.phone,
+    });
+
+    if (existing) {
+      existing.fullName = parsed.fullName;
+      existing.documentId = parsed.documentId;
+      existing.addressLine = parsed.addressLine;
+      existing.neighborhood = parsed.neighborhood;
+      existing.latitude = parsed.latitude;
+      existing.longitude = parsed.longitude;
+      existing.privacyConsentAt = parsed.privacyConsentAt;
+      existing.privacyNoticeVersion =
+        params.payload.privacyNoticeVersion ?? existing.privacyNoticeVersion;
+      return existing;
     }
     const citizen: CitizenRow = {
       id: crypto.randomUUID(),
-      fullName: params.payload.fullName ?? null,
-      documentId: params.payload.documentId ?? null,
-      addressLine: params.payload.addressLine ?? null,
-      neighborhood: params.payload.neighborhood ?? null,
-      latitude: params.payload.latitude ?? null,
-      longitude: params.payload.longitude ?? null,
+      fullName: parsed.fullName,
+      documentId: parsed.documentId,
+      addressLine: parsed.addressLine,
+      neighborhood: parsed.neighborhood,
+      latitude: parsed.latitude,
+      longitude: parsed.longitude,
+      privacyConsentAt: parsed.privacyConsentAt,
+      privacyNoticeVersion: params.payload.privacyNoticeVersion ?? "v1",
     };
     this.citizens.push(citizen);
     this.phones.set(params.phone, citizen.id);
@@ -155,6 +203,12 @@ export class MemoryWorkerStore implements WorkerStore {
     citizenId: string;
     payload: SessionPayload;
   }): Promise<CompleteAnimalResult> {
+    if (params.payload.completedAnimalId && params.payload.completedMunicipalId) {
+      return {
+        animalId: params.payload.completedAnimalId,
+        municipalId: params.payload.completedMunicipalId,
+      };
+    }
     const year = registrationYearBuenosAires();
     const key = `${params.orgId}:${year}`;
     const seq = (this.counters.get(key) ?? 0) + 1;
@@ -177,8 +231,39 @@ export class MemoryWorkerStore implements WorkerStore {
       traitsStatus: "pending",
       distinctiveTraits: null,
       species: params.payload.species ?? "other",
+      latitude: params.payload.latitude ?? null,
+      longitude: params.payload.longitude ?? null,
     });
     return { animalId, municipalId };
+  }
+
+  async markSessionCompleted(params: {
+    sessionId: string;
+    animalId: string;
+    municipalId: string;
+    payload: SessionPayload;
+  }) {
+    const session = [...this.sessions.values()].find((s) => s.id === params.sessionId);
+    if (!session) throw new Error("SESSION_NOT_FOUND");
+    if (session.payload.completedAnimalId) {
+      return {
+        animalId: session.payload.completedAnimalId,
+        municipalId: session.payload.completedMunicipalId ?? params.municipalId,
+        alreadyDone: true,
+      };
+    }
+    session.step = "done";
+    session.payload = {
+      ...params.payload,
+      completedAnimalId: params.animalId,
+      completedMunicipalId: params.municipalId,
+    };
+    this.sessions.set(`${session.lineId}:${session.phoneNormalized}`, session);
+    return {
+      animalId: params.animalId,
+      municipalId: params.municipalId,
+      alreadyDone: false,
+    };
   }
 
   async enqueueJob(orgId: string | null, payload: JobPayload) {
@@ -268,8 +353,9 @@ export class MemoryWorkerStore implements WorkerStore {
     animal.traitsStatus = params.status;
   }
 
-  async getPendingAnimalIdForSession() {
-    return this.animals.at(-1)?.id ?? null;
+  async getPendingAnimalIdForSession(sessionId: string) {
+    const session = [...this.sessions.values()].find((s) => s.id === sessionId);
+    return session?.payload.completedAnimalId ?? null;
   }
 
   // helpers for tests

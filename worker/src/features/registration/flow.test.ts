@@ -123,6 +123,7 @@ describe("registration flow", () => {
         latitude: -42,
         longitude: -71,
         privacyConsentAt: new Date().toISOString(),
+        privacyNoticeVersion: "v1",
       },
     });
     expect(citizen.fullName).toBe("Carlos Gómez");

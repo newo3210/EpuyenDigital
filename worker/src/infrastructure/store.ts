@@ -39,6 +39,8 @@ export type CitizenRow = {
   neighborhood: string | null;
   latitude: number | null;
   longitude: number | null;
+  privacyConsentAt: string | null;
+  privacyNoticeVersion: string | null;
 };
 
 export type OrgSettingsRow = {
@@ -60,7 +62,17 @@ export type WorkerStore = {
   getMessage(id: string): Promise<MessageRow | null>;
   getOrgSettings(orgId: string): Promise<OrgSettingsRow>;
   findCitizenByPhone(orgId: string, phone: string): Promise<CitizenRow | null>;
+  /** Load session under row lock (SQL FOR UPDATE / memory mutex scope). */
   lockSession(lineId: string, phone: string): Promise<SessionRow | null>;
+  /**
+   * Serialize process_inbound for one phone. Memory: async mutex.
+   * Supabase: acquires lock_registration_session then runs fn.
+   */
+  runWithSessionLock<T>(
+    lineId: string,
+    phone: string,
+    fn: () => Promise<T>,
+  ): Promise<T>;
   upsertSession(session: SessionRow): Promise<SessionRow>;
   upsertCitizenFromPayload(params: {
     orgId: string;
@@ -72,6 +84,15 @@ export type WorkerStore = {
     citizenId: string;
     payload: SessionPayload;
   }): Promise<CompleteAnimalResult>;
+  /**
+   * Persist completedAnimalId on session; returns prior id if already set (idempotent).
+   */
+  markSessionCompleted(params: {
+    sessionId: string;
+    animalId: string;
+    municipalId: string;
+    payload: SessionPayload;
+  }): Promise<CompleteAnimalResult & { alreadyDone: boolean }>;
   enqueueJob(orgId: string | null, payload: JobPayload): Promise<void>;
   persistOutbound(params: {
     orgId: string;
