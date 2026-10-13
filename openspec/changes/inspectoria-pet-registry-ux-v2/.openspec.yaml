@@ -1,0 +1,13 @@
+change: inspectoria-pet-registry-ux-v2
+status: proposed
+created: 2026-10-12
+roadmap_phase: "2.1-inserted"
+requirements: [INSP-PET-02, INSP-PET-03, INSP-PET-04, INSP-PET-05, INSP-PET-06]
+language: en
+docs_root: .
+canonical:
+  proposal: proposal.md
+  design: design.md
+  tasks: tasks.md
+  enriched_us: ../../../tmp/inspectoria-pet-registry-ux-v2-enriched-us.md
+  specs: specs/
