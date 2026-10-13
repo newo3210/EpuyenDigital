@@ -12,11 +12,17 @@ podman compose -f infra/evolution/docker-compose.yml up -d
 
 ## Webhook to host Next.js
 
-From the container network, the host is typically `host.containers.internal` (Podman) or `host.docker.internal` (Docker Desktop):
+**Production (Vercel):**
+
+`https://epuyendigital-folqgn9do-bosquegracias-projects.vercel.app/api/webhooks/evolution`
+
+Production must not block anonymous POSTs with Vercel Authentication (see `docs/runbooks/inspectoria-pet-registry-production-smoke.md`).
+
+**Local:** from the container network, the host is typically `host.containers.internal` (Podman) or `host.docker.internal` (Docker Desktop):
 
 `http://host.containers.internal:3000/api/webhooks/evolution`
 
-Configure the Evolution instance webhook with header/secret matching `WEBHOOK_SECRET` in `.env`.
+Configure the Evolution instance webhook with header/secret matching `WEBHOOK_SECRET` in `.env` (same value as Supabase `whatsapp_line_secrets.webhook_secret`).
 
 ## Send mode
 

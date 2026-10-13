@@ -2,12 +2,45 @@
 
 English technical steps to smoke-test the WhatsApp registration bot on line `+5492944216586` after UX v2.
 
+## Target topology (Vercel + VPS)
+
+| Piece | Where | Role |
+|---|---|---|
+| Next.js webhook (`/api/webhooks/evolution`) | Vercel project `epuyendigital` | Ingest Evolution events, enqueue jobs |
+| Worker (`npm run start -w @epuyen/worker`) | VPS | Poll jobs, state machine, outbound WhatsApp |
+| Evolution API | VPS (Docker/Podman) | WhatsApp link for `inspectoria` |
+| Postgres | Supabase `EpuyenDigital` | Sessions, citizens, animals, secrets |
+
+**Help image (citizen location tip):** replace the placeholder file at:
+
+`worker/assets/inspectoria/location-help.png`
+
+Ship that PNG with the VPS worker checkout (or set `LOCATION_HELP_IMAGE_PATH` to an absolute path on the VPS).
+
+Production webhook URL:
+
+`https://epuyendigital-folqgn9do-bosquegracias-projects.vercel.app/api/webhooks/evolution`
+
+### Blocker: Vercel Deployment Protection
+
+If Production has **Vercel Authentication** enabled, Evolution POSTs receive `401` / SSO HTML and never reach the route. Before smoke:
+
+1. Vercel → Project `epuyendigital` → Settings → Deployment Protection
+2. For **Production**, disable Vercel Authentication **or** allow a public path for `/api/webhooks/evolution`
+3. Optionally create an **Automation Bypass** secret and send header `x-vercel-protection-bypass` from Evolution (only if you keep protection on)
+
+Cursor MCP for team `bosquegracias-projects` may list the project but return `403` on env/deploy APIs until the Vercel connection is re-authorized for that team scope. Until then, set env vars and Protection in the Vercel dashboard.
+
+### Deploy branch
+
+Bot + UX v2 live on `cursor/inspectoria-pet-registry-ux-v2-4cd2` (PR #2). `main` does not include the webhook yet. Deploy that branch (or merge then deploy `main`) with Root Directory / build covering the npm workspaces monorepo (`apps/web` + `packages/shared`).
+
 ## Prerequisites
 
 - Supabase project (or local `supabase start`) with migrations applied
 - Evolution API instance named `inspectoria` (or matching `EVOLUTION_INSTANCE`)
 - Node 20+, repo deps installed (`npm ci`)
-- Copy `.env.example` → `.env` and fill secrets
+- Copy `.env.example` → `.env` (VPS worker) and fill secrets; mirror webhook-related vars on Vercel Production
 
 ## 1. Migrate database
 
@@ -46,17 +79,39 @@ Required / documented in `.env.example`:
 3. Scan QR with the phone that owns **+5492944216586** (or the WhatsApp Business number for that line).
 4. Confirm instance status is connected.
 
-## 4. Point webhook
+## 4. Point webhook (production)
 
-Configure Evolution webhook URL to your web app:
+Configure Evolution instance `inspectoria` webhook:
 
-`POST https://<host>/api/webhooks/evolution`
+`POST https://epuyendigital-folqgn9do-bosquegracias-projects.vercel.app/api/webhooks/evolution`
 
-Header / secret must match `WEBHOOK_SECRET` (e.g. `x-webhook-secret`).
+Header / secret must match `WEBHOOK_SECRET` on Vercel **and** `whatsapp_line_secrets.webhook_secret` in Supabase (e.g. `x-webhook-secret` or Bearer).
 
-From Podman/Docker to host Next.js: `http://host.containers.internal:3000/api/webhooks/evolution`.
+Local Podman/Docker to host Next.js (dev only): `http://host.containers.internal:3000/api/webhooks/evolution`.
 
-## 5. Start app + worker
+## 5. Start Vercel web + VPS worker
+
+**Vercel (Production env):** at least
+
+- `PET_REGISTRY_BOT_ENABLED=true`
+- `WEBHOOK_SECRET=<same as DB + Evolution>`
+- `SUPABASE_URL=https://ornqhujsmwjaegjadjar.supabase.co`
+- `SUPABASE_SERVICE_ROLE_KEY=<service role>`
+- `SUPABASE_ANON_KEY=<anon>`
+
+**VPS worker:**
+
+```bash
+git checkout cursor/inspectoria-pet-registry-ux-v2-4cd2   # or main after merge
+# place official PNG at worker/assets/inspectoria/location-help.png
+cp .env.example .env   # fill Evolution + Supabase + SEND_MODE=allowlist
+npm ci
+npm run build -w @epuyen/shared && npm run build -w @epuyen/worker
+# process manager (systemd/pm2):
+npm run start -w @epuyen/worker
+```
+
+Local dual-process (dev):
 
 ```bash
 npm run build -w @epuyen/shared
