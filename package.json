@@ -18,7 +18,8 @@
     "test:db": "supabase test db || (echo 'WARN: supabase CLI unavailable — see openspec/changes/inspectoria-pet-registry-bot/reports for fallback' && exit 0)",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
-    "db:seed": "supabase db reset"
+    "db:seed": "supabase db reset",
+    "dev:local-bot": "npm run build -w @epuyen/shared && npx tsx --env-file=.env scripts/local-bot-server.ts"
   },
   "engines": {
     "node": ">=20"

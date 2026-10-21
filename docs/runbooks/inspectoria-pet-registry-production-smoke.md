@@ -2,6 +2,30 @@
 
 English technical steps to smoke-test the WhatsApp registration bot on line `+5492944216586` after UX v2.
 
+## Local unified bot (Cloud Agent / no Supabase)
+
+When Docker networking cannot run full `supabase start`, use the in-process server:
+
+```bash
+# Terminal A — bot (webhook + worker, memory store, SEND_MODE=dry_run)
+cp .env.example .env   # or use existing .env
+npm run dev:local-bot
+# Health: GET http://127.0.0.1:3000/api/health
+# Webhook: POST http://127.0.0.1:3000/api/webhooks/evolution
+# Debug outbounds: GET http://127.0.0.1:3000/api/debug/outbounds
+```
+
+Evolution (optional, for QR / live WhatsApp) on the same host:
+
+```bash
+# Postgres on :5433 + Evolution API on :8080 (host network)
+# See infra/evolution/docker-compose.yml
+# Manager: http://127.0.0.1:8080/manager  (apikey = EVOLUTION_API_KEY)
+# Instance: inspectoria → webhook → http://127.0.0.1:3000/api/webhooks/evolution
+```
+
+`dry_run` simulates outbound texts (visible in `/api/debug/outbounds`) without needing a linked phone.
+
 ## Target topology (Vercel + VPS)
 
 | Piece | Where | Role |
