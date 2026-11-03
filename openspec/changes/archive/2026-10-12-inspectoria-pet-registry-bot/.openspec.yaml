@@ -1,0 +1,13 @@
+change: inspectoria-pet-registry-bot
+status: archived
+created: 2026-10-12
+roadmap_phase: "2.1-inserted"
+requirements: [INSP-PET-01, INSP-PET-02, INSP-PET-03, INSP-PET-04, INSP-PET-05, INSP-PET-06, INSP-PET-07, INSP-PET-08]
+language: en
+docs_root: .
+canonical:
+  proposal: proposal.md
+  design: design.md
+  tasks: tasks.md
+  enriched_us: ../../../tmp/inspectoria-pet-registry-bot-enriched-us.md
+  specs: specs/
