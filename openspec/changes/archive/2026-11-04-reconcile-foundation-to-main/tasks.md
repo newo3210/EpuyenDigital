@@ -39,7 +39,7 @@
 - [x] 7.1 Mechanical `/opsx:verify` — no CRITICAL for missing root docs or unchecked required tasks (`reports/verify-mechanical.md`)
 - [x] 7.2 Write `reports/acceptance-matrix.md` from this change’s scenarios
 - [x] 7.3 Adversarial-review subagent (`audit reconcile-foundation-to-main`) — first pass **FAIL** (`reports/adversarial-review.md`)
-- [ ] 7.4 Human OK → archive; open PR to `main` if not already open
+- [x] 7.4 Human OK → archive; open PR to `main` if not already open (human 2026-11-04: merge + continue)
 
 ## 8. Adversarial fix loop (post FAIL 2026-11-04)
 
