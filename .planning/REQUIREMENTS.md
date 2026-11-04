@@ -9,14 +9,14 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 
 ### Fundación (FND)
 
-- [ ] **FND-01**: Operador puede iniciar sesión con email y contraseña y la sesión persiste entre recargas
+- [x] **FND-01**: Operador puede iniciar sesión con email y contraseña y la sesión persiste entre recargas *(implementado en `foundation-workspace-auth`, pendiente de review/archive)*
 - [ ] **FND-02**: Admin puede crear operadores con rol (`admin`, `area_lead`, `operator`) y contraseña temporal
 - [ ] **FND-03**: Admin puede editar el rol de un operador y desactivarlo (sin borrar su historial)
 - [ ] **FND-04**: Admin puede crear áreas municipales (nombre, descripción, color, activa/inactiva)
 - [ ] **FND-05**: Admin puede asignar operadores a una o más áreas
-- [ ] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador
-- [ ] **FND-07**: Operador puede editar su nombre y avatar
-- [ ] **FND-08**: Los errores de web, API y webhook se registran con trace-id, enmascarando DNI/CUIT/teléfono, y soporte puede verlos y marcarlos resueltos
+- [ ] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador *(parcial: aislamiento por organización implementado en `foundation-workspace-auth`; nivel área en `areas-operators-admin`)*
+- [x] **FND-07**: Operador puede editar su nombre y avatar *(implementado en `foundation-workspace-auth`, pendiente de review/archive)*
+- [x] **FND-08**: Los errores de web, API y webhook se registran con trace-id, enmascarando DNI/CUIT/teléfono, y soporte puede verlos y marcarlos resueltos *(implementado en `foundation-workspace-auth`; el webhook de la fase 2 queda cubierto por `onRequestError` como route handler, `source = 'api'`)*
 
 ### Canal WhatsApp (WA)
 
@@ -157,7 +157,9 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01..08 | Phase 1 | Pending |
+| FND-01, FND-07, FND-08 | Phase 1 (`foundation-workspace-auth`) | Implemented — pending review/archive |
+| FND-06 | Phase 1 (`foundation-workspace-auth` org level; `areas-operators-admin` area level) | Partial |
+| FND-02..05 | Phase 1 (`areas-operators-admin`) | Pending |
 | WA-01..12 | Phase 2 | Pending |
 | INSP-PET-01..08 | Phase 2.1 (INSERTED) | Done — archived `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot` |
 | INB-01..15 | Phase 3 | Pending |
@@ -174,4 +176,4 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-10-12 — inserted INSP-PET MVP (Phase 2.1)*
+*Last updated: 2026-11-04 — foundation reconcile onto main (INSP-PET + FND baseline)*

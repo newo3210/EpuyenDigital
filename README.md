@@ -1,51 +1,75 @@
-# Epuyén Digital — Inspectoría pet registry bot (MVP)
+# Mesa de Entrada Digital — Epuyén
 
-WhatsApp registration bot for municipal pets (dog/cat/other) on the Inspectoría line `+5492944216586`.
+Municipal WhatsApp messaging panel for the Municipalidad de Epuyén. npm-workspaces monorepo: Next.js 15 web panel (operator auth + shell) + Inspectoría pet-registry webhook/worker + shared TypeScript package + Supabase (Postgres, Auth, Storage).
 
-## Monorepo
+```text
+apps/web/          Next.js 15 App Router — auth/panel shell + Evolution webhook + health
+worker/            Jobs: inbound, media, outbound, vision traits (Inspectoría pets)
+packages/shared/   Framework-free domain logic and Zod contracts (foundation + pets)
+supabase/          config.toml, migrations, SQL tests (pgTAP), seed
+scripts/           Tooling helpers (Supabase CLI wrapper, local bot)
+openspec/          Spec-driven changes (proposal, specs, design, tasks)
+```
+
+## Prerequisites
+
+- Node.js **>= 20.12** (`.nvmrc` pins 24 when present)
+- **Podman** or Docker (for local Supabase)
+- Git
+
+## Local start
+
+```bash
+npm install
+cp .env.example .env.local   # fill panel + webhook/worker values
+npm run db:start             # first run pulls images
+npm run db:reset             # migrations + optional seed path
+npm run db:seed              # foundation admin operator (needs SEED_* in .env.local)
+npm run dev                  # http://localhost:3000 → redirects to /inbox (login if anonymous)
+npm run dev:worker           # pet job consumer
+```
+
+`npm run db:start` prints `API_URL`, `ANON_KEY` and `SERVICE_ROLE_KEY`; copy them into `.env.local` as:
+
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` (panel)
+- `SUPABASE_URL` / `SUPABASE_ANON_KEY` (worker + webhook; same local values)
+
+Local Studio: http://127.0.0.1:54323 · Mailpit: http://127.0.0.1:54324.
+
+The web app refuses to start if public Supabase variables are missing.
+
+## Inspectoría pet registry
+
+WhatsApp registration bot for municipal pets on the Inspectoría line `+5492944216586` (shared with Mesa until a second line exists).
 
 | Path | Role |
 |---|---|
-| `apps/web` | Thin Evolution webhook + health |
-| `worker` | Jobs: inbound, media, outbound, vision traits |
-| `packages/shared` | Zod contracts, state machine, i18n es-AR, phone/ID helpers |
-| `supabase` | Migrations, seed, pgTAP |
-| `infra/evolution` | Local Evolution API compose |
+| `POST /api/webhooks/evolution` | Thin Evolution webhook |
+| `GET /api/health` | Health check |
+| `worker/` | Registration jobs |
 
-## Quick start
+Send mode defaults via env (`dry_run` / `allowlist` / `production`). See `.env.example`.
 
 ```bash
-cp .env.example .env
-npm install
 npm run test
 npm run typecheck
-npm run dev          # web on :3000
-npm run dev:worker   # job consumer
+npm run test:db    # pgTAP when Supabase CLI is available
 ```
 
-Send mode defaults to `dry_run` (outbound persisted, Evolution not called).
+## Foundation panel (reconciled)
 
-### Database
+- Login: `/login`
+- Panel shell: `/inbox`, `/citizens`, `/tasks`, `/settings/profile`, `/support/errors` (empty/placeholder inbox — real triage is a later change)
+- Error report API: `/api/errors/report`
 
-```bash
-# Requires Supabase CLI + Docker/Podman
-npm run db:start
-npm run db:reset   # migrations + seed.sql
-npm run test:db    # pgTAP
-```
-
-If Supabase CLI is unavailable, Vitest covers domain + mocked webhook/worker paths. Migration SQL still ships under `supabase/migrations/`.
-
-### Evolution (optional live WhatsApp)
-
-See `infra/evolution/README.md`. Webhook URL from container:
-
-`http://host.containers.internal:3000/api/webhooks/evolution`
-
-Header: `x-webhook-secret: $WEBHOOK_SECRET`
+Canonical OpenSpec archive: `openspec/changes/archive/2026-10-05-foundation-workspace-auth`.
 
 ## Scripts
 
-- `npm run test` — Vitest (shared, web, worker)
-- `npm run test:db` — pgTAP via Supabase CLI (soft fallback if missing)
-- `npm run typecheck` / `npm run lint`
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Next.js panel + webhook host |
+| `npm run dev:worker` | Pet job worker |
+| `npm run db:start` / `db:reset` / `db:seed` | Local Supabase |
+| `npm run test` / `typecheck` | Unit/contract tests + TypeScript |
+| `npm run test:db` | SQL/pgTAP via `scripts/supabase.mjs` |

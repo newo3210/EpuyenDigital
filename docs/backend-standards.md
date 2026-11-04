@@ -52,7 +52,7 @@ Error codes are stable English identifiers, mapped to es-AR copy in the frontend
 ## 5. Row Level Security
 
 - RLS enabled on every table, no exceptions.
-- Helpers: `current_org_id()`, `current_role()`, `current_area_ids()` — `security definer`, `stable`, `set search_path = public`.
+- Helpers: `current_org_id()`, `current_user_role()`, `current_area_ids()` — `security definer`, `stable`, `set search_path = ''` (fully qualified names). Never name a helper `current_role()`: `CURRENT_ROLE` is a reserved SQL keyword.
 - History/event/activity tables: `select` by entity visibility; `insert` only through functions; **no update/delete policies**. Sealed audit notes: trigger blocks update and delete.
 - Secrets tables (`whatsapp_line_secrets`): RLS enabled with **no policies** (service role only).
 - Every migration that adds a table adds its policies and a test in `supabase/tests/` proving cross-org and cross-area isolation.
