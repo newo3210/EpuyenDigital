@@ -47,4 +47,4 @@
 - [x] 8.2 **Blocker migrations:** Make foundation DDL safe when `organizations` (and overlapping objects) already exist from pet migrations (IF NOT EXISTS / DO blocks), or document wipe-only upgrade and remove false forward-only claim; prefer code fix
 - [x] 8.3 **Major proof:** Uncheck or re-prove task 2.1 honestly; run or document `db reset` + column asserts when containers available; keep 2.2/2.3 open until green — **2.1 unchecked**; assertion script added; still no live reset here
 - [x] 8.4 Fix acceptance-matrix webhook evidence paths (inbound-repository / webhook-secret, not route.test alone)
-- [ ] 8.5 Re-audit subagent until PASS / PASS WITH GAPS with no Blocker/Major
+- [x] 8.5 Re-audit subagent until PASS / PASS WITH GAPS with no Blocker/Major — **PASS WITH GAPS** (`reports/adversarial-review-reaudit.md`); Gaps: live SQL reset/pgTAP/RPC + login E2E
