@@ -1,8 +1,26 @@
-import type { NextConfig } from "next";
+import path from 'node:path';
+import { loadEnvConfig } from '@next/env';
+import type { NextConfig } from 'next';
+import { parsePublicEnv } from './src/infrastructure/env';
 
-// Next config - minimal App Router web for webhook + health
+// Monorepo root - pinned so a stray lockfile in a parent folder is never picked as root.
+const repoRoot = path.resolve(__dirname, '../..');
+
+// Environment bootstrap - loads the repo-root .env.local and fails fast on missing variables.
+// forceReload: Next caches its own apps/web env load, which would make this call a no-op.
+loadEnvConfig(repoRoot, process.env.NODE_ENV !== 'production', console, true);
+parsePublicEnv(process.env);
+
+// Next.js config - compiles the shared workspace package; authInterrupts enables forbidden() (403 page);
+// 3 MB action bodies let a 2 MB avatar plus multipart overhead reach server-side validation.
 const nextConfig: NextConfig = {
-  transpilePackages: ["@epuyen/shared"],
+  transpilePackages: ['@epuyen/shared'],
+  outputFileTracingRoot: repoRoot,
+  turbopack: { root: repoRoot },
+  experimental: {
+    authInterrupts: true,
+    serverActions: { bodySizeLimit: '3mb' },
+  },
 };
 
 export default nextConfig;

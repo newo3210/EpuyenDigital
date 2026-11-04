@@ -4,97 +4,120 @@
 > **Location:** repository root `ARCHITECTURE_SDD.md`.
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
-**Last updated:** 2026-10-12
-**Related OpenSpec change:** `inspectoria-pet-registry-ux-v2`
+**Last updated:** 2026-11-04  
+**Related OpenSpec change:** `openspec/changes/reconcile-foundation-to-main/`
 
 ---
 
 ## 1. System overview
 
-"Mesa de Entrada Digital" is a web messaging panel for the Municipality of Epuyén. The Inspectoría vertical registers pets on WhatsApp line `+5492944216586` via Evolution API.
+"Mesa de Entrada Digital" is a web messaging panel for the Municipality of Epuyén. Citizens write through WhatsApp (Evolution API). Operators will work a triage queue (Mesa de Entrada); verticals such as Inspectoría run area workflows on the **same** WhatsApp line initially (`+5492944216586`).
 
-**UX v2** guided chat (no privacy consent step, no barrio question): welcome → citizen name/DNI/address → optional location help (static image) → optional GPS (`No puedo ahora` skips) → animal fields (rabies may be `unknown`) → optional health-card photo (`No` skips) → ≥1 animal photo then Listo/text → confirmation with animal name, citizen full name, and municipal ID always `EPU-{YYYY}-{SEQ5}`.
+**Integrated baseline (this change):**
 
-Vision traits still run asynchronously after activation.
+- **Foundation** (archived `2026-10-05-foundation-workspace-auth`): operator auth, org tenancy helpers, profiles, error tracking, panel shell (empty Inbox/Citizens/Tasks).
+- **Inspectoría pet registry** (main): Evolution webhook, worker jobs, registration state machine, animal tables, UX v2 guided chat.
 
-Status: **MVP + UX v2** under `apps/web`, `worker/`, `packages/shared`, `supabase/`, `infra/evolution/`.
+**Deferred follow-ups (not implemented here):**
+
+- `areas-operators-admin` — Mesa + Inspectoría areas, FND-02..05.
+- `mesa-entrada-inbox` — real triage queue, shared-line routing, manual distribute, **inquiry** coordinates separate from pet GPS, map on home citizen card.
+- Do **not** overload `citizens.latitude/longitude` (pet registration GPS) with mesa inquiry pins.
 
 ## 2. Layer mapping (this project)
 
 | Conceptual layer | Paths in this repo | Notes |
 |---|---|---|
-| Presentation / HTTP thin | `apps/web/src/app/api/webhooks/evolution/route.ts`, `apps/web/src/app/api/health/route.ts` | Secret check + Zod normalize + persist/enqueue only. No LLM/media/outbound. |
-| Application / services | `worker/src/features/registration/**`, `worker/src/jobs/**`, `packages/shared/src/registration/**` | State machine, confirmation, vision orchestration, job handlers |
-| Infrastructure / repositories | `apps/web/src/infrastructure/**`, `worker/src/infrastructure/**`, `supabase/migrations/**`, `infra/evolution/**`, `worker/assets/inspectoria/` | Supabase, Evolution (text + image), storage, LLM vision, static help PNG |
-| Contracts / schemas | `packages/shared/src/contracts/**` | Webhook, session, citizen (nullable GPS/consent), animal (`rabies unknown`), jobs (`mediaPath`) |
+| Presentation / HTTP thin | `apps/web/src/app/(auth)/**`, `(panel)/**`, `api/webhooks/evolution/**`, `api/health/**`, `api/errors/**`, `middleware.ts` | Auth pages, panel shell, thin webhook/health/error report. |
+| Application / services | `apps/web/src/features/{auth,profile,errors}/**`, `worker/src/features/registration/**`, `worker/src/jobs/**`, `packages/shared/src/{registration,redact,trace,initials}/**` | Operator use-cases + pet state machine / jobs. |
+| Infrastructure / repositories | `apps/web/src/infrastructure/**`, `worker/src/infrastructure/**`, `supabase/migrations/**`, `supabase/seed/**` | Supabase clients, storage, Evolution, vision LLM. |
+| Contracts / schemas | `apps/web/src/contracts/**`, `packages/shared/src/contracts/**` | Zod at API, form, webhook, job, and LLM boundaries. |
 
-Deliberate deviation: `complete_animal_registration` and `claim_next_job` are SQL functions (transaction / SKIP LOCKED boundary).
+Deliberate deviations:
+
+- Authorization invariants live in Postgres (RLS helpers + guard triggers).
+- Pet state transitions that must be atomic live in SQL (`complete_animal_registration`, `claim_next_job`, session locks).
 
 ## 3. Data & control flow
 
-```text
-Citizen (WhatsApp) → Evolution API → POST /api/webhooks/evolution
-  → verify webhook secret (401/503 fail closed)
-  → normalizeEvolutionPayload (Zod evolutionWebhookSchema)
-  → persist messages idempotent (line_id, external_id)
-  → enqueue jobs.process_inbound
-  ← 200 OK
+### 3.1 Panel request pipeline
 
-Worker → claim_next_job (FOR UPDATE SKIP LOCKED) / in-memory claim in tests
-  → process_inbound: load/create registration_sessions, apply shared transitions
-      → enqueue send_outbound (text and/or mediaPath help image)
-      → enqueue download_media for inbound images
-      → on complete: upsert citizen (lat/lng/consent may be null), finalizeRegistrationCompletion
-         (p_neighborhood forced null → EPU id), analyze_traits, confirmation with citizen name
-  → download_media: Evolution fetch → private bucket animal-media
-  → send_outbound: send-mode guard → Evolution text/buttons or sendImage, or dry_run simulate
-  → analyze_traits: VisionClient + visionTraitsSchema → traits_status ready|pending_manual
+```text
+Browser → middleware.ts
+  → resolveTraceId → updateSession → resolveRouteAccess
+  → anonymous on panel path → 307 /login?next=…
+Public prefixes: /login, /api (webhook + health + error report stay reachable).
+Root `/` redirects to `/inbox` (guards send anonymous users to login).
 ```
 
-## 4. API routes
+### 3.2 Pet inbound (unchanged behavior)
 
-| Method | Path | Auth | Request schema | Response | Service |
-|---|---|---|---|---|---|
-| GET | `/api/health` | none | — | `{ ok, service, feature }` | liveness |
-| POST | `/api/webhooks/evolution` | `x-webhook-secret` (or Bearer) vs `WEBHOOK_SECRET` | raw Evolution → `evolutionWebhookSchema` | 200 / 401 / 400 / 404 / 503 | `ingestInboundEvent` |
+```text
+Citizen (WhatsApp) → Evolution → POST /api/webhooks/evolution
+  → verify line webhook secret → normalize → persist → enqueue process_inbound
+Worker → claim_next_job → registration state machine → outbound / media / traits
+```
+
+## 4. Routes
+
+### 4.1 Pages (foundation)
+
+| Path | Notes |
+|---|---|
+| `/login` | Email/password operator sign-in |
+| `/inbox`, `/citizens`, `/tasks` | Panel shell placeholders (not real triage) |
+| `/settings/profile` | Name + avatar |
+| `/support/errors` | Support/admin error list |
+
+### 4.2 API
+
+| Method | Path | Auth |
+|---|---|---|
+| GET | `/api/health` | none |
+| POST | `/api/webhooks/evolution` | webhook secret |
+| POST | `/api/errors/report` | session (client reports) |
 
 ## 5. Data schemas & models
 
-### 5.1 Contracts (Zod)
+### 5.1 Organizations superset (D2)
 
-- `evolutionWebhookSchema` — text | image | location | button_reply | unknown
-- `registrationSessionSchema` / `sessionPayloadSchema` — steps include `welcome`, `location_help_offer`, `location_help` (no `consent` / `neighborhood`)
-- `citizenUpsertSchema` — neighborhood, lat/lng, `privacyConsentAt` optional/nullable
-- `animalDraftSchema` — `rabiesStatus`: `up_to_date` | `pending` | `unknown`
-- `jobPayloadSchema` — `send_outbound` may include `mediaPath`
-- Env: `LOCATION_HELP_IMAGE_PATH` optional override for help PNG
+Canonical `organizations` columns after reconcile migration `20261104120000_reconcile_organizations_superset.sql`:
 
-### 5.2 Persistence
+- Foundation: `id`, `name`, `slug`, `created_at`
+- Pets: `timezone` (default `America/Argentina/Buenos_Aires`), `updated_at` + trigger
+- Keep pet `org_settings` and all pet tables; keep foundation `profiles`, `error_logs`, RLS helpers, avatars bucket
 
-Tables unchanged structurally; migration `20261012120000_rabies_status_unknown.sql` widens `animals.rabies_status` check. Seed org `epuyen`, line `+5492944216586`. Municipal ID generation still supports barrio codes in SQL, but worker always passes `p_neighborhood = null` in this slice → `EPU`.
+Path chosen: **forward-only reconcile migration** (do not rewrite published pet migration history).
+
+### 5.2 Contracts
+
+- Foundation: roles, profile, error-log (+ web contracts for auth/profile/errors)
+- Pets: evolution webhook, registration session, citizen, animal, jobs, outbound, vision traits
 
 ## 6. AI / LLM boundaries
 
-- Interface: `VisionClient.analyzeAnimalPhotos` in `worker/src/infrastructure/llm/vision-client.ts`
-- Default adapter: OpenAI-compatible Chat Completions (`LLM_VISION_*` env)
-- Output: `visionTraitsSchema`; invalid/error → retry once → `traits_status = pending_manual`
-- Registration confirmation does **not** wait on vision success
+- Pet vision only: `VisionClient` in worker; output `visionTraitsSchema`; no LLM in webhook or panel foundation.
 
 ## 7. Error handling
 
-- Webhook fails closed: missing secret → 503; mismatch → 401; unknown instance → 404
-- Groups/broadcasts ignored with 200
-- Worker retries with backoff up to `max_attempts`; errors redacted (phone/DNI) via `redactForLogs`
-- Species check and municipal ID uniqueness enforced in SQL
+- Foundation: redacted `error_logs`, client report rate limit, support UI.
+- Pets: webhook fail-closed on secret; worker retries with redacted logs.
 
-## 8. Non-goals / out of scope
+## 8. Local environment
 
-Operator panel, triage/RAG mesa bot, horse/livestock plantels, human approval, PDF/QR certificates, Meta Cloud API, Ley 25.326 consent UI (deferred), barrio-indexed municipal IDs (deferred).
+- Supabase CLI via `scripts/supabase.mjs` (Podman/Docker).
+- `.env.example` unions panel (`NEXT_PUBLIC_SUPABASE_*`) and pet (`SUPABASE_URL`, `WEBHOOK_SECRET`, Evolution, vision) variables.
+- **Seed path:** `npm run db:reset` runs SQL seed (`supabase/seed.sql`: org `00000000-0000-4000-8000-000000000001` / slug `epuyen`, `org_settings`, Inspectoría line + secret, neighborhoods). `npm run db:seed` (`supabase/seed/seed.ts`) creates the admin operator **and** upserts the same pet bootstrap idempotently (shared fixed org/line UUIDs). Optional `SEED_WEBHOOK_SECRET` defaults to `dev-webhook-secret-change-me`.
 
-## 9. Change log (architecture)
+## 9. Non-goals / out of scope (this change)
+
+Real triage inbox, areas tables, inquiry map UI, automatic classification, rewriting pet conversation machine, completing adversarial review for `inspectoria-pet-registry-ux-v2`.
+
+## 10. Change log (architecture)
 
 | Date | Change | OpenSpec change |
 |---|---|---|
 | 2026-09-30 | Design baseline at SDD bootstrap | — |
-| 2026-10-12 | Inspectoria pet registry WhatsApp MVP (webhook, worker, SQL, vision) | `inspectoria-pet-registry-bot` |
-| 2026-10-12 | UX v2: no consent/barrio, optional GPS + help image, rabies unknown, EPU id, confirmation with citizen name | `inspectoria-pet-registry-ux-v2` |
+| 2026-10-05 | Foundation auth/tenancy/profile/errors archived | `foundation-workspace-auth` |
+| 2026-10-12 | Inspectoría pet registry MVP + UX v2 | `inspectoria-pet-registry-bot`, `inspectoria-pet-registry-ux-v2` |
+| 2026-11-04 | Reconcile foundation into main + organizations superset | `reconcile-foundation-to-main` |

@@ -107,7 +107,7 @@ Monorepo npm workspaces. Dentro de cada app se respeta la separación **presenta
 
 - **Webhook**: secreto obligatorio por línea (comparación en tiempo constante); sin secreto configurado → 503, nunca "dejar pasar".
 - **Secretos** (API key de Evolution, secreto de webhook) cifrados AES-256-GCM con `CREDENTIALS_ENCRYPTION_KEY` dedicada (sin fallback a la service role key, a diferencia del CRM).
-- **RLS por organización y área**: helpers `current_org_id()`, `current_role()`, `current_area_ids()`.
+- **RLS por organización y área**: helpers `current_org_id()`, `current_user_role()`, `current_area_ids()`.
 - **Service role** solo en webhook, worker y funciones privilegiadas (sellado de auditoría).
 - **Modo de envío** `allowlist` por defecto en entornos nuevos.
 - **Logs** con redacción de DNI, CUIT, teléfono, email y tokens.

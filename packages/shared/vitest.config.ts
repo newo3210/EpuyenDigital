@@ -1,10 +1,10 @@
-import { defineConfig } from "vitest/config";
+import { defineProject } from 'vitest/config';
 
-// Vitest config - shared package unit tests
-export default defineConfig({
+// Shared package test project - pure logic in a Node environment.
+export default defineProject({
   test: {
-    name: "shared",
-    environment: "node",
-    include: ["src/**/*.test.ts"],
+    name: 'shared',
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
   },
 });

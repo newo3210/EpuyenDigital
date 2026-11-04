@@ -1,10 +1,24 @@
-import type { ReactNode } from "react";
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
+import { esAR } from '@/i18n/es-AR';
+import './globals.css';
 
-// Root layout - minimal HTML shell (no panel UI in this MVP)
-export default function RootLayout({ children }: { children: ReactNode }) {
+// Document metadata - "<page> · <app>" titles and description from the es-AR dictionary.
+export const metadata: Metadata = {
+  title: { default: esAR.app.name, template: `%s · ${esAR.app.name}` },
+  description: esAR.app.description,
+};
+
+// Root layout props - every route renders inside the document body.
+type RootLayoutProps = {
+  children: ReactNode;
+};
+
+// Root layout - html shell with es-AR language attribute.
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es-AR">
-      <body>{children}</body>
+      <body className="min-h-screen bg-canvas font-sans text-ink antialiased">{children}</body>
     </html>
   );
 }
