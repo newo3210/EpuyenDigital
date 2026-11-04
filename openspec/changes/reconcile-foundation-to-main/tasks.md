@@ -6,7 +6,7 @@
 
 ## 2. Schema reconciliation (TDD / SQL first)
 
-- [x] 2.1 Add or adjust migrations so fresh reset yields organizations superset + `org_settings` + foundation tables + pet tables
+- [ ] 2.1 Add or adjust migrations so fresh reset yields organizations superset + `org_settings` + foundation tables + pet tables — **migrations + reconcile SQL written; live `db reset` / column assert NOT run** (no Docker/Podman in agent env). Contract script: `scripts/assert-org-superset-columns.{mjs,sql}`. Keep unchecked until local proof.
 - [ ] 2.2 Port/adapt foundation pgTAP (or SQL) org-isolation tests; ensure they run against reconciled schema
 - [ ] 2.3 Run pet-related SQL/RPC smoke that still applies (`complete_animal_registration` path) on reconciled DB
 
@@ -38,5 +38,13 @@
 
 - [x] 7.1 Mechanical `/opsx:verify` — no CRITICAL for missing root docs or unchecked required tasks (`reports/verify-mechanical.md`)
 - [x] 7.2 Write `reports/acceptance-matrix.md` from this change’s scenarios
-- [ ] 7.3 Adversarial-review subagent (`audit reconcile-foundation-to-main`) in separate session; fix loop until PASS / PASS WITH GAPS
+- [x] 7.3 Adversarial-review subagent (`audit reconcile-foundation-to-main`) — first pass **FAIL** (`reports/adversarial-review.md`)
 - [ ] 7.4 Human OK → archive; open PR to `main` if not already open
+
+## 8. Adversarial fix loop (post FAIL 2026-11-04)
+
+- [x] 8.1 **Blocker seed:** Re-enable pet SQL seed on reset and/or extend `seed.ts` so one documented path yields admin **and** Inspectoría line/secrets/`org_settings`/neighborhoods; update README + `local-dev-environment` if needed
+- [x] 8.2 **Blocker migrations:** Make foundation DDL safe when `organizations` (and overlapping objects) already exist from pet migrations (IF NOT EXISTS / DO blocks), or document wipe-only upgrade and remove false forward-only claim; prefer code fix
+- [x] 8.3 **Major proof:** Uncheck or re-prove task 2.1 honestly; run or document `db reset` + column asserts when containers available; keep 2.2/2.3 open until green — **2.1 unchecked**; assertion script added; still no live reset here
+- [x] 8.4 Fix acceptance-matrix webhook evidence paths (inbound-repository / webhook-secret, not route.test alone)
+- [ ] 8.5 Re-audit subagent until PASS / PASS WITH GAPS with no Blocker/Major

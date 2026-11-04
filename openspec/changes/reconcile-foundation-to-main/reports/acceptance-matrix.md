@@ -41,9 +41,9 @@ Copy scenarios **literally** from `openspec/changes/reconcile-foundation-to-main
 
 **Evidence (required):**
 - Tool used: unit tests
-- Command / steps: `apps/web/src/app/api/webhooks/evolution/route.test.ts` + inbound-repository tests PASS
+- Command / steps: `apps/web/src/infrastructure/inbound-repository.test.ts` (valid secret → persist/enqueue) + `apps/web/src/infrastructure/webhook-secret.test.ts` PASS. Note: `route.test.ts` only covers normalize/thinness — not secret accept.
 - Result: **PASS**
-- Notes: Independent of inbox UI
+- Notes: Independent of inbox UI; secret verification lives below the thin route
 
 ---
 
@@ -54,9 +54,9 @@ Copy scenarios **literally** from `openspec/changes/reconcile-foundation-to-main
 
 **Evidence (required):**
 - Tool used: unit tests
-- Command / steps: `webhook-secret.test.ts`, `inbound-repository.test.ts` (401 on mismatch) PASS
+- Command / steps: `apps/web/src/infrastructure/webhook-secret.test.ts` + `apps/web/src/infrastructure/inbound-repository.test.ts` (401 / reject on mismatch or missing secret) PASS
 - Result: **PASS**
-- Notes:
+- Notes: Do not cite `route.test.ts` alone for secret fail-closed behavior
 
 ---
 
