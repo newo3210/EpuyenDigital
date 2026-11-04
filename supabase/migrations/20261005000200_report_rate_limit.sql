@@ -3,10 +3,18 @@
 
 -- ---------------------------------------------------------------------------
 -- Origin column - server-captured rows (default) vs browser reports; backfilled from details
+-- Idempotent for pet-only upgrade / re-apply safety (reconcile-foundation-to-main).
 -- ---------------------------------------------------------------------------
 alter table public.error_logs
-  add column origin text not null default 'server'
-    constraint error_logs_origin_check check (origin in ('server', 'client'));
+  add column if not exists origin text not null default 'server';
+
+do $$
+begin
+  alter table public.error_logs
+    add constraint error_logs_origin_check check (origin in ('server', 'client'));
+exception
+  when duplicate_object then null;
+end $$;
 
 update public.error_logs
 set origin = 'client', details = details - 'origin'
@@ -15,9 +23,9 @@ where details ->> 'origin' = 'client';
 -- ---------------------------------------------------------------------------
 -- Index - only client reports are counted per user
 -- ---------------------------------------------------------------------------
-drop index public.error_logs_user_created_idx;
+drop index if exists public.error_logs_user_created_idx;
 
-create index error_logs_client_reports_idx
+create index if not exists error_logs_client_reports_idx
   on public.error_logs (user_id, created_at desc)
   where origin = 'client';
 
@@ -61,7 +69,7 @@ revoke execute on function public.error_logs_guard_update() from public, anon, a
 -- ---------------------------------------------------------------------------
 -- Atomic client report insert - per-user advisory lock, count inside the window, insert or null
 -- ---------------------------------------------------------------------------
-create function public.insert_client_error_report(
+create or replace function public.insert_client_error_report(
   p_org_id uuid,
   p_user_id uuid,
   p_trace_id text,

@@ -1,6 +1,7 @@
 -- Foundation hardening after adversarial review (design D11, 2026-10-05):
 -- least-privilege grants, immutable profile identity, profile value checks,
 -- org-scoped avatar listing, and the per-user index used by the report rate limit.
+-- Idempotent where needed for pet-only upgrade paths (reconcile-foundation-to-main).
 
 -- ---------------------------------------------------------------------------
 -- Least privilege - authenticated keeps only SELECT/UPDATE (RLS-governed) on business tables
@@ -47,22 +48,34 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Profile value checks - trimmed name length and avatar path inside the profile's own folder
 -- ---------------------------------------------------------------------------
-alter table public.profiles
-  add constraint profiles_full_name_trimmed_length
-    check (char_length(btrim(full_name)) between 2 and 80),
-  add constraint profiles_avatar_path_own_folder
-    check (
-      avatar_path is null
-      or (
-        avatar_path like org_id::text || '/' || id::text || '/%'
-        and position('..' in avatar_path) = 0
-      )
-    );
+do $$
+begin
+  alter table public.profiles
+    add constraint profiles_full_name_trimmed_length
+      check (char_length(btrim(full_name)) between 2 and 80);
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter table public.profiles
+    add constraint profiles_avatar_path_own_folder
+      check (
+        avatar_path is null
+        or (
+          avatar_path like org_id::text || '/' || id::text || '/%'
+          and position('..' in avatar_path) = 0
+        )
+      );
+exception
+  when duplicate_object then null;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Storage - authenticated users list only avatars of their own organization (public URLs unaffected)
 -- ---------------------------------------------------------------------------
-drop policy avatars_select on storage.objects;
+drop policy if exists avatars_select on storage.objects;
 
 create policy avatars_select on storage.objects
   for select to authenticated
@@ -74,4 +87,4 @@ create policy avatars_select on storage.objects
 -- ---------------------------------------------------------------------------
 -- Report rate limit - recent client reports per user
 -- ---------------------------------------------------------------------------
-create index error_logs_user_created_idx on public.error_logs (user_id, created_at desc);
+create index if not exists error_logs_user_created_idx on public.error_logs (user_id, created_at desc);

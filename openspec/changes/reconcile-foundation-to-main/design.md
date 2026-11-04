@@ -89,6 +89,7 @@ No new LLM boundaries in this change.
 
 - Do not merge to `main` until verify + acceptance matrix + adversarial review for **this** change.
 - If production/dev DB already has pet-only schema, apply only forward migrations (never rewrite applied pet migrations in place on shared environments).
+- **Upgrade safety (adversarial 8.2):** foundation migrations (`20260930000100`, hardening, rate-limit) use idempotent DDL (`IF NOT EXISTS` / `duplicate_object` / `CREATE OR REPLACE` / `DROP IF EXISTS`) so existing pet `organizations` / `set_updated_at` do not block apply. This branch has not shipped those migrations to prod; editing them in place for idempotency is intentional. See `reports/schema-reconcile.md`.
 
 ## Follow-ups (explicit)
 

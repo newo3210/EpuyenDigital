@@ -1,24 +1,42 @@
 -- Foundation: organizations, operator profiles, RLS helpers, error logs, avatars bucket.
 -- Change: foundation-workspace-auth (Phase 1 - FND-01, FND-06 org level, FND-07, FND-08)
+--
+-- Idempotency note (reconcile-foundation-to-main, 2026-11-04):
+-- This branch has NOT shipped foundation migrations to production. DDL is written
+-- with IF NOT EXISTS / duplicate_object / DROP IF EXISTS so pet-only databases that
+-- already have `organizations` (and `set_updated_at`) can apply this migration
+-- forward without failing. Fresh reset still creates the same objects.
 
 -- ---------------------------------------------------------------------------
 -- Enums
 -- ---------------------------------------------------------------------------
-create type public.user_role as enum ('admin', 'area_lead', 'operator', 'support');
-create type public.error_level as enum ('error', 'warn', 'info');
-create type public.error_status as enum ('open', 'acknowledged', 'resolved');
+do $$ begin
+  create type public.user_role as enum ('admin', 'area_lead', 'operator', 'support');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type public.error_level as enum ('error', 'warn', 'info');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type public.error_status as enum ('open', 'acknowledged', 'resolved');
+exception when duplicate_object then null;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Tables
 -- ---------------------------------------------------------------------------
-create table public.organizations (
+-- organizations may already exist from pet migrations (superset columns).
+create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   slug text not null unique,
   created_at timestamptz not null default now()
 );
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   org_id uuid not null references public.organizations (id),
   full_name text not null check (char_length(full_name) between 2 and 80),
@@ -29,12 +47,12 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create index profiles_org_id_idx on public.profiles (org_id);
+create index if not exists profiles_org_id_idx on public.profiles (org_id);
 
 comment on column public.profiles.avatar_path is
   'Object path inside storage bucket avatars: {org_id}/{user_id}/{uuid}.{ext}';
 
-create table public.error_logs (
+create table if not exists public.error_logs (
   id uuid primary key default gen_random_uuid(),
   org_id uuid references public.organizations (id) on delete cascade,
   source text not null check (source in ('web', 'api', 'worker', 'db')),
@@ -49,8 +67,8 @@ create table public.error_logs (
   created_at timestamptz not null default now()
 );
 
-create index error_logs_org_status_created_idx on public.error_logs (org_id, status, created_at desc);
-create index error_logs_trace_id_idx on public.error_logs (trace_id);
+create index if not exists error_logs_org_status_created_idx on public.error_logs (org_id, status, created_at desc);
+create index if not exists error_logs_trace_id_idx on public.error_logs (trace_id);
 
 comment on table public.error_logs is
   'Redacted incidents. Insert: service role only. Select/update status: admin + support of the org (null org: support). Purged after 30 days.';
@@ -58,7 +76,7 @@ comment on table public.error_logs is
 -- ---------------------------------------------------------------------------
 -- updated_at maintenance
 -- ---------------------------------------------------------------------------
-create function public.set_updated_at()
+create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -69,6 +87,7 @@ begin
 end;
 $$;
 
+drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
   before update on public.profiles
   for each row execute function public.set_updated_at();
@@ -76,7 +95,7 @@ create trigger profiles_set_updated_at
 -- ---------------------------------------------------------------------------
 -- RLS helpers - null for callers without an active profile, so policies match nothing
 -- ---------------------------------------------------------------------------
-create function public.current_org_id()
+create or replace function public.current_org_id()
 returns uuid
 language sql
 stable
@@ -86,7 +105,7 @@ as $$
   select p.org_id from public.profiles p where p.id = auth.uid() and p.is_active
 $$;
 
-create function public.current_user_role()
+create or replace function public.current_user_role()
 returns public.user_role
 language sql
 stable
@@ -104,7 +123,7 @@ grant execute on function public.current_user_role() to authenticated, service_r
 -- ---------------------------------------------------------------------------
 -- Profiles guard - only admins may change role, org_id or is_active from the API
 -- ---------------------------------------------------------------------------
-create function public.profiles_guard_privileged_columns()
+create or replace function public.profiles_guard_privileged_columns()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -126,6 +145,7 @@ begin
 end;
 $$;
 
+drop trigger if exists profiles_guard_privileged_columns on public.profiles;
 create trigger profiles_guard_privileged_columns
   before update on public.profiles
   for each row execute function public.profiles_guard_privileged_columns();
@@ -133,7 +153,7 @@ create trigger profiles_guard_privileged_columns
 -- ---------------------------------------------------------------------------
 -- Error logs guard - authenticated callers may change only status; resolution is stamped here
 -- ---------------------------------------------------------------------------
-create function public.error_logs_guard_update()
+create or replace function public.error_logs_guard_update()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -165,6 +185,7 @@ begin
 end;
 $$;
 
+drop trigger if exists error_logs_guard_update on public.error_logs;
 create trigger error_logs_guard_update
   before update on public.error_logs
   for each row execute function public.error_logs_guard_update();
@@ -179,26 +200,31 @@ alter table public.error_logs enable row level security;
 revoke all on public.organizations, public.profiles, public.error_logs from anon;
 
 -- organizations: members read their own org; no client writes.
+drop policy if exists organizations_select on public.organizations;
 create policy organizations_select on public.organizations
   for select to authenticated
   using (id = public.current_org_id());
 
 -- profiles: org members read; self updates own row; admins update rows of their org.
+drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles
   for select to authenticated
   using (org_id = public.current_org_id());
 
+drop policy if exists profiles_update_self on public.profiles;
 create policy profiles_update_self on public.profiles
   for update to authenticated
   using (id = auth.uid() and org_id = public.current_org_id())
   with check (id = auth.uid() and org_id = public.current_org_id());
 
+drop policy if exists profiles_update_admin on public.profiles;
 create policy profiles_update_admin on public.profiles
   for update to authenticated
   using (org_id = public.current_org_id() and public.current_user_role() = 'admin')
   with check (org_id = public.current_org_id());
 
 -- error_logs: admin/support of the org; rows without org visible to support only; no client inserts.
+drop policy if exists error_logs_select on public.error_logs;
 create policy error_logs_select on public.error_logs
   for select to authenticated
   using (
@@ -209,6 +235,7 @@ create policy error_logs_select on public.error_logs
     )
   );
 
+drop policy if exists error_logs_update on public.error_logs;
 create policy error_logs_update on public.error_logs
   for update to authenticated
   using (
@@ -229,7 +256,7 @@ create policy error_logs_update on public.error_logs
 -- ---------------------------------------------------------------------------
 -- Retention - purge error logs older than 30 days (service role / scheduler only)
 -- ---------------------------------------------------------------------------
-create function public.purge_error_logs()
+create or replace function public.purge_error_logs()
 returns integer
 language plpgsql
 security definer
@@ -272,10 +299,12 @@ set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists avatars_select on storage.objects;
 create policy avatars_select on storage.objects
   for select to authenticated
   using (bucket_id = 'avatars');
 
+drop policy if exists avatars_insert_own on storage.objects;
 create policy avatars_insert_own on storage.objects
   for insert to authenticated
   with check (
@@ -284,6 +313,7 @@ create policy avatars_insert_own on storage.objects
     and (storage.foldername(name))[2] = auth.uid()::text
   );
 
+drop policy if exists avatars_update_own on storage.objects;
 create policy avatars_update_own on storage.objects
   for update to authenticated
   using (
@@ -297,6 +327,7 @@ create policy avatars_update_own on storage.objects
     and (storage.foldername(name))[2] = auth.uid()::text
   );
 
+drop policy if exists avatars_delete_own on storage.objects;
 create policy avatars_delete_own on storage.objects
   for delete to authenticated
   using (
