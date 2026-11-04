@@ -63,13 +63,13 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "avatar_path": string | null,"created_at": string,"full_name": string,"id": string,"is_active": boolean,"org_id": string,"role": Database["public"]['Enums']["user_role"],"updated_at": string
+                    "avatar_path": string | null,"created_at": string,"deactivated_at": string | null,"full_name": string,"id": string,"is_active": boolean,"org_id": string,"role": Database["public"]['Enums']["user_role"],"updated_at": string
                   }
                   Insert: {
-                    "avatar_path"?: string | null,"created_at"?: string,"full_name": string,"id": string,"is_active"?: boolean,"org_id": string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"deactivated_at"?: string | null,"full_name": string,"id": string,"is_active"?: boolean,"org_id": string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
                   }
                   Update: {
-                    "avatar_path"?: string | null,"created_at"?: string,"full_name"?: string,"id"?: string,"is_active"?: boolean,"org_id"?: string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"deactivated_at"?: string | null,"full_name"?: string,"id"?: string,"is_active"?: boolean,"org_id"?: string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -77,6 +77,50 @@ isOneToOne: false
       columns: ["org_id"]
 isOneToOne: false
       referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"areas": {
+                  Row: {
+                    "id": string,"org_id": string,"name": string,"description": string | null,"color": string | null,"is_active": boolean,"is_default": boolean,"sla_warning_minutes": number | null,"sla_critical_minutes": number | null,"created_at": string,"updated_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"name": string,"description"?: string | null,"color"?: string | null,"is_active"?: boolean,"is_default"?: boolean,"sla_warning_minutes"?: number | null,"sla_critical_minutes"?: number | null,"created_at"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "id"?: string,"org_id"?: string,"name"?: string,"description"?: string | null,"color"?: string | null,"is_active"?: boolean,"is_default"?: boolean,"sla_warning_minutes"?: number | null,"sla_critical_minutes"?: number | null,"created_at"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "areas_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"area_members": {
+                  Row: {
+                    "area_id": string,"user_id": string,"is_lead": boolean,"created_at": string
+                  }
+                  Insert: {
+                    "area_id": string,"user_id": string,"is_lead"?: boolean,"created_at"?: string
+                  }
+                  Update: {
+                    "area_id"?: string,"user_id"?: string,"is_lead"?: boolean,"created_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "area_members_area_id_fkey"
+      columns: ["area_id"]
+isOneToOne: false
+      referencedRelation: "areas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "area_members_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
                   ]
@@ -101,13 +145,13 @@ isOneToOne: true
                   ]
                 },"whatsapp_lines": {
                   Row: {
-                    "id": string,"org_id": string,"name": string,"display_phone": string,"evolution_instance": string,"status": string
+                    "id": string,"org_id": string,"name": string,"display_phone": string,"evolution_instance": string,"status": string,"default_area_id": string | null
                   }
                   Insert: {
-                    "id"?: string,"org_id": string,"name": string,"display_phone": string,"evolution_instance": string,"status"?: string
+                    "id"?: string,"org_id": string,"name": string,"display_phone": string,"evolution_instance": string,"status"?: string,"default_area_id"?: string | null
                   }
                   Update: {
-                    "id"?: string,"org_id"?: string,"name"?: string,"display_phone"?: string,"evolution_instance"?: string,"status"?: string
+                    "id"?: string,"org_id"?: string,"name"?: string,"display_phone"?: string,"evolution_instance"?: string,"status"?: string,"default_area_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -115,6 +159,12 @@ isOneToOne: true
       columns: ["org_id"]
 isOneToOne: false
       referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "whatsapp_lines_default_area_id_fkey"
+      columns: ["default_area_id"]
+isOneToOne: false
+      referencedRelation: "areas"
       referencedColumns: ["id"]
     }
                   ]
@@ -192,6 +242,12 @@ isOneToOne: false
                            },
 "current_user_role":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["user_role"]
+                           },
+"operator_area_ids":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"set_default_area":
+{ Args: { "p_area_id": string }; Returns: undefined
                            },
 "insert_client_error_report":
 { Args: { "p_details": Json,"p_limit": number,"p_message": string,"p_org_id": string,"p_trace_id": string,"p_user_id": string,"p_window_seconds": number }; Returns: string

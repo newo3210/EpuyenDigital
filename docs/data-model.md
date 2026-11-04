@@ -37,20 +37,21 @@ erDiagram
 
 ### `profiles` [implementado]
 `id = auth.users.id` (on delete cascade), `org_id`, `full_name` (2–80 caracteres), `role user_role default 'operator'`, `avatar_path`, `is_active bool default true`, `created_at`, `updated_at` (trigger `set_updated_at`). Índice `org_id`.
-- `email` **[pendiente]**: el email vive en `auth.users`; el cambio `areas-operators-admin` decide si se replica para listar operadores.
-- `deactivated_at` **[pendiente]**: llega con la desactivación desde la UI (`areas-operators-admin`).
+- `email` **[pendiente]**: el email vive en `auth.users`; el listado de operadores lo resuelve el admin vía Auth Admin API (no se replica en `profiles`).
+- `deactivated_at` **[implementado]** (`areas-operators-admin`): se setea al pasar `is_active` a false (trigger `profiles_sync_deactivated_at`) y se limpia al reactivar. El login sigue bloqueado por `is_active` / `requireOperator`.
 - Trigger `profiles_guard_privileged_columns`: solo un admin puede cambiar `role`, `org_id` o `is_active`, y nadie desde la API puede cambiar `id` ni `created_at` (si no, error `P0001 forbidden_column`).
+- Trigger `profiles_guard_last_admin` **[implementado]**: no se puede desactivar ni degradar al único admin activo de la org (`P0001 last_admin`).
 - Checks: `profiles_full_name_trimmed_length` (nombre entre 2 y 80 caracteres después de quitar de los bordes los caracteres invisibles: espacios, tabs, NBSP, marcas de ancho cero y bidi, guion suave, rellenos Hangul, blanco braille, selectores de variación (incluido el suplemento y los mongoles), vocales inherentes jemer, U+FFF0–U+FFF8, controles de formato taquigráficos y musicales, y caracteres de etiqueta; además debe quedar al menos una letra o dígito decimal al quitar esos caracteres en todo el texto; la longitud se cuenta en code points) y `profiles_avatar_path_own_folder` (`avatar_path` null o dentro de `{org_id}/{id}/`, sin `..`).
-- Altas y bajas solo con service role (seed o futura pantalla de admin); `authenticated` no tiene `INSERT`, `DELETE` ni `MAINTAIN` (permiso nuevo de Postgres 17).
+- Altas de operadores: service role (`auth.admin.createUser` + insert de profile) desde la UI admin; `authenticated` no tiene `INSERT`/`DELETE` sobre `profiles`.
 
 ### Bucket `avatars` (Storage) [implementado]
 Público para lectura por URL, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user_id}/{uuid}.{ext}`; un usuario solo puede subir, reemplazar o borrar en su propia carpeta, y listar objetos solo de la carpeta de su organización.
 
-### `areas`
-`name`, `description`, `color`, `is_active`, `is_default bool` (una sola por org: "Mesa de Entrada"), `sla_warning_minutes`, `sla_critical_minutes`.
+### `areas` [implementado]
+`name`, `description`, `color`, `is_active`, `is_default bool` (una sola por org vía índice único parcial: "Mesa de Entrada"), `sla_warning_minutes`, `sla_critical_minutes`, `created_at`, `updated_at`. Único `(org_id, lower(btrim(name)))`. RPC `set_default_area(p_area_id)` limpia el default anterior. Seed: Mesa de Entrada (`00000000-0000-4000-8000-000000000010`, `is_default`) + Inspectoría (`…000011`).
 
-### `area_members`
-`area_id`, `user_id`, `is_lead bool`. PK `(area_id, user_id)`.
+### `area_members` [implementado]
+`area_id`, `user_id`, `is_lead bool`, `created_at`. PK `(area_id, user_id)`. Helper `operator_area_ids()` (security definer) para scoping futuro de conversaciones.
 
 ### `external_contacts`
 Responsables que reciben tareas por WhatsApp sin usar el panel.
@@ -61,8 +62,8 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 
 ## 3. Canal WhatsApp
 
-### `whatsapp_lines`
-`name`, `display_phone`, `evolution_base_url`, `evolution_instance unique`, `default_area_id`, `status line_status`, `last_status_at`.
+### `whatsapp_lines` [parcial]
+`name`, `display_phone`, `evolution_base_url`, `evolution_instance unique`, `default_area_id` **[implementado]** (FK nullable a `areas`), `status line_status`, `last_status_at`. Seed: línea Inspectoría apunta a área Inspectoría.
 
 ### `whatsapp_line_secrets`
 `line_id pk`, `api_key_ciphertext`, `webhook_secret_ciphertext`. **RLS sin políticas** (solo service role).
@@ -237,7 +238,7 @@ Una por `(org_id, line_id, phone_normalized)`.
 | Secretos | nadie (service role) | | | |
 | error_logs | lectura + cambiar estado (su org) | — | — | lectura + cambiar estado (su org y filas con `org_id` null) |
 
-**Implementado hoy (nivel organización):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org. `anon` no tiene permisos. `authenticated` solo tiene `SELECT` y `UPDATE` sobre `organizations`, `profiles` y `error_logs` (sin `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`), y no puede ejecutar las funciones de trigger. El filtro por área (`current_area_ids()`) llega en `areas-operators-admin`.
+**Implementado hoy (nivel organización + áreas):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org. `areas` / `area_members`: admin CRUD en su org; operadores leen solo áreas a las que pertenecen. Helper `operator_area_ids()` listo; el aislamiento de `conversations` por área llega con `mesa-entrada-inbox`. `anon` no tiene permisos.
 
 ## 11. Funciones SQL (transiciones atómicas)
 

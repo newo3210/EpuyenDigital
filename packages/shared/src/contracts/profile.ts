@@ -53,6 +53,7 @@ export const profileSchema = z.object({
   avatarPath: z.string().min(1).nullable(),
   role: roleSchema,
   isActive: z.boolean(),
+  deactivatedAt: z.string().nullable().optional(),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
