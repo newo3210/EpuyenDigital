@@ -7,7 +7,7 @@
 ## 2. Schema reconciliation (TDD / SQL first)
 
 - [x] 2.1 Add or adjust migrations so fresh reset yields organizations superset + `org_settings` + foundation tables + pet tables
-- [x] 2.2 Port/adapt foundation pgTAP (or SQL) org-isolation tests; ensure they run against reconciled schema
+- [ ] 2.2 Port/adapt foundation pgTAP (or SQL) org-isolation tests; ensure they run against reconciled schema
 - [ ] 2.3 Run pet-related SQL/RPC smoke that still applies (`complete_animal_registration` path) on reconciled DB
 
 ## 3. Application integration
