@@ -33,5 +33,14 @@
 ## 6. Director close loop
 
 - [x] 6.1 Mechanical verify + acceptance-matrix (`reports/verify-mechanical.md`, `reports/acceptance-matrix.md`)
-- [ ] 6.2 Adversarial review (new session) + fix loop
+- [ ] 6.2 Adversarial review (new session) + fix loop — review FAIL recorded; round-1 fixes in §7; re-review pending (director)
 - [ ] 6.3 Human OK → archive → next `mesa-entrada-inbox`
+
+## 7. Adversarial fix loop (round 1)
+
+- [x] 7.1 **B1 Blocker — IDOR:** validate `areaIds` against `actor.orgId` before elevated membership upsert (`assertAreaIdsInOrg` + `createOperator.assertAreasInOrg`); unit tests reject wrong-org id — evidence: `create-operator.test.ts`, `areas-assert-org.test.ts`, `npm test` green
+- [x] 7.2 **B2 Major — last default:** trigger `areas_guard_default_clear` blocks authenticated `is_default true→false`; `set_default_area` (SECURITY DEFINER) still moves default — `20261104140000_areas_operators_hardening.sql`; pgTAP assertion authored (not executed)
+- [x] 7.3 **B3 Major — last-admin race:** `pg_advisory_xact_lock(hashtext(org_id::text))` before admin count in `profiles_guard_last_admin` — same migration
+- [x] 7.4 **B4 Major — orphan Auth user:** `deleteAuthUser` compensating call on profile insert failure; unit tests with mocks — `create-operator.ts` + `create-operator.test.ts`
+- [x] 7.5 **B5 Major — pgTAP:** kept honest — Docker absent; tests updated (`plan(26)`, `cannot_clear_default`) but **not** marked green; see `reports/adversarial-fixes-round1.md`
+- [x] 7.6 Fix report + quality gate: `reports/adversarial-fixes-round1.md`; `npm run typecheck` + `npm test` pass (2026-11-04)
