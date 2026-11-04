@@ -32,6 +32,6 @@
 
 ## 6. Director close loop
 
-- [ ] 6.1 Mechanical verify + acceptance-matrix
+- [x] 6.1 Mechanical verify + acceptance-matrix (`reports/verify-mechanical.md`, `reports/acceptance-matrix.md`)
 - [ ] 6.2 Adversarial review (new session) + fix loop
 - [ ] 6.3 Human OK → archive → next `mesa-entrada-inbox`
