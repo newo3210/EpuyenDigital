@@ -36,7 +36,7 @@
 
 ## 7. Close loop (director-owned after apply)
 
-- [ ] 7.1 Mechanical `/opsx:verify` — no CRITICAL for missing root docs or unchecked required tasks
-- [ ] 7.2 Write `reports/acceptance-matrix.md` from this change’s scenarios
+- [x] 7.1 Mechanical `/opsx:verify` — no CRITICAL for missing root docs or unchecked required tasks (`reports/verify-mechanical.md`)
+- [x] 7.2 Write `reports/acceptance-matrix.md` from this change’s scenarios
 - [ ] 7.3 Adversarial-review subagent (`audit reconcile-foundation-to-main`) in separate session; fix loop until PASS / PASS WITH GAPS
 - [ ] 7.4 Human OK → archive; open PR to `main` if not already open
