@@ -65,9 +65,10 @@ enabled = true
 schema_paths = []
 
 [db.seed]
-# If enabled, seeds the database after migrations during a db reset.
-# Disabled: seeding runs through supabase/seed/seed.ts (npm run db:seed).
-enabled = false
+# Enabled so `npm run db:reset` applies pet bootstrap (org_settings, Inspectoría
+# line/secrets, neighborhoods) from seed.sql. Admin auth user still requires
+# `npm run db:seed` (seed.ts also upserts the same pet rows idempotently).
+enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]

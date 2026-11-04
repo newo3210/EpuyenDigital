@@ -107,6 +107,7 @@ Path chosen: **forward-only reconcile migration** (do not rewrite published pet 
 
 - Supabase CLI via `scripts/supabase.mjs` (Podman/Docker).
 - `.env.example` unions panel (`NEXT_PUBLIC_SUPABASE_*`) and pet (`SUPABASE_URL`, `WEBHOOK_SECRET`, Evolution, vision) variables.
+- **Seed path:** `npm run db:reset` runs SQL seed (`supabase/seed.sql`: org `00000000-0000-4000-8000-000000000001` / slug `epuyen`, `org_settings`, Inspectoría line + secret, neighborhoods). `npm run db:seed` (`supabase/seed/seed.ts`) creates the admin operator **and** upserts the same pet bootstrap idempotently (shared fixed org/line UUIDs). Optional `SEED_WEBHOOK_SECRET` defaults to `dev-webhook-secret-change-me`.
 
 ## 9. Non-goals / out of scope (this change)
 

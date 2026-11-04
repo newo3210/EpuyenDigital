@@ -1,9 +1,29 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-// Seed constants - the municipality organization and the admin display name.
-const ORGANIZATION = { slug: 'epuyen', name: 'Municipalidad de Epuyén' } as const;
+// Fixed org / line ids - must match supabase/seed.sql so SQL + TS seeds coexist.
+const ORG_ID = '00000000-0000-4000-8000-000000000001';
+const LINE_ID = '00000000-0000-4000-8000-000000000002';
+const ORGANIZATION = {
+  id: ORG_ID,
+  slug: 'epuyen',
+  name: 'Municipalidad de Epuyén',
+  timezone: 'America/Argentina/Buenos_Aires',
+} as const;
+const INSPECTORIA_LINE = {
+  id: LINE_ID,
+  org_id: ORG_ID,
+  name: 'Inspectoría',
+  display_phone: '+5492944216586',
+  evolution_instance: 'inspectoria',
+  status: 'active',
+} as const;
+const NEIGHBORHOODS = [
+  { org_id: ORG_ID, neighborhood_normalized: 'centro', code: 'CENT' },
+  { org_id: ORG_ID, neighborhood_normalized: 'epuyen', code: 'EPU' },
+] as const;
 const ADMIN_FULL_NAME = 'Administrador';
+const DEFAULT_WEBHOOK_SECRET = 'dev-webhook-secret-change-me';
 const LIST_USERS_PAGE_SIZE = 200;
 
 // Seed env schema - service role access plus the initial admin credentials.
@@ -12,6 +32,7 @@ const seedEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   SEED_ADMIN_EMAIL: z.string().email(),
   SEED_ADMIN_PASSWORD: z.string().min(10),
+  SEED_WEBHOOK_SECRET: z.string().min(1).default(DEFAULT_WEBHOOK_SECRET),
 });
 
 type SeedEnv = z.infer<typeof seedEnvSchema>;
@@ -24,15 +45,102 @@ function parseSeedEnv(source: NodeJS.ProcessEnv): SeedEnv {
   throw new Error(`Missing or invalid seed variables: ${[...new Set(names)].join(', ')}`);
 }
 
-// Organization upsert - idempotent by unique slug.
+// Organization upsert - prefer fixed UUID from seed.sql; never create a second epuyen org.
 async function upsertOrganization(admin: SupabaseClient): Promise<string> {
+  const { data: bySlug, error: slugError } = await admin
+    .from('organizations')
+    .select('id')
+    .eq('slug', ORGANIZATION.slug)
+    .maybeSingle();
+  if (slugError) throw new Error(`organizations read failed: ${slugError.message}`);
+  if (bySlug?.id) return bySlug.id as string;
+
   const { data, error } = await admin
     .from('organizations')
-    .upsert(ORGANIZATION, { onConflict: 'slug' })
+    .upsert(
+      {
+        id: ORGANIZATION.id,
+        name: ORGANIZATION.name,
+        slug: ORGANIZATION.slug,
+        timezone: ORGANIZATION.timezone,
+      },
+      { onConflict: 'id' },
+    )
     .select('id')
     .single();
   if (error) throw new Error(`organizations upsert failed: ${error.message}`);
   return data.id as string;
+}
+
+// Org settings - mirror seed.sql (dry_run + Inspectoría allowlist phone).
+async function upsertOrgSettings(admin: SupabaseClient, orgId: string): Promise<void> {
+  const { error } = await admin.from('org_settings').upsert(
+    {
+      org_id: orgId,
+      send_mode: 'dry_run',
+      allowlist_phones: ['5492944216586'],
+      registration_session_ttl_hours: 24,
+      privacy_notice_version: 'v1',
+    },
+    { onConflict: 'org_id' },
+  );
+  if (error) throw new Error(`org_settings upsert failed: ${error.message}`);
+}
+
+// Inspectoría WhatsApp line - fixed id + evolution_instance match seed.sql.
+async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Promise<string> {
+  const { data: byInstance, error: readError } = await admin
+    .from('whatsapp_lines')
+    .select('id')
+    .eq('evolution_instance', INSPECTORIA_LINE.evolution_instance)
+    .maybeSingle();
+  if (readError) throw new Error(`whatsapp_lines read failed: ${readError.message}`);
+  if (byInstance?.id) {
+    const { error: updateError } = await admin
+      .from('whatsapp_lines')
+      .update({
+        org_id: orgId,
+        name: INSPECTORIA_LINE.name,
+        display_phone: INSPECTORIA_LINE.display_phone,
+        status: INSPECTORIA_LINE.status,
+      })
+      .eq('id', byInstance.id);
+    if (updateError) throw new Error(`whatsapp_lines update failed: ${updateError.message}`);
+    return byInstance.id as string;
+  }
+
+  const { data, error } = await admin
+    .from('whatsapp_lines')
+    .insert({
+      id: INSPECTORIA_LINE.id,
+      org_id: orgId,
+      name: INSPECTORIA_LINE.name,
+      display_phone: INSPECTORIA_LINE.display_phone,
+      evolution_instance: INSPECTORIA_LINE.evolution_instance,
+      status: INSPECTORIA_LINE.status,
+    })
+    .select('id')
+    .single();
+  if (error) throw new Error(`whatsapp_lines insert failed: ${error.message}`);
+  return data.id as string;
+}
+
+// Line secret - SEED_WEBHOOK_SECRET or the same default as seed.sql.
+async function upsertLineSecret(admin: SupabaseClient, lineId: string, webhookSecret: string): Promise<void> {
+  const { error } = await admin.from('whatsapp_line_secrets').upsert(
+    { line_id: lineId, webhook_secret: webhookSecret },
+    { onConflict: 'line_id' },
+  );
+  if (error) throw new Error(`whatsapp_line_secrets upsert failed: ${error.message}`);
+}
+
+// Neighborhood codes - same rows as seed.sql.
+async function upsertNeighborhoods(admin: SupabaseClient, orgId: string): Promise<void> {
+  const rows = NEIGHBORHOODS.map((row) => ({ ...row, org_id: orgId }));
+  const { error } = await admin.from('neighborhood_codes').upsert(rows, {
+    onConflict: 'org_id,neighborhood_normalized',
+  });
+  if (error) throw new Error(`neighborhood_codes upsert failed: ${error.message}`);
 }
 
 // Auth user lookup - pages through users because the Admin API has no get-by-email.
@@ -79,7 +187,7 @@ async function ensureAdminProfile(admin: SupabaseClient, userId: string, orgId: 
   return !existing;
 }
 
-// Entry point - org, admin user, admin profile; prints a summary without secrets.
+// Entry point - org + pet line bootstrap + admin user/profile; prints a summary without secrets.
 async function main(): Promise<void> {
   const env = parseSeedEnv(process.env);
   const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -87,11 +195,16 @@ async function main(): Promise<void> {
   });
 
   const orgId = await upsertOrganization(admin);
+  await upsertOrgSettings(admin, orgId);
+  const lineId = await upsertInspectoriaLine(admin, orgId);
+  await upsertLineSecret(admin, lineId, env.SEED_WEBHOOK_SECRET);
+  await upsertNeighborhoods(admin, orgId);
+
   const user = await ensureAdminUser(admin, env);
   const profileCreated = await ensureAdminProfile(admin, user.id, orgId);
 
   console.log(
-    `Seed OK - organization "${ORGANIZATION.slug}" (${orgId}); admin user ${user.created ? 'created' : 'already existed'}; admin profile ${profileCreated ? 'created' : 'updated'}.`,
+    `Seed OK - organization "${ORGANIZATION.slug}" (${orgId}); Inspectoría line ${lineId}; admin user ${user.created ? 'created' : 'already existed'}; admin profile ${profileCreated ? 'created' : 'updated'}.`,
   );
 }
 

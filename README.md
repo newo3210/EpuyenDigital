@@ -23,11 +23,13 @@ openspec/          Spec-driven changes (proposal, specs, design, tasks)
 npm install
 cp .env.example .env.local   # fill panel + webhook/worker values
 npm run db:start             # first run pulls images
-npm run db:reset             # migrations + optional seed path
-npm run db:seed              # foundation admin operator (needs SEED_* in .env.local)
+npm run db:reset             # migrations + SQL seed (org, Inspectoría line/secrets, neighborhoods)
+npm run db:seed              # admin operator + same pet bootstrap upserted (needs SEED_* in .env.local)
 npm run dev                  # http://localhost:3000 → redirects to /inbox (login if anonymous)
 npm run dev:worker           # pet job consumer
 ```
+
+**Seed coexistence:** `db:reset` applies `supabase/seed.sql` (fixed org `epuyen` / Inspectoría line `+5492944216586`). `npm run db:seed` creates the admin auth user/profile and **also** upserts `org_settings`, the Inspectoría line, `whatsapp_line_secrets` (`SEED_WEBHOOK_SECRET` or `dev-webhook-secret-change-me`), and neighborhood codes — so a working webhook line exists even if SQL seed was skipped.
 
 `npm run db:start` prints `API_URL`, `ANON_KEY` and `SERVICE_ROLE_KEY`; copy them into `.env.local` as:
 
