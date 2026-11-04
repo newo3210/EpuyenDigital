@@ -1,6 +1,7 @@
-// Contracts barrel - foundation (roles/profile/errors) + pet registry schemas.
+// Contracts barrel - foundation (roles/profile/errors/areas) + pet registry schemas.
 export * from './roles.js';
 export * from './profile.js';
+export * from './area.js';
 export * from './error-log.js';
 export * from './animal.js';
 export * from './citizen.js';
