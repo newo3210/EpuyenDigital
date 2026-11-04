@@ -16,6 +16,10 @@ export function mapAdminWriteError(error: unknown, fallbackMessage: string): Adm
     return { status: 'last_admin', message: esAR.settings.operators.errors.lastAdmin };
   }
 
+  if (code === 'areas.foreign_org' || /areas\.foreign_org/i.test(message)) {
+    return { status: 'failed', message: esAR.settings.operators.errors.invalidAreas };
+  }
+
   if (/areas|area_name|areas_org_id_name/i.test(message) && /duplicate|unique/i.test(message)) {
     return { status: 'duplicate', message: esAR.settings.areas.errors.duplicateName };
   }

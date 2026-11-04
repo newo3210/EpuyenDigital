@@ -20,6 +20,17 @@ describe('mapAdminWriteError', () => {
     });
   });
 
+  it('maps foreign-org area ids', () => {
+    const error = new RepositoryError(
+      'areas.foreign_org',
+      'one or more area ids are missing or belong to another organization',
+    );
+    expect(mapAdminWriteError(error, 'fallback')).toEqual({
+      status: 'failed',
+      message: esAR.settings.operators.errors.invalidAreas,
+    });
+  });
+
   it('falls back to the provided message', () => {
     expect(mapAdminWriteError(new Error('boom'), 'fallback')).toEqual({
       status: 'failed',

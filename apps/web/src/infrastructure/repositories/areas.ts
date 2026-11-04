@@ -101,3 +101,23 @@ export async function setDefaultArea(client: DbClient, areaId: string): Promise<
   const { error } = await client.rpc('set_default_area', { p_area_id: areaId });
   if (error) throw new RepositoryError('areas.set_default_failed', error.message);
 }
+
+// Assert area ids belong to org - rejects missing or cross-org ids (elevated-client guard).
+export async function assertAreaIdsInOrg(
+  client: DbClient,
+  orgId: string,
+  areaIds: string[],
+): Promise<void> {
+  if (areaIds.length === 0) return;
+
+  const uniqueIds = [...new Set(areaIds)];
+  const { data, error } = await client.from('areas').select('id').eq('org_id', orgId).in('id', uniqueIds);
+  if (error) throw new RepositoryError('areas.read_failed', error.message);
+
+  if ((data?.length ?? 0) !== uniqueIds.length) {
+    throw new RepositoryError(
+      'areas.foreign_org',
+      'one or more area ids are missing or belong to another organization',
+    );
+  }
+}

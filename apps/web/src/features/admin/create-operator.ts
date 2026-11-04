@@ -18,7 +18,11 @@ export type CreateOperatorDeps = {
     fullName: string;
     role: Role;
   }) => Promise<void>;
+  /** Reject when any areaId is missing or outside actor.orgId (required before elevated membership writes). */
+  assertAreasInOrg: (areaIds: string[]) => Promise<void>;
   assignMemberships: (userId: string, areaIds: string[]) => Promise<void>;
+  /** Best-effort Auth cleanup when profile insert fails after createUser. */
+  deleteAuthUser: (userId: string) => Promise<void>;
 };
 
 // Create-operator outcome - temp password returned once on success.
@@ -45,13 +49,27 @@ export async function createOperator(input: unknown, deps: CreateOperatorDeps): 
   const { email, fullName, role, temporaryPassword, areaIds } = parsed.data;
 
   try {
+    // Validate area ownership before creating Auth user (avoids orphans on IDOR reject).
+    if (areaIds.length > 0) await deps.assertAreasInOrg(areaIds);
+
     const user = await deps.createAuthUser({ email, password: temporaryPassword });
-    await deps.insertProfile({
-      id: user.id,
-      orgId: deps.actor.orgId,
-      fullName,
-      role,
-    });
+
+    try {
+      await deps.insertProfile({
+        id: user.id,
+        orgId: deps.actor.orgId,
+        fullName,
+        role,
+      });
+    } catch (profileError) {
+      try {
+        await deps.deleteAuthUser(user.id);
+      } catch {
+        // Best-effort rollback; surface the original profile failure.
+      }
+      throw profileError;
+    }
+
     if (areaIds.length > 0) await deps.assignMemberships(user.id, areaIds);
     return { status: 'ok', userId: user.id, temporaryPassword };
   } catch (error) {

@@ -98,6 +98,7 @@ export const esAR = {
         passwordLength: 'La contraseña debe tener al menos 10 caracteres.',
         duplicateEmail: 'Ya existe un usuario con ese email.',
         lastAdmin: 'No se puede desactivar ni cambiar el rol del último administrador activo.',
+        invalidAreas: 'Una o más áreas no pertenecen a tu organización.',
         saveFailed: 'No pudimos guardar los cambios. Probá de nuevo.',
         forbidden: 'No tenés permiso para administrar operadores.',
       },

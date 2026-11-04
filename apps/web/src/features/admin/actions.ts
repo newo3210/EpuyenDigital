@@ -6,7 +6,13 @@ import type { Role } from '@epuyen/shared';
 import { getCurrentOperator } from '@/features/auth/server';
 import { esAR } from '@/i18n/es-AR';
 import { deleteMembership, listMemberships, upsertMembership } from '@/infrastructure/repositories/area-members';
-import { insertArea, listAreas, setDefaultArea as setDefaultAreaRpc, updateAreaRow } from '@/infrastructure/repositories/areas';
+import {
+  assertAreaIdsInOrg,
+  insertArea,
+  listAreas,
+  setDefaultArea as setDefaultAreaRpc,
+  updateAreaRow,
+} from '@/infrastructure/repositories/areas';
 import {
   insertOperatorProfile,
   listOrgProfiles,
@@ -135,10 +141,15 @@ export async function createOperatorAction(
       insertProfile: async (input) => {
         await insertOperatorProfile(admin, input);
       },
+      assertAreasInOrg: (ids) => assertAreaIdsInOrg(admin, actor.orgId, ids),
       assignMemberships: async (userId, ids) => {
         for (const areaId of ids) {
           await upsertMembership(admin, { areaId, userId, isLead: false });
         }
+      },
+      deleteAuthUser: async (userId) => {
+        const { error } = await admin.auth.admin.deleteUser(userId);
+        if (error) throw error;
       },
     },
   );
