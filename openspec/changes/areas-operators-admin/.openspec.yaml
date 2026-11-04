@@ -1,0 +1,14 @@
+change: areas-operators-admin
+status: proposed
+created: 2026-11-04
+roadmap_phase: "1"
+requirements: [FND-02, FND-03, FND-04, FND-05, FND-06]
+language: en
+docs_root: .
+canonical:
+  proposal: proposal.md
+  design: design.md
+  tasks: tasks.md
+  enriched_us: ../../../tmp/areas-operators-admin-enriched-us.md
+  specs: specs/
+depends_on: reconcile-foundation-to-main (archived 2026-11-04, merged PR #3)
