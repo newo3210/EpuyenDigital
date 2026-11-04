@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(26);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (postgres, bypass RLS)
@@ -65,6 +65,12 @@ select throws_ok(
   'second default area in the same org is rejected'
 );
 
+select has_function(
+  'public',
+  'areas_guard_default_clear',
+  'areas_guard_default_clear() exists'
+);
+
 -- ---------------------------------------------------------------------------
 -- Cross-org area isolation (operator A)
 -- ---------------------------------------------------------------------------
@@ -108,6 +114,12 @@ select lives_ok(
   'admin can set Inspectoría as default via RPC'
 );
 
+select throws_ok(
+  $$update public.areas set is_default = false where id = 'aaaaaaaa-0000-4000-8000-000000000011'$$,
+  'P0001', 'cannot_clear_default',
+  'admin cannot clear the last default via direct update'
+);
+
 reset role;
 
 select results_eq(
@@ -119,7 +131,7 @@ select results_eq(
   'set_default_area cleared Mesa and marked Inspectoría'
 );
 
--- Restore Mesa as default for remaining tests
+-- Restore Mesa as default for remaining tests (postgres role bypasses clear guard)
 update public.areas set is_default = false where id = 'aaaaaaaa-0000-4000-8000-000000000011';
 update public.areas set is_default = true where id = 'aaaaaaaa-0000-4000-8000-000000000010';
 
