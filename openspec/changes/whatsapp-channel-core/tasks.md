@@ -82,6 +82,16 @@
 
 - [x] 8.1 Mechanical verify → `reports/verify-mechanical.md` — **PASS WITH GAPS**
 - [x] 8.2 Acceptance matrix from scenarios — `reports/acceptance-matrix.md`
-- [ ] 8.3 Adversarial-review subagent; fix loop until PASS / PASS WITH GAPS — launched
+- [ ] 8.3 Adversarial-review subagent; fix loop until PASS / PASS WITH GAPS — first pass **FAIL** (`reports/adversarial-review.md`); fix §9 then re-audit
 - [ ] 8.4 Human OK → archive; PR #6 open
 - [ ] 8.5 After archive: open `/director` for `mesa-entrada-inbox` with stored scope (INB full, dual coords, manual routing)
+
+## 9. Adversarial fix loop (post FAIL 2026-11-06)
+
+- [ ] 9.1 **Blocker:** `secretFlags` / list lines under REVOKE — service-role or RPC booleans only (never ciphertext); prove list works
+- [ ] 9.2 **Blocker:** Bind `loadDecryptedLineCredentials` / connection test to caller `org_id`; deny cross-org lineId
+- [ ] 9.3 **Major:** Authenticate webhook (instance→line→secret) before ignore short-circuit; group without secret → 401/503
+- [ ] 9.4 **Major:** Credentials decrypt/key missing → 503 fail-closed; align seed ciphertext when key present (or document legacy)
+- [ ] 9.5 **Major:** Citizen stub unique-violation re-select race; composer persist-then-send; drop/tighten authenticated INSERT/UPDATE on messages (and conversations writes as needed)
+- [ ] 9.6 **Major/docs:** Honest WA-05/WA-11 checkboxes (partial); optional minors media folder + ACK monotonicity if cheap
+- [ ] 9.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major
