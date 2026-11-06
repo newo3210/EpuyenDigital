@@ -3,8 +3,8 @@
 Scenarios copied from `openspec/changes/whatsapp-channel-core/specs/**/spec.md`.
 
 **Change:** `whatsapp-channel-core`  
-**Date:** 2026-11-06 (America/Buenos_Aires)  
-**Author:** Project Director (did **not** run apply; apply by [Apply whatsapp-channel-core](bc-d12ed544-436f-5a84-9664-af2631d4cc1e))
+**Date:** 2026-11-06 (America/Buenos_Aires); refreshed after adversarial fix round 1  
+**Author:** Project Director (did **not** run apply; apply by [Apply whatsapp-channel-core](bc-d12ed544-436f-5a84-9664-af2631d4cc1e); fixes by [Fix WA channel adversarial FAIL](bc-28633a70-41f4-55bd-8989-215380d10201))
 
 ## whatsapp-line-admin
 
@@ -21,10 +21,10 @@ Scenarios copied from `openspec/changes/whatsapp-channel-core/specs/**/spec.md`.
 ### Scenario: Secrets not echoed after save
 - **WHEN** admin saves secrets then reloads  
 - **THEN** no cleartext  
-**Evidence:** credentials AES-GCM + form write-only pattern; Result: PASS (unit/static) | BLOCKED (live)
+**Evidence:** AES-GCM + write-only form; list uses service-role **booleans only** after REVOKE (fix 9.1); Result: PASS (unit) | BLOCKED (live)
 
 ### Scenario: Successful connection test / Failed connection test
-**Evidence:** test-connection feature present; Result: PARTIAL | BLOCKED (live Evolution)
+**Evidence:** test-connection + **org_id-bound decrypt** (fix 9.2 denies cross-org); Result: PASS (unit org guard) | BLOCKED (live Evolution)
 
 ### Scenario: Seed links line to Mesa de Entrada
 **Evidence:** seed.sql / seed.ts review; Result: PASS (source) | BLOCKED (live reset)
@@ -32,7 +32,7 @@ Scenarios copied from `openspec/changes/whatsapp-channel-core/specs/**/spec.md`.
 ## whatsapp-inbound
 
 ### Scenario: Missing secret rejected
-**Evidence:** director-aware `webhook-secret.test.ts` + route tests; Result: PASS (unit)
+**Evidence:** webhook-secret + **route-auth** (group without secret → 401/503 — fix 9.3); Result: PASS (unit)
 
 ### Scenario: Valid secret accepted
 **Evidence:** route/inbound tests; Result: PASS (unit) | BLOCKED (live)
@@ -41,7 +41,7 @@ Scenarios copied from `openspec/changes/whatsapp-channel-core/specs/**/spec.md`.
 **Evidence:** inbound-repository idempotency tests; Result: PASS (unit)
 
 ### Scenario: Group message ignored
-**Evidence:** normalize-evolution tests; Result: PASS (unit)
+**Evidence:** normalize + auth-before-ignore; Result: PASS (unit)
 
 ### Scenario: First message creates conversation
 **Evidence:** inbound repository conversation upsert tests; Result: PASS (unit) | BLOCKED (live)
@@ -59,7 +59,7 @@ Scenarios copied from `openspec/changes/whatsapp-channel-core/specs/**/spec.md`.
 **Evidence:** normalize fromMe → outbound; Result: PASS (unit)
 
 ### Scenario: New phone creates unregistered citizen
-**Evidence:** inbound citizen stub; Result: PARTIAL | BLOCKED (live)
+**Evidence:** inbound citizen stub + **unique-violation re-select** (fix 9.5); Result: PASS (unit race path) | BLOCKED (live)
 
 ## whatsapp-outbound
 
@@ -70,7 +70,7 @@ Scenarios copied from `openspec/changes/whatsapp-channel-core/specs/**/spec.md`.
 **Evidence:** send-mode unit tests; Result: PASS (unit)
 
 ### Scenario: Operator sends text in production
-**Evidence:** send-text use case; Result: PASS (unit mocks) | BLOCKED (live Evolution)
+**Evidence:** send-text **persist-then-send** (fix 9.5); Result: PASS (unit mocks) | BLOCKED (live Evolution)
 
 ### Scenario: Empty body rejected
 **Evidence:** send-text validation; Result: PASS (unit)
@@ -92,6 +92,6 @@ Scenarios copied from `openspec/changes/whatsapp-channel-core/specs/**/spec.md`.
 |---|---|---|---|
 | 23 | majority unit/static | 0 | curl/E2E/db reset |
 
-**Known scope gaps (not scenario FAIL if honestly deferred):** WA-08 multimedia outbound not in composer; send_mode admin UI absent; delivery ticks UI → inbox.
+**Known scope gaps (honest):** WA-08 multimedia outbound still open; WA-05/WA-11 **PARTIAL** in REQUIREMENTS; delivery ticks UI → inbox; live Docker still BLOCKED.
 
-**Verdict:** **PASS WITH GAPS** / live **BLOCKED** — ready for adversarial. Director re-ran `npm test` (613 pass).
+**Verdict (pre re-audit):** Prior FAIL Blockers/Majors addressed in §9.1–9.6 (`adversarial-fixes-round1.md`). Fix agent reported **620** tests. Archive depends on re-audit **PASS / PASS WITH GAPS** + human OK.

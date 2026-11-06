@@ -100,4 +100,4 @@
   - Evidence: `upsertCitizenStub` 23505 re-select; `send-text` pending→Evolution→update; migration drops messages/conversations write policies; send-text order test
 - [x] 9.6 **Major/docs:** Honest WA-05/WA-11 checkboxes (partial); optional minors media folder + ACK monotonicity if cheap
   - Evidence: `.planning/REQUIREMENTS.md` WA-05/WA-11 `[~]` PARTIAL; download-media `whatsapp-media` without sessionId; ACK rank monotonic; `reports/adversarial-fixes-round1.md`
-- [ ] 9.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major
+- [ ] 9.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major — matrix refreshed; re-audit launched
