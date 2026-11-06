@@ -5,91 +5,84 @@
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
 **Última actualización:** 2026-11-06  
-**Change relacionado:** `areas-operators-admin`
+**Change relacionado:** `whatsapp-channel-core`
 
 ---
 
 ## 1. Resumen de la decisión
 
-Se implementan las **áreas municipales** y la **administración de operadores** (FND-02..05 y el nivel área de FND-06) sobre la base ya unificada de fundación + registro de mascotas. Mesa de Entrada queda como área por defecto e Inspectoría como vertical; la cola real de mensajería sigue diferida a `mesa-entrada-inbox`.
+Se implementa el **núcleo del canal WhatsApp** (WA-01..12 a nivel canal) antes de la cola de Mesa de Entrada. Aparecen `conversations`, secretos cifrados de línea, webhook endurecido, composer mínimo y persistencia de estados de entrega. El registro de mascotas de Inspectoría sigue en la misma línea; el área por defecto de la línea apunta a Mesa de Entrada.
 
 Decisiones de diseño de este change (D1–D8):
 
 | Id | Decisión | Por qué |
 |---|---|---|
-| D1 | Contraseña temporal mostrada una sola vez (sin email de invitación) | Evita SMTP/plantillas fuera de alcance |
-| D2 | Solo `admin` escribe áreas y operadores | Coincide con la matriz de `docs/data-model.md` |
-| D3 | Protección del último admin activo en la DB | La UI no puede dejar la org sin admin |
-| D4 | Email replicado en `profiles`; no se cambia el email después del alta en v1 | Listado sin Auth Admin en cada carga; evita drift |
-| D5 | Solo columnas SLA (sin motor) | Preparar inbox sin inventar vencimientos |
-| D6 | Un solo default con índice parcial + trigger de swap | Transacción segura al promover otra área |
-| D7 | Alta: Auth admin → profile → membresías; compensación si falla | Evita usuarios Auth huérfanos |
-| D8 | Nav `/settings/areas` y `/settings/operators` solo admin | Perfil sigue disponible para todos |
+| D1 | Crear `conversations` ahora (claim después) | El inbox necesita hilos; no bloquear el canal |
+| D2 | Evolucionar `messages` hacia adelante (`conversation_id`) | No romper el log del bot de mascotas |
+| D3 | Cifrar API key + webhook secret con `CREDENTIALS_ENCRYPTION_KEY` | Sin fallback a service role (bug del CRM) |
+| D4 | `default_area_id` de la línea → Mesa de Entrada | Un solo número compartido Mesa + Inspectoría |
+| D5 | Ubicación solo en el mensaje | No pisar GPS de mascotas en `citizens` |
+| D6 | Composer mínimo en `/inbox` | Evitar página throwaway; claim queda fuera |
+| D7 | Portar normalización/send_mode desde seguros con correcciones | Media, `@lid`, fromMe, secreto obligatorio |
+| D8 | Convivencia con `process-inbound` | Idempotencia `(line_id, external_id)`; media download idempotente |
+
+Secuencia WA → inbox: este change deja hilos + mensajes + área default; `mesa-entrada-inbox` agrega claim, delegación, mapa de consulta, ticks UI y RLS por área.
 
 ## 2. Mapa de flujo de datos
 
-### 2.1 Alta de operador
+### 2.1 Webhook entrante
 
 ```text
-Admin → /settings/operators → createOperatorAction
-  → Auth Admin createUser (service role)
-  → insert profiles (email, rol, org)
-  → replace area_members (RLS del admin)
-  → si falla después de Auth: deleteUser
-  → UI muestra contraseña temporal una vez
+WhatsApp → Evolution → POST /api/webhooks/evolution
+  → normalize (ignora grupos/broadcast/newsletter; resuelve @lid; fromMe)
+  → verifica secreto de la línea (sin secreto = rechazo)
+  → upsert ciudadano stub + conversation (área default)
+  → inserta message idempotente
+  → encola process_inbound (+ download_media si hay media)
+  → messages.update → actualiza delivery_status
 ```
 
-### 2.2 Áreas y helper de acceso
+### 2.2 Composer saliente
 
 ```text
-Admin → /settings/areas → create/update (RLS admin)
-Seed → Mesa de Entrada (is_default) + Inspectoría
-current_area_ids() → ids de membresía del operador activo
-  (inbox aplicará este helper a conversaciones/tareas después)
+Operador → /inbox/[id] → sendComposerTextAction
+  → decideSend(send_mode de la org)
+  → dry_run / allowlist bloqueado: persiste sin Evolution
+  → production: sendText Evolution + message outbound
 ```
 
-### 2.3 Panel e Inspectoría (sin cambio de comportamiento)
+### 2.3 Admin de líneas
 
 ```text
-Login → sesión → panel shell
-WhatsApp → webhook Evolution → worker registro de mascotas
+Admin → /settings/lines
+  → guarda línea (RLS) + secretos cifrados (service role)
+  → Probar conexión → status connected/disconnected/error
 ```
 
-## 3. Justificación de Clean Architecture
+## 3. Justificación de arquitectura limpia
 
-- Contratos Zod en `contracts/areas` y `contracts/operators`.
-- Casos de uso en `features/areas` y `features/operators` (compensación Auth, last-admin a nivel app).
-- Repositorios y Auth admin en `infrastructure/`; la DB sigue siendo autoridad (RLS, triggers).
-- Presentación delgada: formularios solo validan y llaman server actions.
+- La ruta del webhook solo normaliza y orquesta; no habla con LLM ni descarga media.
+- Casos de uso (`createLine`, `sendOperatorText`, `testLineConnection`) concentran reglas.
+- Repositorios e infraestructura (Supabase, Evolution, AES) no conocen copy de UI.
+- Contratos Zod en shared/web delimita webhook, ACK, composer y líneas.
 
-## 4. Control de salida
+## 4. Control de salida / secretos
 
-- Errores de dominio mapeados a mensajes es-AR (duplicado, último admin, fallo de alta).
-- Sin LLM en este change.
-- Email post-alta rechazado en el caso de uso de update (mitigación D4).
+- Secretos nunca vuelven a la UI en claro (solo flags “ya configurado”).
+- Logs no imprimen API keys ni webhook secrets.
+- `send_mode` es el único interruptor que permite o bloquea Evolution.
 
-## 5. Glosario técnico
+## 5. Glosario breve
 
-| Concepto | Qué significa aquí | Dónde aparece |
-|---|---|---|
-| Área por defecto | Exactamente una por org (`is_default`) | trigger `areas_guard_default` |
-| `current_area_ids()` | Membresías del operador activo | migración areas-operators-admin |
-| Last-admin | No dejar cero admins activos | trigger + mensajes de UI |
-| Compensación Auth | Borrar usuario Auth si falla el profile | `create-operator.ts` |
-| Contraseña temporal | Visible una vez al admin; sin invite mail | UI operadores |
+| Término | Significado |
+|---|---|
+| Línea | Instancia Evolution + teléfono municipal |
+| Conversación | Hilo único por org/línea/teléfono normalizado `549…` |
+| fromMe | Mensaje escrito desde el teléfono de la línea (sale como outbound) |
+| dry_run | Modo que persiste el intento y no llama a Evolution |
+| Mesa de Entrada | Área default del canal compartido |
 
-## 6. Qué aprendí / qué defendería en una oral
+## 6. Historial reciente
 
-- Por qué el default se limpia en un trigger y no solo en la UI: el índice único parcial no tolera dos `true`, y hay que impedir quedarse en cero.
-- Por qué createUser va con service role y las membresías con el cliente del admin: `authenticated` no tiene INSERT en `profiles` (decisión de fundación).
-- Por qué inbox no usa todavía `current_area_ids()`: el change declara el helper; aplicar RLS a conversaciones es el epic siguiente.
-
-## 7. Historial de entradas
-
-| Fecha | Change | Qué se agregó a esta bitácora |
-|---|---|---|
-| 2026-09-30 | — (bootstrap SDD) | Línea base |
-| 2026-10-01 / 05 | `foundation-workspace-auth` | Login, RLS, redacción, Podman, archivo |
-| 2026-10-12 | `inspectoria-pet-registry-bot` / `ux-v2` | Flujo mascotas UX v2 |
-| 2026-11-04 | `reconcile-foundation-to-main` | Baseline integrado, superset orgs, follow-ups Mesa |
-| 2026-11-06 | `areas-operators-admin` | Áreas, operadores, D1–D8, `current_area_ids()` |
+- 2026-11-06: `areas-operators-admin` archivado.
+- 2026-11-06: implementación de `whatsapp-channel-core` (sin archivar; falta verify/adversarial/human OK).

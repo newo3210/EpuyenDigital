@@ -1,6 +1,6 @@
 # Modelo de datos — Mesa de Entrada Digital Epuyén
 
-> Estado: diseño inicial (2026-09-30), actualizado 2026-10-05 con lo implementado en `foundation-workspace-auth` (migración `supabase/migrations/20260930000100_foundation.sql`). Nombres técnicos en inglés; comentarios en español.
+> Estado: diseño inicial (2026-09-30), actualizado 2026-11-06 con `whatsapp-channel-core` (migración `supabase/migrations/20261107010000_whatsapp_channel_core.sql`) además de foundation/areas. Nombres técnicos en inglés; comentarios en español.
 > Convenciones: toda tabla de negocio tiene `id uuid pk`, `org_id uuid not null`, `created_at`, `updated_at` (trigger). RLS habilitado en todas.
 > Marcas: **[implementado]** existe en la base; **[pendiente]** columna diseñada que todavía no se creó; el resto es diseño.
 
@@ -61,11 +61,11 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 
 ## 3. Canal WhatsApp
 
-### `whatsapp_lines`
-`name`, `display_phone`, `evolution_base_url`, `evolution_instance unique`, `default_area_id`, `status line_status`, `last_status_at`.
+### `whatsapp_lines` [implementado — channel core]
+`name`, `display_phone`, `evolution_base_url`, `evolution_instance unique`, `default_area_id` (seed → Mesa de Entrada), `status` (`connected` / `disconnected` / `error`), `last_status_at`.
 
-### `whatsapp_line_secrets`
-`line_id pk`, `api_key_ciphertext`, `webhook_secret_ciphertext`. **RLS sin políticas** (solo service role).
+### `whatsapp_line_secrets` [implementado — channel core]
+`line_id pk`, `api_key_ciphertext`, `webhook_secret_ciphertext`, legacy `webhook_secret` (plaintext local seed). **RLS sin políticas** + `revoke` a `authenticated`/`anon` (solo service role).
 
 ### `quick_replies`
 `area_id null` (null = todas), `shortcut`, `title`, `body`, `is_active`.
@@ -75,16 +75,17 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 ### `citizens`
 | Columna | Notas |
 |---|---|
-| `registration_status citizen_registration` | `unregistered` / `registered` |
-| `party_kind party_kind` | `person` / `organization` |
-| `full_name`, `dni`, `email` | `dni` único parcial por org cuando no es null |
+| `registration_status citizen_registration` | `unregistered` / `registered` **[implementado channel stub]** |
+| `party_kind party_kind` | `person` / `organization` **[implementado channel stub]** |
+| `full_name`, `dni`, `email` | `dni` único parcial por org cuando no es null; pet usa `document_id` hoy |
 | `address_line`, `neighborhood` | barrio o paraje |
-| `whatsapp_push_name`, `whatsapp_avatar_url`, `whatsapp_avatar_fetched_at` | capturados del canal |
-| `tags text[]`, `observations text` | |
-| `field_sources jsonb` | `{ "full_name": "manual", "dni": "bot", ... }` — `manual` no se pisa |
-| `registered_at`, `registered_by` | |
-| `merged_into_id uuid null` | si se unificó con otro poblador |
-| `last_contact_at` | |
+| `whatsapp_push_name`, `whatsapp_avatar_url`, `whatsapp_avatar_fetched_at` | capturados del canal **[implementado]** |
+| `latitude`, `longitude` | GPS de domicilio/mascota — **no** pisar con pins de consulta del mensaje |
+| `tags text[]`, `observations text` | **[pendiente]** |
+| `field_sources jsonb` | `{ "full_name": "manual", "dni": "bot", ... }` — `manual` no se pisa **[pendiente]** |
+| `registered_at`, `registered_by` | **[pendiente]** |
+| `merged_into_id uuid null` | si se unificó con otro poblador **[pendiente]** |
+| `last_contact_at` | **[pendiente]** |
 
 Índices trigram sobre `full_name`, `dni`.
 
@@ -93,38 +94,36 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 
 ## 5. Conversaciones y mensajes
 
-### `conversations`
+### `conversations` [implementado — channel core; claim RPCs pendientes]
 Una por `(org_id, line_id, phone_normalized)`.
 
 | Columna | Notas |
 |---|---|
 | `line_id`, `citizen_id`, `phone_normalized` | |
 | `area_id not null` | área responsable (default: área de la línea) |
-| `bot_state bot_state` | `active` / `handoff` / `paused` |
-| `queue_column queue_column` | ver enum |
-| `owner_user_id null` | dueño humano |
-| `delegated_from_user_id`, `pending_area_id`, `awaiting_acceptance bool` | delegación pendiente (a usuario o a área) |
+| `bot_state bot_state` | `active` / `handoff` / `paused` (default `active`) |
+| `queue_column queue_column` | default `new`; claim/move en inbox |
+| `owner_user_id null` | dueño humano (inbox) |
+| `delegated_from_user_id`, `pending_area_id`, `awaiting_acceptance bool` | columnas listas; UI/RPC en inbox |
 | `entered_queue_at` | cuándo entró a la cola (base del FIFO) |
 | `resolved_at`, `resolved_by` | |
-| `last_message_at`, `last_inbound_at`, `last_outbound_at` | |
+| `last_message_at`, `last_inbound_at`, `last_outbound_at` | actualizados en inbound/outbound |
 | `needs_response bool` | último mensaje es del vecino y no fue respondido |
-| `sla_due_at` | calculado con horario hábil del área |
-| `topic`, `urgency` | sugeridos por el bot |
+| `sla_due_at` | calculado con horario hábil del área (inbox) |
+| `topic`, `urgency` | sugeridos por el bot (pendiente) |
 
 Índice para la cola: `(org_id, area_id, owner_user_id nulls first, entered_queue_at)` donde `queue_column <> 'resolved'`.
 
-### `messages`
+### `messages` [implementado parcialmente — channel core]
 | Columna | Notas |
 |---|---|
-| `conversation_id`, `direction message_direction`, `sender_kind sender_kind` | |
+| `conversation_id`, `direction`, `sender_kind`, `kind`, `body` | `kind` pet/channel (`text`/`image`/…); `content_type` enum pendiente de unificar |
 | `author_user_id null` | operador que escribió |
-| `content_type content_type`, `body` | texto o texto al pie |
-| `media_path`, `media_mime`, `media_size`, `media_status media_status` | adjunto en Storage |
-| `transcription`, `media_summary` | audio transcripto / resumen de documento |
-| `location jsonb` | lat, lng, nombre |
-| `external_id`, `delivery_status delivery_status` | único `(line_id, external_id)` |
-| `quoted_external_id` | respuesta citada |
-| `metadata jsonb` | |
+| `media_url`, `media_mime`, `storage_path` | adjunto; bucket `whatsapp-media` / `animal-media` |
+| `latitude`, `longitude` | ubicación del **mensaje** (consulta); no escribir a `citizens` |
+| `external_id`, `delivery_status` | único `(line_id, external_id)`; ACK Evolution persiste delivered/read |
+| `delivered_at`, `read_at` | timestamps de ACK |
+| `quoted_external_id`, `transcription`, `media_summary`, `metadata` | **[pendiente]** |
 
 ### `conversation_events` (append-only)
 `conversation_id`, `event_type conversation_event_type`, `actor_kind actor_kind`, `actor_user_id`, `from_column`, `to_column`, `from_area_id`, `to_area_id`, `note`, `metadata jsonb`.
