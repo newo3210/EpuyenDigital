@@ -10,11 +10,11 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 ### Fundación (FND)
 
 - [x] **FND-01**: Operador puede iniciar sesión con email y contraseña y la sesión persiste entre recargas *(implementado en `foundation-workspace-auth`, pendiente de review/archive)*
-- [ ] **FND-02**: Admin puede crear operadores con rol (`admin`, `area_lead`, `operator`) y contraseña temporal
-- [ ] **FND-03**: Admin puede editar el rol de un operador y desactivarlo (sin borrar su historial)
-- [ ] **FND-04**: Admin puede crear áreas municipales (nombre, descripción, color, activa/inactiva)
-- [ ] **FND-05**: Admin puede asignar operadores a una o más áreas
-- [ ] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador *(parcial: aislamiento por organización implementado en `foundation-workspace-auth`; nivel área en `areas-operators-admin`)*
+- [x] **FND-02**: Admin puede crear operadores con rol (`admin`, `area_lead`, `operator`) y contraseña temporal *(implementado en `areas-operators-admin`; rol `support` también permitido)*
+- [x] **FND-03**: Admin puede editar el rol de un operador y desactivarlo (sin borrar su historial) *(implementado en `areas-operators-admin`; last-admin en DB)*
+- [x] **FND-04**: Admin puede crear áreas municipales (nombre, descripción, color, activa/inactiva) *(implementado en `areas-operators-admin`; también default + SLA minutos)*
+- [x] **FND-05**: Admin puede asignar operadores a una o más áreas *(implementado en `areas-operators-admin`)*
+- [x] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador *(org RLS + `current_area_ids()` en `areas-operators-admin`; políticas de conversaciones/tareas pendientes en `mesa-entrada-inbox`)*
 - [x] **FND-07**: Operador puede editar su nombre y avatar *(implementado en `foundation-workspace-auth`, pendiente de review/archive)*
 - [x] **FND-08**: Los errores de web, API y webhook se registran con trace-id, enmascarando DNI/CUIT/teléfono, y soporte puede verlos y marcarlos resueltos *(implementado en `foundation-workspace-auth`; el webhook de la fase 2 queda cubierto por `onRequestError` como route handler, `source = 'api'`)*
 
@@ -158,8 +158,8 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FND-01, FND-07, FND-08 | Phase 1 (`foundation-workspace-auth`) | Implemented — pending review/archive |
-| FND-06 | Phase 1 (`foundation-workspace-auth` org level; `areas-operators-admin` area level) | Partial |
-| FND-02..05 | Phase 1 (`areas-operators-admin`) | Pending |
+| FND-06 | Phase 1 (`foundation-workspace-auth` org level; `areas-operators-admin` helper; inbox applies area RLS) | Partial (helper shipped) |
+| FND-02..05 | Phase 1 (`areas-operators-admin`) | Done (pending archive/PR) |
 | WA-01..12 | Phase 2 | Pending |
 | INSP-PET-01..08 | Phase 2.1 (INSERTED) | Done — archived `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot` |
 | INB-01..15 | Phase 3 | Pending |

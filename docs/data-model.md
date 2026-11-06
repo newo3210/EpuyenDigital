@@ -37,8 +37,8 @@ erDiagram
 
 ### `profiles` [implementado]
 `id = auth.users.id` (on delete cascade), `org_id`, `full_name` (2–80 caracteres), `role user_role default 'operator'`, `avatar_path`, `is_active bool default true`, `created_at`, `updated_at` (trigger `set_updated_at`). Índice `org_id`.
-- `email` **[pendiente]**: el email vive en `auth.users`; el cambio `areas-operators-admin` decide si se replica para listar operadores.
-- `deactivated_at` **[pendiente]**: llega con la desactivación desde la UI (`areas-operators-admin`).
+- `email` **[implementado]** (`areas-operators-admin`): copia del email de Auth para el directorio; único por org cuando no es null; no se cambia desde la UI después del alta en v1.
+- `deactivated_at` **[implementado]** (`areas-operators-admin`): se setea al desactivar (`is_active = false`) y se limpia al reactivar (trigger `profiles_sync_deactivated_at`).
 - Trigger `profiles_guard_privileged_columns`: solo un admin puede cambiar `role`, `org_id` o `is_active`, y nadie desde la API puede cambiar `id` ni `created_at` (si no, error `P0001 forbidden_column`).
 - Checks: `profiles_full_name_trimmed_length` (nombre entre 2 y 80 caracteres después de quitar de los bordes los caracteres invisibles: espacios, tabs, NBSP, marcas de ancho cero y bidi, guion suave, rellenos Hangul, blanco braille, selectores de variación (incluido el suplemento y los mongoles), vocales inherentes jemer, U+FFF0–U+FFF8, controles de formato taquigráficos y musicales, y caracteres de etiqueta; además debe quedar al menos una letra o dígito decimal al quitar esos caracteres en todo el texto; la longitud se cuenta en code points) y `profiles_avatar_path_own_folder` (`avatar_path` null o dentro de `{org_id}/{id}/`, sin `..`).
 - Altas y bajas solo con service role (seed o futura pantalla de admin); `authenticated` no tiene `INSERT`, `DELETE` ni `MAINTAIN` (permiso nuevo de Postgres 17).
@@ -46,11 +46,11 @@ erDiagram
 ### Bucket `avatars` (Storage) [implementado]
 Público para lectura por URL, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user_id}/{uuid}.{ext}`; un usuario solo puede subir, reemplazar o borrar en su propia carpeta, y listar objetos solo de la carpeta de su organización.
 
-### `areas`
-`name`, `description`, `color`, `is_active`, `is_default bool` (una sola por org: "Mesa de Entrada"), `sla_warning_minutes`, `sla_critical_minutes`.
+### `areas` [implementado]
+`name` (único por org, case-insensitive trim), `description`, `color` (`#RRGGBB`), `is_active`, `is_default bool` (una sola por org vía índice parcial + trigger; seed: "Mesa de Entrada"), `sla_warning_minutes`, `sla_critical_minutes` (enteros positivos opcionales; critical ≥ warning).
 
-### `area_members`
-`area_id`, `user_id`, `is_lead bool`. PK `(area_id, user_id)`.
+### `area_members` [implementado]
+`area_id`, `user_id`, `is_lead bool`. PK `(area_id, user_id)`. Guard same-org; altas/bajas admin-only (RLS).
 
 ### `external_contacts`
 Responsables que reciben tareas por WhatsApp sin usar el panel.
@@ -237,7 +237,7 @@ Una por `(org_id, line_id, phone_normalized)`.
 | Secretos | nadie (service role) | | | |
 | error_logs | lectura + cambiar estado (su org) | — | — | lectura + cambiar estado (su org y filas con `org_id` null) |
 
-**Implementado hoy (nivel organización):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org. `anon` no tiene permisos. `authenticated` solo tiene `SELECT` y `UPDATE` sobre `organizations`, `profiles` y `error_logs` (sin `INSERT`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`), y no puede ejecutar las funciones de trigger. El filtro por área (`current_area_ids()`) llega en `areas-operators-admin`.
+**Implementado hoy (nivel organización + áreas):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `current_area_ids()` devuelve las membresías del operador activo (vacío si inactivo). `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org; trigger last-admin. `areas` / `area_members`: lectura org; escrituras admin. `anon` no tiene permisos. `authenticated` no tiene `INSERT` en `profiles` (altas con service role). La aplicación de `current_area_ids()` a conversaciones/tareas queda para `mesa-entrada-inbox`.
 
 ## 11. Funciones SQL (transiciones atómicas)
 
