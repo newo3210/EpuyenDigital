@@ -15,6 +15,8 @@ const envSchema = z.object({
   EVOLUTION_BASE_URL: z.string().url().optional(),
   EVOLUTION_INSTANCE: z.string().default("inspectoria"),
   EVOLUTION_API_KEY: z.string().optional(),
+  /** 32-byte key as 64-char hex or base64 — encrypts line API key + webhook secret */
+  CREDENTIALS_ENCRYPTION_KEY: z.string().min(1).optional(),
   SEND_MODE: z.enum(["dry_run", "allowlist", "production"]).default("dry_run"),
   ALLOWLIST_PHONES: z
     .string()

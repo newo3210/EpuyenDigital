@@ -1,7 +1,7 @@
 import { jobPayloadSchema } from "@epuyen/shared";
 import type { JobContext } from "./types.js";
 
-// download_media - Evolution fetch → private storage → link photo when animal known
+// download_media - Evolution fetch → private storage; pet photos only for images
 
 export async function handleDownloadMedia(
   rawPayload: unknown,
@@ -15,17 +15,15 @@ export async function handleDownloadMedia(
   const message = await ctx.store.getMessage(payload.messageId);
   if (!message) throw new Error("MESSAGE_NOT_FOUND");
 
-  const mime = message.mediaMime ?? "";
-  if (!mime.startsWith("image/") && payload.mediaUrl) {
-    // Non-image: leave without linking; conversation layer re-prompts
+  // Idempotent: already stored (channel + pet may both enqueue)
+  if (message.storagePath) {
+    return;
   }
 
   const downloaded = await ctx.evolution.downloadMedia(payload.mediaUrl);
-  if (!downloaded.mime.startsWith("image/")) {
-    throw new Error("UNSUPPORTED_MEDIA");
-  }
-
-  const path = `${payload.orgId}/animal-media/${payload.messageId}`;
+  const isImage = downloaded.mime.startsWith("image/");
+  const folder = isImage ? "animal-media" : "whatsapp-media";
+  const path = `${payload.orgId}/${folder}/${payload.messageId}`;
   const stored = await ctx.store.saveMedia({
     orgId: payload.orgId,
     path,
@@ -33,6 +31,11 @@ export async function handleDownloadMedia(
     mime: downloaded.mime,
   });
   await ctx.store.updateMessageStorage(payload.messageId, stored);
+
+  // Pet registry only links image photos to animals
+  if (!isImage) {
+    return;
+  }
 
   const animalId = payload.sessionId
     ? await ctx.store.getPendingAnimalIdForSession(payload.sessionId)
