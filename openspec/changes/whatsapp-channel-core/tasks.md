@@ -80,8 +80,8 @@
 
 ## 8. Close loop (director-owned)
 
-- [ ] 8.1 Mechanical verify → `reports/verify-mechanical.md`
-- [ ] 8.2 Acceptance matrix from scenarios
-- [ ] 8.3 Adversarial-review subagent; fix loop until PASS / PASS WITH GAPS
-- [ ] 8.4 Human OK → archive; open PR to `main`
+- [x] 8.1 Mechanical verify → `reports/verify-mechanical.md` — **PASS WITH GAPS**
+- [x] 8.2 Acceptance matrix from scenarios — `reports/acceptance-matrix.md`
+- [ ] 8.3 Adversarial-review subagent; fix loop until PASS / PASS WITH GAPS — launched
+- [ ] 8.4 Human OK → archive; PR #6 open
 - [ ] 8.5 After archive: open `/director` for `mesa-entrada-inbox` with stored scope (INB full, dual coords, manual routing)
