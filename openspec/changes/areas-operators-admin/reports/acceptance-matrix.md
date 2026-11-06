@@ -3,8 +3,8 @@
 Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/**/spec.md`.
 
 **Change:** `areas-operators-admin`  
-**Date:** 2026-11-05 (America/Buenos_Aires)  
-**Author:** Project Director (did **not** run apply; apply by [Apply areas-operators-admin](bc-9d795dd3-364a-581c-abcc-72e8fe57bc9e))
+**Date:** 2026-11-05 (America/Buenos_Aires); refreshed 2026-11-05 after adversarial fix round 1  
+**Author:** Project Director (did **not** run apply; apply by [Apply areas-operators-admin](bc-9d795dd3-364a-581c-abcc-72e8fe57bc9e); fixes by [Fix adversarial FAIL findings](bc-cf0471bf-ec46-5d2f-b556-710b21bd5c12))
 
 ## Scenarios — municipal-areas
 
@@ -51,9 +51,9 @@ Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/
 - **THEN** area B has `is_default = true` and area A has `is_default = false`
 
 **Evidence:**
-- Tool used: static SQL review (`areas_guard_default` / swap path)
-- Result: BLOCKED (live) / PARTIAL (static SQL present)
-- Notes: Needs live update transaction proof
+- Tool used: behavioral unit `areas-guard-default.logic.test.ts` (Mesa ↔ Inspectoría) + migration `pg_trigger_depth() > 1` + `reports/default-area-swap-sql-proof.sql`
+- Result: PASS (behavioral unit / static) | BLOCKED (live Postgres)
+- Notes: Adversarial Blocker addressed in fix round 1; live promote still env-blocked
 
 ---
 
@@ -63,9 +63,9 @@ Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/
 - **THEN** the update is rejected
 
 **Evidence:**
-- Tool used: static SQL (`org_requires_default_area`, `areas_one_default_per_org`)
-- Result: BLOCKED (live) / PARTIAL (static)
-- Notes: migration-sql.test.ts asserts constraint names
+- Tool used: static SQL (`org_requires_default_area`, `areas_one_default_per_org`) + depth skip only for nested clear
+- Result: PASS (static/unit model) | BLOCKED (live)
+- Notes: Sole-default clear still enforced at depth 1
 
 ---
 
@@ -149,9 +149,9 @@ Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/
 - **THEN** the create fails with a clear error and no orphan profile is left
 
 **Evidence:**
-- Tool used: Vitest “maps duplicate Auth email without compensation”
+- Tool used: Vitest “maps duplicate Auth email without compensation” + compensation-failure test when `deleteAuthUser` throws
 - Result: PASS (unit)
-- Notes: Compensation covered when profile/memberships fail after Auth create
+- Notes: Fix round 1 Major 7.4 — compensation failure is surfaced (`compensationFailed`)
 
 ---
 
@@ -161,9 +161,9 @@ Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/
 - **THEN** the profile role is `area_lead` and the only membership is Inspectoría with `is_lead = true`
 
 **Evidence:**
-- Tool used: Vitest `update-operator.test.ts` + code review replace memberships
-- Result: PASS (unit for demotion path) | PARTIAL (membership replace covered in create; update path reviewed)
-- Notes: Prefer adversarial to confirm replace-memberships on update
+- Tool used: Vitest update-operator + `operators-memberships.test.ts` + RPC `replace_area_memberships`
+- Result: PASS (unit / RPC contract) | BLOCKED (live RPC)
+- Notes: Fix round 1 Major 7.3 — replace is transactional via RPC
 
 ---
 
@@ -185,9 +185,9 @@ Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/
 - **THEN** the update is rejected and that profile remains active with role `admin`
 
 **Evidence:**
-- Tool used: Vitest `deactivate-operator.test.ts` + SQL `profiles_guard_last_active_admin` static
-- Result: PASS (app-level) | BLOCKED (live trigger)
-- Notes: Dual layer intended (app + DB)
+- Tool used: Vitest `deactivate-operator.test.ts` + SQL `profiles_guard_last_active_admin` with `pg_advisory_xact_lock` + `org_id` leave path (static)
+- Result: PASS (app-level + hardened trigger text) | BLOCKED (live concurrent stress)
+- Notes: Fix round 1 Major 7.2; dual layer remains
 
 ---
 
@@ -197,8 +197,8 @@ Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/
 - **THEN** the update is rejected and the role remains `admin`
 
 **Evidence:**
-- Tool used: Vitest `update-operator.test.ts` + SQL static
-- Result: PASS (app-level) | BLOCKED (live trigger)
+- Tool used: Vitest `update-operator.test.ts` + SQL advisory lock static
+- Result: PASS (app-level + hardened trigger text) | BLOCKED (live concurrent stress)
 
 ---
 
@@ -342,8 +342,8 @@ Copy scenarios **literally** from `openspec/changes/areas-operators-admin/specs/
 
 | Total | Pass (unit/static/prior) | Fail | Blocked (live/E2E) |
 |---|---|---|---|
-| 28 | ~18 partial/pass without live DB | 0 | ~10 primarily live-stack dependent |
+| 28 | ~20 after fix round 1 | 0 | remaining live Postgres / E2E / concurrent stress |
 
-**Verdict:** BLOCKED for full production confidence on RLS/seed/E2E; **PASS WITH GAPS** for archive readiness if human accepts the documented Docker/Podman gap (same class as reconcile).
+**Verdict (pre re-audit):** Prior adversarial **FAIL** Blocker/Majors addressed in code (see `adversarial-fixes-round1.md`). Live Docker/E2E still **BLOCKED**. Archive readiness depends on re-audit **PASS / PASS WITH GAPS** with no Blocker/Major + human OK.
 
-**Rule:** Implementer unit suite alone is not sole evidence — director re-ran `npm test` (572 pass), reviewed migration/seed/UI gates, and recorded live gaps honestly.
+**Rule:** Implementer unit suite alone is not sole evidence — director refreshed this matrix after fixes; suite after fixes reported **586** passed by fix agent.

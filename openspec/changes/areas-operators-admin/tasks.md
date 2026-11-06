@@ -54,4 +54,4 @@
 - [x] 7.3 **Major:** `replace_area_memberships(uuid, jsonb)` RPC (INVOKER, admin check); repository uses RPC only — `operators-memberships.test.ts`
 - [x] 7.4 **Major:** Compensation failure composed into result when `deleteAuthUser` throws; unit test in `create-operator.test.ts`; i18n `compensationFailed`
 - [x] 7.5 **Minor (bundle):** `readBoolean(..., true)` default on create; form always sends explicit booleans; `callerRole` admin assert in `createOperator`
-- [ ] 7.6 Refresh acceptance-matrix notes for fixed scenarios; re-audit subagent until PASS / PASS WITH GAPS with no Blocker/Major
+- [ ] 7.6 Refresh acceptance-matrix notes for fixed scenarios; re-audit subagent until PASS / PASS WITH GAPS with no Blocker/Major — matrix refreshed 2026-11-05; re-audit launched
