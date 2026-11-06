@@ -22,6 +22,29 @@ const NEIGHBORHOODS = [
   { org_id: ORG_ID, neighborhood_normalized: 'centro', code: 'CENT' },
   { org_id: ORG_ID, neighborhood_normalized: 'epuyen', code: 'EPU' },
 ] as const;
+// Fixed area ids - must match supabase/seed.sql (Mesa default + Inspectoría).
+const MESA_AREA_ID = '00000000-0000-4000-8000-000000000010';
+const INSPECTORIA_AREA_ID = '00000000-0000-4000-8000-000000000011';
+const AREAS = [
+  {
+    id: MESA_AREA_ID,
+    org_id: ORG_ID,
+    name: 'Mesa de Entrada',
+    description: 'Cola general de mensajería municipal',
+    color: '#1B4F72',
+    is_active: true,
+    is_default: true,
+  },
+  {
+    id: INSPECTORIA_AREA_ID,
+    org_id: ORG_ID,
+    name: 'Inspectoría',
+    description: 'Registro de mascotas y trámites de inspectoría',
+    color: '#196F3D',
+    is_active: true,
+    is_default: false,
+  },
+] as const;
 const ADMIN_FULL_NAME = 'Administrador';
 const DEFAULT_WEBHOOK_SECRET = 'dev-webhook-secret-change-me';
 const LIST_USERS_PAGE_SIZE = 200;
@@ -169,8 +192,20 @@ async function ensureAdminUser(admin: SupabaseClient, env: SeedEnv): Promise<{ i
   return { id: data.user.id, created: true };
 }
 
-// Admin profile - inserted once; on re-runs only enforces org, admin role and active flag.
-async function ensureAdminProfile(admin: SupabaseClient, userId: string, orgId: string): Promise<boolean> {
+// Municipal areas - Mesa de Entrada (default) + Inspectoría; ids align with seed.sql.
+async function upsertAreas(admin: SupabaseClient, orgId: string): Promise<void> {
+  const rows = AREAS.map((area) => ({ ...area, org_id: orgId }));
+  const { error } = await admin.from('areas').upsert(rows, { onConflict: 'id' });
+  if (error) throw new Error(`areas upsert failed: ${error.message}`);
+}
+
+// Admin profile - inserted once; on re-runs only enforces org, admin role, email and active flag.
+async function ensureAdminProfile(
+  admin: SupabaseClient,
+  userId: string,
+  orgId: string,
+  email: string,
+): Promise<boolean> {
   const { data: existing, error: readError } = await admin
     .from('profiles')
     .select('id')
@@ -179,10 +214,18 @@ async function ensureAdminProfile(admin: SupabaseClient, userId: string, orgId: 
   if (readError) throw new Error(`profiles read failed: ${readError.message}`);
 
   const { error } = existing
-    ? await admin.from('profiles').update({ org_id: orgId, role: 'admin', is_active: true }).eq('id', userId)
-    : await admin
+    ? await admin
         .from('profiles')
-        .insert({ id: userId, org_id: orgId, full_name: ADMIN_FULL_NAME, role: 'admin', is_active: true });
+        .update({ org_id: orgId, role: 'admin', is_active: true, email, deactivated_at: null })
+        .eq('id', userId)
+    : await admin.from('profiles').insert({
+        id: userId,
+        org_id: orgId,
+        full_name: ADMIN_FULL_NAME,
+        role: 'admin',
+        is_active: true,
+        email,
+      });
   if (error) throw new Error(`profiles write failed: ${error.message}`);
   return !existing;
 }
@@ -199,12 +242,13 @@ async function main(): Promise<void> {
   const lineId = await upsertInspectoriaLine(admin, orgId);
   await upsertLineSecret(admin, lineId, env.SEED_WEBHOOK_SECRET);
   await upsertNeighborhoods(admin, orgId);
+  await upsertAreas(admin, orgId);
 
   const user = await ensureAdminUser(admin, env);
-  const profileCreated = await ensureAdminProfile(admin, user.id, orgId);
+  const profileCreated = await ensureAdminProfile(admin, user.id, orgId, env.SEED_ADMIN_EMAIL);
 
   console.log(
-    `Seed OK - organization "${ORGANIZATION.slug}" (${orgId}); Inspectoría line ${lineId}; admin user ${user.created ? 'created' : 'already existed'}; admin profile ${profileCreated ? 'created' : 'updated'}.`,
+    `Seed OK - organization "${ORGANIZATION.slug}" (${orgId}); areas Mesa+Inspectoría; Inspectoría line ${lineId}; admin user ${user.created ? 'created' : 'already existed'}; admin profile ${profileCreated ? 'created' : 'updated'}.`,
   );
 }
 
