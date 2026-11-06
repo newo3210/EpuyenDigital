@@ -44,5 +44,14 @@
 
 - [x] 6.1 Mechanical `/opsx:verify` — report under `reports/verify-mechanical.md` — **PASS WITH GAPS**
 - [x] 6.2 Write `reports/acceptance-matrix.md` from spec scenarios with evidence — **PASS WITH GAPS / live BLOCKED**
-- [ ] 6.3 Auto-launch adversarial-review subagent (`audit areas-operators-admin`); fix loop until PASS / PASS WITH GAPS
-- [ ] 6.4 Human OK → archive; open PR to `main` (PR opened when ready; archive waits human OK)
+- [ ] 6.3 Auto-launch adversarial-review subagent (`audit areas-operators-admin`); fix loop until PASS / PASS WITH GAPS — first pass **FAIL** (`reports/adversarial-review.md`); fix §7 then re-audit
+- [ ] 6.4 Human OK → archive; PR #5 open — archive waits human OK
+
+## 7. Adversarial fix loop (post FAIL 2026-11-06)
+
+- [ ] 7.1 **Blocker:** Fix `areas_guard_default` promote/swap (e.g. `pg_trigger_depth() > 1` skip on clear, or SECURITY DEFINER swap RPC); add behavioral test for Mesa ↔ Inspectoría promote
+- [ ] 7.2 **Major:** Harden last-admin with advisory/`FOR UPDATE` lock; treat `org_id` move of active admin as leaving source org
+- [ ] 7.3 **Major:** Atomic membership replace (single RPC/transaction); fail closed without wiping on insert error
+- [ ] 7.4 **Major:** Surface Auth compensation failure when `deleteAuthUser` throws; add unit test
+- [ ] 7.5 **Minor (bundle):** default `isActive=true` when FormData omits field; optional admin assert inside createOperator use case
+- [ ] 7.6 Refresh acceptance-matrix notes for fixed scenarios; re-audit subagent until PASS / PASS WITH GAPS with no Blocker/Major
