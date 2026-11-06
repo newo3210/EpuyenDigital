@@ -5,6 +5,10 @@ import { z } from "zod";
 export const evolutionInboundKindSchema = z.enum([
   "text",
   "image",
+  "audio",
+  "video",
+  "document",
+  "sticker",
   "location",
   "button_reply",
   "unknown",
@@ -26,6 +30,7 @@ export const evolutionWebhookSchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
   buttonId: z.string().optional(),
   pushName: z.string().optional(),
+  avatarUrl: z.string().url().optional(),
   receivedAt: z.string().datetime().optional(),
 });
 

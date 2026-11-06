@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { encryptSecret } from '@epuyen/shared';
 import { z } from 'zod';
 
 // Fixed org / line ids - must match supabase/seed.sql so SQL + TS seeds coexist.
@@ -10,21 +11,22 @@ const ORGANIZATION = {
   name: 'Municipalidad de Epuyén',
   timezone: 'America/Argentina/Buenos_Aires',
 } as const;
+// Fixed area ids - must match supabase/seed.sql (Mesa default + Inspectoría).
+const MESA_AREA_ID = '00000000-0000-4000-8000-000000000010';
+const INSPECTORIA_AREA_ID = '00000000-0000-4000-8000-000000000011';
 const INSPECTORIA_LINE = {
   id: LINE_ID,
   org_id: ORG_ID,
   name: 'Inspectoría',
   display_phone: '+5492944216586',
   evolution_instance: 'inspectoria',
-  status: 'active',
+  status: 'disconnected',
+  default_area_id: MESA_AREA_ID,
 } as const;
 const NEIGHBORHOODS = [
   { org_id: ORG_ID, neighborhood_normalized: 'centro', code: 'CENT' },
   { org_id: ORG_ID, neighborhood_normalized: 'epuyen', code: 'EPU' },
 ] as const;
-// Fixed area ids - must match supabase/seed.sql (Mesa default + Inspectoría).
-const MESA_AREA_ID = '00000000-0000-4000-8000-000000000010';
-const INSPECTORIA_AREA_ID = '00000000-0000-4000-8000-000000000011';
 const AREAS = [
   {
     id: MESA_AREA_ID,
@@ -126,6 +128,7 @@ async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Prom
         name: INSPECTORIA_LINE.name,
         display_phone: INSPECTORIA_LINE.display_phone,
         status: INSPECTORIA_LINE.status,
+        default_area_id: INSPECTORIA_LINE.default_area_id,
       })
       .eq('id', byInstance.id);
     if (updateError) throw new Error(`whatsapp_lines update failed: ${updateError.message}`);
@@ -141,6 +144,7 @@ async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Prom
       display_phone: INSPECTORIA_LINE.display_phone,
       evolution_instance: INSPECTORIA_LINE.evolution_instance,
       status: INSPECTORIA_LINE.status,
+      default_area_id: INSPECTORIA_LINE.default_area_id,
     })
     .select('id')
     .single();
@@ -148,12 +152,20 @@ async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Prom
   return data.id as string;
 }
 
-// Line secret - SEED_WEBHOOK_SECRET or the same default as seed.sql.
+// Line secret - ciphertext when CREDENTIALS_ENCRYPTION_KEY is set; else legacy plaintext.
 async function upsertLineSecret(admin: SupabaseClient, lineId: string, webhookSecret: string): Promise<void> {
-  const { error } = await admin.from('whatsapp_line_secrets').upsert(
-    { line_id: lineId, webhook_secret: webhookSecret },
-    { onConflict: 'line_id' },
-  );
+  const encKey = process.env.CREDENTIALS_ENCRYPTION_KEY?.trim();
+  const row = encKey
+    ? {
+        line_id: lineId,
+        webhook_secret_ciphertext: encryptSecret(webhookSecret, encKey),
+        webhook_secret: null as string | null,
+      }
+    : {
+        line_id: lineId,
+        webhook_secret: webhookSecret,
+      };
+  const { error } = await admin.from('whatsapp_line_secrets').upsert(row, { onConflict: 'line_id' });
   if (error) throw new Error(`whatsapp_line_secrets upsert failed: ${error.message}`);
 }
 
@@ -239,10 +251,11 @@ async function main(): Promise<void> {
 
   const orgId = await upsertOrganization(admin);
   await upsertOrgSettings(admin, orgId);
+  // Areas before line so default_area_id → Mesa de Entrada FK resolves.
+  await upsertAreas(admin, orgId);
   const lineId = await upsertInspectoriaLine(admin, orgId);
   await upsertLineSecret(admin, lineId, env.SEED_WEBHOOK_SECRET);
   await upsertNeighborhoods(admin, orgId);
-  await upsertAreas(admin, orgId);
 
   const user = await ensureAdminUser(admin, env);
   const profileCreated = await ensureAdminProfile(admin, user.id, orgId, env.SEED_ADMIN_EMAIL);

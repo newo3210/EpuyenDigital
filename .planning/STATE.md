@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 3 prep — `mesa-entrada-inbox` (next)
+**Current focus:** Phase 3 — `mesa-entrada-inbox` (next)
 
 ## Current Position
 
-Phase: 1 of 7 (Fundación) largely complete + Phase 2.1 Inspectoría pets on main  
-Plan: OpenSpec `areas-operators-admin` **archived 2026-11-06**  
-Status: Areas + operators admin on delivery branch / merging to main; live db reset / E2E still env-blocked without Docker.  
-Last activity: 2026-11-06 — human OK archive + merge PR #5
+Phase: 1 Fundación + Phase 2 WhatsApp channel core + Phase 2.1 Inspectoría pets on main  
+Plan: OpenSpec `whatsapp-channel-core` **archived 2026-11-06**  
+Status: Channel (conversations, line admin, inbound/outbound text, send_mode) on main via PR #6; inbox triage still next.  
+Last activity: 2026-11-06 — human OK archive + merge WA channel; continue inbox
 
-Progress: [███░░░░░░░] ~25% (foundation + areas/operators admin archived)
+Progress: [████░░░░░░] ~35% (foundation + areas/operators + WA channel archived)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (reconcile-foundation-to-main, areas-operators-admin)
+- Total plans completed: 3 (reconcile-foundation-to-main, areas-operators-admin, whatsapp-channel-core)
 - Average duration: -
 - Total execution time: -
 
@@ -29,39 +29,28 @@ Progress: [███░░░░░░░] ~25% (foundation + areas/operators ad
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- [Init]: Arrancar limpio, documentación primero; portar desde `newo3210/seguros` pieza por pieza
-- [Init]: Evolution API único transporte v1; tabla única `citizens`; áreas como entidad de primera clase
-- [Init]: Bot pausado por conversación con dueño humano (corrige bug del CRM)
-- [2026-10-12]: MVP Inspectoría suelto (no espera panel Mesa de Entrada); caballo en pausa; registro automático; GPS vía ubicación nativa WhatsApp; ID `{BARRIO3}-{YYYY}-{SEQ5}` → UX v2 fuerza prefijo `EPU`
-- [foundation]: Supabase local sobre Podman; cloud solo para `db push`/deploy; 403 con `forbidden()`; redacción con contrato explícito (D14–D17)
-- [2026-11-04 reconcile]: Merge foundation → main; organizations superset; seed SQL+TS coexistence; idempotent foundation DDL; same WA line documented; dual coords deferred; inbox real deferred
-- [2026-11-06 areas]: Temp password once (D1); admin-only writes (D2); last-admin DB trigger + advisory lock (D3); email on profiles, immutable after create v1 (D4); SLA columns only (D5); single default + `pg_trigger_depth` swap (D6); Auth compensation surfaced (D7); admin nav (D8); memberships via RPC
+- [2026-11-06 areas]: Temp password once; admin-only writes; last-admin + advisory lock; email on profiles; SLA columns; default area swap; Auth compensation; memberships RPC
+- [2026-11-06 WA]: Channel before inbox; conversations now; encrypted line secrets; auth-before-ignore webhook; persist-then-send; shared line default Mesa; dual coords deferred to inbox; pet process_inbound still on shared line until inbox routing
 
 ### Pending Todos
 
-- Open + implement `mesa-entrada-inbox` (cola real, shared line routing, mapa en tarjeta, coords de consulta, RLS con `current_area_ids()`)
-- Live `supabase db reset` / pgTAP / curl / E2E when containers available (residual gap from areas-operators-admin)
-- Backlogs de redacción/hardening de foundation (B-*, C-*, M-*, N-*, R-*) no bloqueantes
-- Opcional: terminar adversarial review de `inspectoria-pet-registry-ux-v2`
+- Open + implement `mesa-entrada-inbox` (INB-01..15, dual coords + map, manual area routing, delivery ticks, claim/delegate, realtime)
+- Live `supabase db reset` / curl / E2E when containers available
+- WA-08 media outbound + WA-05/WA-11 UI polish (partial)
+- Optional: adversarial close of `inspectoria-pet-registry-ux-v2`
 
 ### Blockers/Concerns
 
-- Agent env sin Docker/Podman: SQL live proof, curl contra stack y E2E browser pendientes
-- Preview Vercel checks may fail (often not required); investigate if deploy is affected
+- Agent env sin Docker/Podman for live SQL/E2E
+- Shared line still enqueues pet `process_inbound` for all non-fromMe inbound until inbox routing
 
 ### Process
 
-- 2026-09-30: SDD/OpenSpec instalado. Entrada `/director`.
-- 2026-10-05: `foundation-workspace-auth` archived on feature branch (not yet on main then).
-- 2026-10-12: Inspectoría pet registry on main.
-- 2026-11-04: `reconcile-foundation-to-main` applied, verified, adversarial PASS WITH GAPS, archived; merge PR #3.
-- 2026-11-06: `areas-operators-admin` applied, adversarial PASS WITH GAPS after fix loop, archived; human OK merge PR #5.
+- 2026-11-06: `areas-operators-admin` archived; merge PR #5
+- 2026-11-06: `whatsapp-channel-core` adversarial PASS WITH GAPS, archived; merge PR #6
 
 ## Session Continuity
 
 Last session: 2026-11-06
-Stopped at: Archive + merge PR #5; next `/director` change `mesa-entrada-inbox`
-Resume file: None
+Stopped at: Archive + merge WA; next `/director` `mesa-entrada-inbox`
+Resume file: `tmp/mesa-entrada-inbox-deferred-scope.md`

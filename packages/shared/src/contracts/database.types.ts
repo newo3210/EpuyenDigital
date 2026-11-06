@@ -145,13 +145,13 @@ isOneToOne: true
                   ]
                 },"whatsapp_lines": {
                   Row: {
-                    "id": string,"org_id": string,"name": string,"display_phone": string,"evolution_instance": string,"status": string
+                    "id": string,"org_id": string,"name": string,"display_phone": string,"evolution_base_url": string | null,"evolution_instance": string,"default_area_id": string | null,"status": string,"last_status_at": string | null,"created_at"?: string,"updated_at"?: string
                   }
                   Insert: {
-                    "id"?: string,"org_id": string,"name": string,"display_phone": string,"evolution_instance": string,"status"?: string
+                    "id"?: string,"org_id": string,"name": string,"display_phone": string,"evolution_base_url"?: string | null,"evolution_instance": string,"default_area_id"?: string | null,"status"?: string,"last_status_at"?: string | null
                   }
                   Update: {
-                    "id"?: string,"org_id"?: string,"name"?: string,"display_phone"?: string,"evolution_instance"?: string,"status"?: string
+                    "id"?: string,"org_id"?: string,"name"?: string,"display_phone"?: string,"evolution_base_url"?: string | null,"evolution_instance"?: string,"default_area_id"?: string | null,"status"?: string,"last_status_at"?: string | null
                   }
                   Relationships: [
                     {
@@ -162,15 +162,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"citizens": {
+                },"whatsapp_line_secrets": {
                   Row: {
-                    "id": string,"org_id": string,"full_name": string | null,"document_id": string | null,"address_line": string | null,"neighborhood": string | null,"latitude": number | null,"longitude": number | null,"privacy_consent_at": string | null
+                    "line_id": string,"webhook_secret": string | null,"webhook_secret_ciphertext": string | null,"api_key_ciphertext": string | null
                   }
                   Insert: {
-                    "id"?: string,"org_id": string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"privacy_notice_version"?: string | null
+                    "line_id": string,"webhook_secret"?: string | null,"webhook_secret_ciphertext"?: string | null,"api_key_ciphertext"?: string | null
                   }
                   Update: {
-                    "id"?: string,"org_id"?: string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null
+                    "line_id"?: string,"webhook_secret"?: string | null,"webhook_secret_ciphertext"?: string | null,"api_key_ciphertext"?: string | null
+                  }
+                  Relationships: []
+                },"citizens": {
+                  Row: {
+                    "id": string,"org_id": string,"full_name": string | null,"document_id": string | null,"address_line": string | null,"neighborhood": string | null,"latitude": number | null,"longitude": number | null,"privacy_consent_at": string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null
+                  }
+                  Update: {
+                    "id"?: string,"org_id"?: string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null
                   }
                   Relationships: [
                     {
@@ -181,6 +192,17 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"conversations": {
+                  Row: {
+                    "id": string,"org_id": string,"line_id": string,"citizen_id": string | null,"phone_normalized": string,"area_id": string,"bot_state": string,"queue_column": string,"owner_user_id": string | null,"last_message_at": string | null,"needs_response": boolean,"created_at"?: string,"updated_at"?: string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"line_id": string,"citizen_id"?: string | null,"phone_normalized": string,"area_id": string,"bot_state"?: string,"queue_column"?: string,"owner_user_id"?: string | null,"last_message_at"?: string | null,"needs_response"?: boolean,"entered_queue_at"?: string,"last_inbound_at"?: string | null,"last_outbound_at"?: string | null
+                  }
+                  Update: {
+                    "id"?: string,"org_id"?: string,"line_id"?: string,"citizen_id"?: string | null,"phone_normalized"?: string,"area_id"?: string,"bot_state"?: string,"queue_column"?: string,"owner_user_id"?: string | null,"last_message_at"?: string | null,"needs_response"?: boolean,"last_inbound_at"?: string | null,"last_outbound_at"?: string | null
+                  }
+                  Relationships: []
                 },"animals": {
                   Row: {
                     "id": string,"org_id": string,"citizen_id": string,"name": string,"species": string,"municipal_id": string,"status": string,"traits_status": string,"distinctive_traits": Json | null
@@ -205,13 +227,13 @@ isOneToOne: false
                   Relationships: []
                 },"messages": {
                   Row: {
-                    "id": string,"org_id": string,"line_id": string,"external_id": string,"direction": string,"phone_normalized": string,"kind": string,"body": string | null,"delivery_status": string | null
+                    "id": string,"org_id": string,"line_id": string,"conversation_id": string | null,"external_id": string,"direction": string,"sender_kind"?: string | null,"author_user_id"?: string | null,"phone_normalized": string,"kind": string,"body": string | null,"media_url"?: string | null,"media_mime"?: string | null,"storage_path"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"delivery_status": string | null,"delivered_at"?: string | null,"read_at"?: string | null,"created_at"?: string,"raw"?: Json
                   }
                   Insert: {
-                    "id"?: string,"org_id": string,"line_id": string,"external_id": string,"direction": string,"phone_normalized": string,"kind": string,"body"?: string | null,"media_url"?: string | null,"delivery_status"?: string | null,"raw"?: Json
+                    "id"?: string,"org_id": string,"line_id": string,"conversation_id"?: string | null,"external_id": string,"direction": string,"sender_kind"?: string | null,"author_user_id"?: string | null,"phone_normalized": string,"kind": string,"body"?: string | null,"media_url"?: string | null,"media_mime"?: string | null,"storage_path"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"delivery_status"?: string | null,"delivered_at"?: string | null,"read_at"?: string | null,"raw"?: Json
                   }
                   Update: {
-                    "id"?: string,"org_id"?: string,"line_id"?: string,"external_id"?: string,"direction"?: string,"phone_normalized"?: string,"kind"?: string,"body"?: string | null,"delivery_status"?: string | null
+                    "id"?: string,"org_id"?: string,"line_id"?: string,"conversation_id"?: string | null,"external_id"?: string,"direction"?: string,"sender_kind"?: string | null,"author_user_id"?: string | null,"phone_normalized"?: string,"kind"?: string,"body"?: string | null,"delivery_status"?: string | null,"delivered_at"?: string | null,"read_at"?: string | null,"storage_path"?: string | null
                   }
                   Relationships: []
                 },"jobs": {

@@ -14,7 +14,7 @@ describe('visibleNavItems', () => {
     expect(hrefs('area_lead')).not.toContain('/settings/operators');
   });
 
-  it('shows Áreas and Operadores only to admin', () => {
+  it('shows Áreas, Operadores and Líneas only to admin', () => {
     expect(hrefs('admin')).toEqual([
       '/inbox',
       '/citizens',
@@ -22,11 +22,12 @@ describe('visibleNavItems', () => {
       '/settings/profile',
       '/settings/areas',
       '/settings/operators',
+      '/settings/lines',
       '/support/errors',
     ]);
   });
 
-  it('shows Soporte to support without Áreas/Operadores', () => {
+  it('shows Soporte to support without Áreas/Operadores/Líneas', () => {
     expect(hrefs('support')).toEqual(['/inbox', '/citizens', '/tasks', '/settings/profile', '/support/errors']);
   });
 });
