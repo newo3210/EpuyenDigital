@@ -240,6 +240,9 @@ isOneToOne: false
 "current_area_ids":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"replace_area_memberships":
+{ Args: { "p_user_id": string,"p_memberships": Json }; Returns: undefined
+                           },
 "insert_client_error_report":
 { Args: { "p_details": Json,"p_limit": number,"p_message": string,"p_org_id": string,"p_trace_id": string,"p_user_id": string,"p_window_seconds": number }; Returns: string
                            },

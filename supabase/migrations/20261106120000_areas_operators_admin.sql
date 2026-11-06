@@ -63,7 +63,8 @@ begin
 end;
 $$;
 
--- Last active admin: reject demotion or deactivation that would leave zero active admins.
+-- Last active admin: reject demotion, deactivation, or org move that would leave zero active admins.
+-- Serializes concurrent checks with an org-scoped advisory xact lock (closes READ COMMITTED TOCTOU).
 create or replace function public.profiles_guard_last_active_admin()
 returns trigger
 language plpgsql
@@ -71,9 +72,11 @@ set search_path = ''
 as $$
 declare
   remaining integer;
+  source_org uuid;
 begin
   if tg_op = 'DELETE' then
     if old.role = 'admin' and old.is_active then
+      perform pg_advisory_xact_lock(hashtextextended(old.org_id::text, 0));
       select count(*)::integer into remaining
       from public.profiles p
       where p.org_id = old.org_id
@@ -89,19 +92,26 @@ begin
     return old;
   end if;
 
+  -- Leaving the source org as an active admin counts as removal from that org.
   if old.role = 'admin'
      and old.is_active
-     and (new.role is distinct from 'admin' or new.is_active = false) then
+     and (
+       new.role is distinct from 'admin'
+       or new.is_active = false
+       or new.org_id is distinct from old.org_id
+     ) then
+    source_org := old.org_id;
+    perform pg_advisory_xact_lock(hashtextextended(source_org::text, 0));
     select count(*)::integer into remaining
     from public.profiles p
-    where p.org_id = new.org_id
+    where p.org_id = source_org
       and p.role = 'admin'
       and p.is_active
-      and p.id is distinct from new.id;
+      and p.id is distinct from old.id;
     if remaining = 0 then
       raise exception 'last_active_admin'
         using errcode = 'P0001',
-              hint = 'Cannot demote or deactivate the last active admin of the organization.';
+              hint = 'Cannot demote, deactivate, or move the last active admin of the organization.';
     end if;
   end if;
 
@@ -157,6 +167,8 @@ create trigger areas_set_updated_at
   for each row execute function public.set_updated_at();
 
 -- Single-default swap: promoting clears peers; clearing the sole default is rejected.
+-- Nested peer-clear UPDATEs re-enter this trigger; skip the "must keep a default" check
+-- when pg_trigger_depth() > 1 so promote/swap can succeed (outer row becomes the new default).
 create or replace function public.areas_guard_default()
 returns trigger
 language plpgsql
@@ -172,6 +184,10 @@ begin
   elsif tg_op = 'UPDATE'
         and old.is_default
         and not new.is_default then
+    -- Nested clear from a promote must not raise; the outer NEW is not visible yet as default.
+    if pg_trigger_depth() > 1 then
+      return new;
+    end if;
     if not exists (
       select 1
       from public.areas a
@@ -372,3 +388,80 @@ create policy area_members_delete_admin on public.area_members
         and a.org_id = public.current_org_id()
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- Atomic membership replace - single transaction; insert failure rolls back delete
+-- ---------------------------------------------------------------------------
+create or replace function public.replace_area_memberships(
+  p_user_id uuid,
+  p_memberships jsonb
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  membership jsonb;
+  v_area_id uuid;
+  v_is_lead boolean;
+begin
+  if public.current_user_role() is distinct from 'admin' then
+    raise exception 'forbidden'
+      using errcode = 'P0001',
+            hint = 'Only admins can replace area memberships.';
+  end if;
+
+  if not exists (
+    select 1
+    from public.profiles p
+    where p.id = p_user_id
+      and p.org_id = public.current_org_id()
+  ) then
+    raise exception 'operator_not_found'
+      using errcode = 'P0001',
+            hint = 'Operator must belong to the current organization.';
+  end if;
+
+  if p_memberships is null or jsonb_typeof(p_memberships) is distinct from 'array' then
+    raise exception 'invalid_memberships'
+      using errcode = 'P0001',
+            hint = 'p_memberships must be a JSON array.';
+  end if;
+
+  delete from public.area_members
+  where user_id = p_user_id;
+
+  for membership in
+    select value from jsonb_array_elements(p_memberships)
+  loop
+    begin
+      v_area_id := (membership ->> 'area_id')::uuid;
+    exception
+      when others then
+        raise exception 'invalid_memberships'
+          using errcode = 'P0001',
+                hint = 'Each membership requires a valid area_id UUID.';
+    end;
+
+    v_is_lead := coalesce((membership ->> 'is_lead')::boolean, false);
+
+    if not exists (
+      select 1
+      from public.areas a
+      where a.id = v_area_id
+        and a.org_id = public.current_org_id()
+    ) then
+      raise exception 'area_member_org_mismatch'
+        using errcode = 'P0001',
+              hint = 'Membership areas must belong to the current organization.';
+    end if;
+
+    insert into public.area_members (area_id, user_id, is_lead)
+    values (v_area_id, p_user_id, v_is_lead);
+  end loop;
+end;
+$$;
+
+revoke all on function public.replace_area_memberships(uuid, jsonb) from public, anon;
+grant execute on function public.replace_area_memberships(uuid, jsonb) to authenticated, service_role;
