@@ -24,13 +24,13 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 - [x] **WA-02**: Admin puede probar la conexión de una línea y ver su estado (conectada / desconectada)
 - [x] **WA-03**: El webhook rechaza toda llamada sin secreto válido (nunca queda abierto)
 - [x] **WA-04**: Los mensajes entrantes de texto se guardan una sola vez (idempotencia por id externo), ignorando grupos, difusiones y newsletters
-- [x] **WA-05**: Los adjuntos entrantes (imagen, audio, video, documento, ubicación, sticker) se descargan, se guardan en Storage y se ven en el hilo con su texto al pie _(ubicación en mensaje; UI de adjuntos rica diferida a inbox)_
+- [~] **WA-05**: Los adjuntos entrantes (imagen, audio, video, documento, ubicación, sticker) se descargan, se guardan en Storage y se ven en el hilo con su texto al pie — **PARTIAL** (download + storage + ubicación en mensaje; UI rica de adjuntos en hilo → `mesa-entrada-inbox`)
 - [x] **WA-06**: El sistema resuelve el teléfono real también para JIDs `@lid`
 - [x] **WA-07**: El sistema captura el nombre de perfil de WhatsApp (pushName) y la foto de perfil del contacto
 - [ ] **WA-08**: Operador puede enviar texto, imagen, documento PDF y audio desde el panel _(texto listo en channel core; media panel → follow-up)_
 - [x] **WA-09**: Lo que se escribe desde el teléfono de la línea (fromMe) se refleja en el hilo como saliente
 - [x] **WA-10**: Los estados entregado / leído de los mensajes salientes se reflejan en el hilo _(persistidos; ticks UI polish → inbox)_
-- [x] **WA-11**: Admin puede elegir el modo de envío (`dry_run`, `allowlist`, `production`) y todo envío saliente (bot y operador) respeta ese guard _(guard compartido; UI de cambio de modo vía org_settings/seed hoy)_
+- [~] **WA-11**: Admin puede elegir el modo de envío (`dry_run`, `allowlist`, `production`) y todo envío saliente (bot y operador) respeta ese guard — **PARTIAL** (guard compartido en composer + worker; UI admin de cambio de modo → follow-up / seed `org_settings` hoy)
 - [x] **WA-12**: Los teléfonos se normalizan al formato argentino canónico `549…` al guardar y al enviar
 
 ### Panel de mensajería (INB)

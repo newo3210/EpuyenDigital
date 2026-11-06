@@ -88,10 +88,16 @@
 
 ## 9. Adversarial fix loop (post FAIL 2026-11-06)
 
-- [ ] 9.1 **Blocker:** `secretFlags` / list lines under REVOKE — service-role or RPC booleans only (never ciphertext); prove list works
-- [ ] 9.2 **Blocker:** Bind `loadDecryptedLineCredentials` / connection test to caller `org_id`; deny cross-org lineId
-- [ ] 9.3 **Major:** Authenticate webhook (instance→line→secret) before ignore short-circuit; group without secret → 401/503
-- [ ] 9.4 **Major:** Credentials decrypt/key missing → 503 fail-closed; align seed ciphertext when key present (or document legacy)
-- [ ] 9.5 **Major:** Citizen stub unique-violation re-select race; composer persist-then-send; drop/tighten authenticated INSERT/UPDATE on messages (and conversations writes as needed)
-- [ ] 9.6 **Major/docs:** Honest WA-05/WA-11 checkboxes (partial); optional minors media folder + ACK monotonicity if cheap
+- [x] 9.1 **Blocker:** `secretFlags` / list lines under REVOKE — service-role or RPC booleans only (never ciphertext); prove list works
+  - Evidence: `listWhatsappLines(client, secretsClient)` + `settings/lines/page.tsx` admin flags; `whatsapp-lines.test.ts` asserts user JWT never selects secrets; REVOKE retained
+- [x] 9.2 **Blocker:** Bind `loadDecryptedLineCredentials` / connection test to caller `org_id`; deny cross-org lineId
+  - Evidence: `loadDecryptedLineCredentials` + `upsertLineSecrets` org bind; RLS pre-check in `testConnectionAction`; unit deny cross-org
+- [x] 9.3 **Major:** Authenticate webhook (instance→line→secret) before ignore short-circuit; group without secret → 401/503
+  - Evidence: `route.ts` `authenticateWebhook` before ignore; `route-auth.test.ts` (401/503/200 after secret)
+- [x] 9.4 **Major:** Credentials decrypt/key missing → 503 fail-closed; align seed ciphertext when key present (or document legacy)
+  - Evidence: ingest/route map decrypt errors → 503; `seed.ts` encrypts when key set; `seed.sql` plaintext documented legacy; unit ciphertext missing key
+- [x] 9.5 **Major:** Citizen stub unique-violation re-select race; composer persist-then-send; drop/tighten authenticated INSERT/UPDATE on messages (and conversations writes as needed)
+  - Evidence: `upsertCitizenStub` 23505 re-select; `send-text` pending→Evolution→update; migration drops messages/conversations write policies; send-text order test
+- [x] 9.6 **Major/docs:** Honest WA-05/WA-11 checkboxes (partial); optional minors media folder + ACK monotonicity if cheap
+  - Evidence: `.planning/REQUIREMENTS.md` WA-05/WA-11 `[~]` PARTIAL; download-media `whatsapp-media` without sessionId; ACK rank monotonic; `reports/adversarial-fixes-round1.md`
 - [ ] 9.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major
