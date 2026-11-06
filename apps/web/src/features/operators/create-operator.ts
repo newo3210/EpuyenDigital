@@ -1,3 +1,4 @@
+import type { Role } from '@epuyen/shared';
 import { operatorCreateSchema, type OperatorCreateInput } from '@/contracts/operators';
 import { esAR } from '@/i18n/es-AR';
 
@@ -9,6 +10,8 @@ export type CreatedAuthUser = { id: string };
 // Create-operator ports - Auth admin + profile/membership writers + compensation delete.
 export type CreateOperatorDeps = {
   orgId: string;
+  /** Caller role - use case asserts admin so service-role Auth is not only action-gated. */
+  callerRole: Role;
   createAuthUser: (input: { email: string; password: string }) => Promise<CreatedAuthUser>;
   deleteAuthUser: (userId: string) => Promise<void>;
   insertProfile: (input: {
@@ -29,6 +32,10 @@ export type CreateOperatorResult =
 
 // Create-operator use case - Auth → profile → memberships; compensate Auth user on later failure.
 export async function createOperator(input: unknown, deps: CreateOperatorDeps): Promise<CreateOperatorResult> {
+  if (deps.callerRole !== 'admin') {
+    return { status: 'failed', message: messages.forbidden };
+  }
+
   const parsed = operatorCreateSchema.safeParse(input);
   if (!parsed.success) {
     const flat = parsed.error.flatten().fieldErrors;
@@ -71,8 +78,17 @@ export async function createOperator(input: unknown, deps: CreateOperatorDeps): 
     if (authUserId) {
       try {
         await deps.deleteAuthUser(authUserId);
-      } catch {
-        // Compensation best-effort - surface the original failure below.
+      } catch (compensationError) {
+        const original =
+          error instanceof Error ? error.message : messages.createFailed;
+        const compensation =
+          compensationError instanceof Error
+            ? compensationError.message
+            : 'unknown compensation error';
+        return {
+          status: 'failed',
+          message: `${messages.compensationFailed} (${original}; compensation: ${compensation})`,
+        };
       }
     }
 

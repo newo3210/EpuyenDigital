@@ -64,6 +64,7 @@ export async function createOperatorAction(
     },
     {
       orgId: operator.orgId,
+      callerRole: operator.role,
       createAuthUser: (input) => createAuthUser(admin, input),
       deleteAuthUser: (userId) => deleteAuthUser(admin, userId),
       insertProfile: (input) => insertOperatorProfile(admin, input),

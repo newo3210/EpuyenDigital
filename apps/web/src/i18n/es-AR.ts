@@ -176,6 +176,8 @@ export const esAR = {
       forbidden: 'Solo un administrador puede gestionar operadores.',
       lastAdmin: 'No se puede dejar a la organización sin un administrador activo.',
       createFailed: 'No pudimos crear el operador. No quedó un usuario huérfano.',
+      compensationFailed:
+        'No pudimos crear el operador y falló la compensación del usuario Auth. Contactá soporte.',
     },
   },
   support: {

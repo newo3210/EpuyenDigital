@@ -110,24 +110,21 @@ export async function setOperatorActive(client: DbClient, userId: string, isActi
   }
 }
 
-// Replace memberships - delete existing then insert the submitted set for one operator.
+// Replace memberships - atomic RPC (delete+insert in one transaction; fails closed on insert error).
 export async function replaceOperatorMemberships(
   client: DbClient,
   userId: string,
   memberships: MembershipInput[],
 ): Promise<void> {
-  const { error: deleteError } = await client.from('area_members').delete().eq('user_id', userId);
-  if (deleteError) throw new RepositoryError('operators.memberships_write_failed', deleteError.message);
-
-  if (memberships.length === 0) return;
-
-  const rows = memberships.map((membership) => ({
-    user_id: userId,
+  const payload = memberships.map((membership) => ({
     area_id: membership.areaId,
     is_lead: membership.isLead,
   }));
-  const { error: insertError } = await client.from('area_members').insert(rows);
-  if (insertError) throw new RepositoryError('operators.memberships_write_failed', insertError.message);
+  const { error } = await client.rpc('replace_area_memberships', {
+    p_user_id: userId,
+    p_memberships: payload,
+  });
+  if (error) throw new RepositoryError('operators.memberships_write_failed', error.message);
 }
 
 // Count active admins - used by application-level last-admin messaging before the DB trigger.

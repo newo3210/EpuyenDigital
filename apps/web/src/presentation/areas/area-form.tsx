@@ -43,8 +43,9 @@ export function AreaForm({ area }: AreaFormProps) {
     formData.set('name', values.name);
     if (values.description) formData.set('description', values.description);
     formData.set('color', values.color);
-    if (values.isActive) formData.set('isActive', 'true');
-    if (values.isDefault) formData.set('isDefault', 'true');
+    // Always send booleans so unchecked ≠ omitted (server defaults absent isActive → true on create).
+    formData.set('isActive', values.isActive ? 'true' : 'false');
+    formData.set('isDefault', values.isDefault ? 'true' : 'false');
     if (values.slaWarningMinutes !== undefined) formData.set('slaWarningMinutes', String(values.slaWarningMinutes));
     if (values.slaCriticalMinutes !== undefined) formData.set('slaCriticalMinutes', String(values.slaCriticalMinutes));
     startTransition(() => formAction(formData));

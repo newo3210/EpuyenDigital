@@ -6,6 +6,7 @@ import { esAR } from '@/i18n/es-AR';
 import { insertArea, updateArea as updateAreaRow } from '@/infrastructure/repositories/areas';
 import { createServerSupabase } from '@/infrastructure/supabase/server';
 import { createArea } from './create-area';
+import { readBoolean } from './form-data';
 import { updateArea } from './update-area';
 
 // Admin-only roles - matches design D2 (area writes).
@@ -17,11 +18,6 @@ export type AreaFormState = {
   message?: string;
   fieldErrors?: Partial<Record<string, string>>;
 };
-
-// FormData helpers - checkbox and optional number fields from settings forms.
-function readBoolean(formData: FormData, key: string): boolean {
-  return formData.get(key) === 'on' || formData.get(key) === 'true';
-}
 
 function readOptionalText(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
@@ -38,7 +34,7 @@ export async function createAreaAction(_previous: AreaFormState, formData: FormD
       name: readOptionalText(formData, 'name'),
       description: readOptionalText(formData, 'description'),
       color: readOptionalText(formData, 'color'),
-      isActive: readBoolean(formData, 'isActive'),
+      isActive: readBoolean(formData, 'isActive', true),
       isDefault: readBoolean(formData, 'isDefault'),
       slaWarningMinutes: readOptionalText(formData, 'slaWarningMinutes'),
       slaCriticalMinutes: readOptionalText(formData, 'slaCriticalMinutes'),
