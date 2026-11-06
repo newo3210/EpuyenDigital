@@ -27,6 +27,18 @@ describe("evolution webhook thinness", () => {
     expect(result.reason).toBe("group");
   });
 
+  it("ignores newsletter payloads", () => {
+    const result = normalizeEvolutionPayload({
+      instance: "inspectoria",
+      data: {
+        key: { id: "n1", remoteJid: "120363@newsletter" },
+        message: { conversation: "promo" },
+      },
+    });
+    expect(result.ignored).toBe(true);
+    expect(result.reason).toBe("newsletter");
+  });
+
   it("normalizes text inbound", () => {
     const result = normalizeEvolutionPayload({
       instance: "inspectoria",
@@ -38,6 +50,59 @@ describe("evolution webhook thinness", () => {
     expect(result.ignored).toBe(false);
     expect(result.event?.kind).toBe("text");
     expect(result.event?.phoneNormalized).toBe("5492944216586");
+  });
+
+  it("resolves @lid via remoteJidAlt / senderPn", () => {
+    const result = normalizeEvolutionPayload({
+      instance: "inspectoria",
+      data: {
+        key: {
+          id: "lid1",
+          remoteJid: "123456789012345@lid",
+          remoteJidAlt: "5492944216586@s.whatsapp.net",
+        },
+        message: { conversation: "hola lid" },
+        pushName: "Ana",
+      },
+    });
+    expect(result.ignored).toBe(false);
+    expect(result.event?.phoneNormalized).toBe("5492944216586");
+    expect(result.event?.pushName).toBe("Ana");
+  });
+
+  it("stores location on the message contract without inventing citizen GPS", () => {
+    const result = normalizeEvolutionPayload({
+      instance: "inspectoria",
+      data: {
+        key: { id: "loc1", remoteJid: "5492944216586@s.whatsapp.net" },
+        message: {
+          locationMessage: { degreesLatitude: -42.24, degreesLongitude: -71.37 },
+        },
+      },
+    });
+    expect(result.ignored).toBe(false);
+    expect(result.event?.kind).toBe("location");
+    expect(result.event?.latitude).toBeCloseTo(-42.24);
+    expect(result.event?.longitude).toBeCloseTo(-71.37);
+  });
+
+  it("normalizes image media inbound", () => {
+    const result = normalizeEvolutionPayload({
+      instance: "inspectoria",
+      data: {
+        key: { id: "img1", remoteJid: "5492944216586@s.whatsapp.net" },
+        message: {
+          imageMessage: {
+            url: "https://cdn.example.com/photo.jpg",
+            mimetype: "image/jpeg",
+            caption: "foto",
+          },
+        },
+      },
+    });
+    expect(result.ignored).toBe(false);
+    expect(result.event?.kind).toBe("image");
+    expect(result.event?.mediaUrl).toBe("https://cdn.example.com/photo.jpg");
   });
 
   it("ignores payloads without a stable Evolution message id", () => {
@@ -66,5 +131,19 @@ describe("evolution webhook thinness", () => {
     });
     expect(result.ignored).toBe(false);
     expect(result.event?.fromMe).toBe(true);
+  });
+
+  it("maps messages.update to delivery ACK", () => {
+    const result = normalizeEvolutionPayload({
+      event: "messages.update",
+      instance: "inspectoria",
+      data: {
+        key: { id: "out-99" },
+        status: 2,
+      },
+    });
+    expect(result.ignored).toBe(false);
+    expect(result.deliveryAck?.externalId).toBe("out-99");
+    expect(result.deliveryAck?.deliveryStatus).toBe("delivered");
   });
 });

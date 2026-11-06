@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { parseEnv } from "@epuyen/shared";
-import { ingestInboundEvent, MemoryInboundStore } from "@/infrastructure/inbound-repository";
+import {
+  ingestDeliveryAck,
+  ingestInboundEvent,
+  MemoryInboundStore,
+} from "@/infrastructure/inbound-repository";
 import { normalizeEvolutionPayload } from "@/infrastructure/normalize-evolution";
 import { getSupabaseInboundStore } from "@/infrastructure/supabase-inbound-store";
 
@@ -25,6 +29,7 @@ function resolveStore() {
       orgId: "00000000-0000-4000-8000-000000000001",
       instance: "inspectoria",
       webhookSecret: process.env.WEBHOOK_SECRET ?? null,
+      defaultAreaId: "00000000-0000-4000-8000-000000000010",
     });
   }
   return memoryFallback;
@@ -49,6 +54,12 @@ export async function POST(request: Request) {
   }
 
   const store = resolveStore();
+
+  if (normalized.deliveryAck) {
+    const result = await ingestDeliveryAck(store, normalized.deliveryAck, provided);
+    return NextResponse.json(result.body, { status: result.httpStatus });
+  }
+
   // Secret verified against line.webhookSecret after resolve (see ingestInboundEvent)
   const result = await ingestInboundEvent(store, normalized.event!, provided);
   return NextResponse.json(result.body, { status: result.httpStatus });

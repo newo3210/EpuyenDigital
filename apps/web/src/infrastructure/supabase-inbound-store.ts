@@ -1,8 +1,14 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { EvolutionWebhook, JobPayload } from "@epuyen/shared";
+import {
+  decryptSecret,
+  looksLikeCiphertext,
+  type DeliveryAck,
+  type EvolutionWebhook,
+  type JobPayload,
+} from "@epuyen/shared";
 import type { InboundStore, LineContext, PersistResult } from "./inbound-repository";
 
-// Supabase inbound store - service-role persist + job enqueue
+// Supabase inbound store - service-role persist, conversation upsert, job enqueue
 
 let cached: InboundStore | null = null;
 
@@ -20,20 +26,36 @@ export function getSupabaseInboundStore(): InboundStore {
   return cached;
 }
 
+function resolveWebhookSecret(row: {
+  webhook_secret?: string | null;
+  webhook_secret_ciphertext?: string | null;
+}): string | null {
+  const cipher = row.webhook_secret_ciphertext;
+  if (cipher && looksLikeCiphertext(cipher)) {
+    const key = process.env.CREDENTIALS_ENCRYPTION_KEY;
+    if (!key) {
+      throw new Error("CREDENTIALS_ENCRYPTION_KEY_MISSING");
+    }
+    return decryptSecret(cipher, key);
+  }
+  // Legacy plaintext column (local seed / pre-migration rows)
+  return row.webhook_secret ?? null;
+}
+
 export class SupabaseInboundStore implements InboundStore {
   constructor(private readonly client: SupabaseClient) {}
 
   async findLineByInstance(instance: string): Promise<LineContext | null> {
     const { data: line, error } = await this.client
       .from("whatsapp_lines")
-      .select("id, org_id, evolution_instance")
+      .select("id, org_id, evolution_instance, default_area_id")
       .eq("evolution_instance", instance)
       .maybeSingle();
     if (error || !line) return null;
 
     const { data: secret } = await this.client
       .from("whatsapp_line_secrets")
-      .select("webhook_secret")
+      .select("webhook_secret, webhook_secret_ciphertext")
       .eq("line_id", line.id)
       .maybeSingle();
 
@@ -41,7 +63,8 @@ export class SupabaseInboundStore implements InboundStore {
       lineId: line.id as string,
       orgId: line.org_id as string,
       instance: line.evolution_instance as string,
-      webhookSecret: (secret?.webhook_secret as string | null) ?? null,
+      defaultAreaId: (line.default_area_id as string | null) ?? null,
+      webhookSecret: secret ? resolveWebhookSecret(secret) : null,
     };
   }
 
@@ -49,19 +72,27 @@ export class SupabaseInboundStore implements InboundStore {
     line: LineContext;
     event: EvolutionWebhook;
   }): Promise<PersistResult> {
+    const conversationId = await this.upsertConversation(params.line, params.event);
+    const direction = params.event.fromMe ? "outbound" : "inbound";
+    const senderKind = params.event.fromMe ? "phone" : "citizen";
+
     const row = {
       org_id: params.line.orgId,
       line_id: params.line.lineId,
+      conversation_id: conversationId,
       external_id: params.event.externalId,
       // fromMe is phone-side outbound echo; never drives process_inbound
-      direction: params.event.fromMe ? "outbound" : "inbound",
+      direction,
+      sender_kind: senderKind,
       phone_normalized: params.event.phoneNormalized,
       kind: params.event.kind,
       body: params.event.text ?? null,
       media_url: params.event.mediaUrl ?? null,
       media_mime: params.event.mediaMime ?? null,
+      // Location stays on the message — never written to citizens.lat/lng here
       latitude: params.event.latitude ?? null,
       longitude: params.event.longitude ?? null,
+      delivery_status: params.event.fromMe ? "sent" : null,
       raw: params.event,
     };
 
@@ -72,32 +103,51 @@ export class SupabaseInboundStore implements InboundStore {
       .maybeSingle();
 
     if (error) {
-      const { data: existing } = await this.client
-        .from("messages")
-        .select("id")
-        .eq("line_id", params.line.lineId)
-        .eq("external_id", params.event.externalId)
-        .maybeSingle();
-      if (existing?.id) {
-        return { status: "duplicate", messageId: existing.id as string };
+      const existing = await this.findMessageId(params.line.lineId, params.event.externalId);
+      if (existing) {
+        return { status: "duplicate", messageId: existing, conversationId };
       }
       throw error;
     }
 
     if (!data?.id) {
-      const { data: existing } = await this.client
-        .from("messages")
-        .select("id")
-        .eq("line_id", params.line.lineId)
-        .eq("external_id", params.event.externalId)
-        .maybeSingle();
-      if (!existing?.id) {
+      const existing = await this.findMessageId(params.line.lineId, params.event.externalId);
+      if (!existing) {
         throw new Error("MESSAGE_UPSERT_FAILED");
       }
-      return { status: "duplicate", messageId: existing.id as string };
+      return { status: "duplicate", messageId: existing, conversationId };
     }
 
-    return { status: "inserted", messageId: data.id as string };
+    await this.touchConversationTimestamps(conversationId, direction);
+    return { status: "inserted", messageId: data.id as string, conversationId };
+  }
+
+  async applyDeliveryAck(params: {
+    line: LineContext;
+    ack: DeliveryAck;
+  }): Promise<{ updated: boolean }> {
+    const patch: Record<string, unknown> = {
+      delivery_status: params.ack.deliveryStatus,
+    };
+    if (params.ack.deliveryStatus === "delivered") {
+      patch.delivered_at = new Date().toISOString();
+    }
+    if (params.ack.deliveryStatus === "read") {
+      patch.read_at = new Date().toISOString();
+      patch.delivered_at = new Date().toISOString();
+    }
+
+    const { data, error } = await this.client
+      .from("messages")
+      .update(patch)
+      .eq("line_id", params.line.lineId)
+      .eq("external_id", params.ack.externalId)
+      .eq("direction", "outbound")
+      .select("id")
+      .maybeSingle();
+
+    if (error) throw error;
+    return { updated: Boolean(data?.id) };
   }
 
   async enqueueJob(payload: JobPayload): Promise<void> {
@@ -113,5 +163,152 @@ export class SupabaseInboundStore implements InboundStore {
       status: "pending",
     });
     if (error) throw error;
+  }
+
+  private async findMessageId(lineId: string, externalId: string): Promise<string | null> {
+    const { data } = await this.client
+      .from("messages")
+      .select("id")
+      .eq("line_id", lineId)
+      .eq("external_id", externalId)
+      .maybeSingle();
+    return (data?.id as string | undefined) ?? null;
+  }
+
+  private async resolveDefaultAreaId(line: LineContext): Promise<string> {
+    if (line.defaultAreaId) return line.defaultAreaId;
+    const { data: defaultArea } = await this.client
+      .from("areas")
+      .select("id")
+      .eq("org_id", line.orgId)
+      .eq("is_default", true)
+      .maybeSingle();
+    if (defaultArea?.id) return defaultArea.id as string;
+    const { data: anyArea } = await this.client
+      .from("areas")
+      .select("id")
+      .eq("org_id", line.orgId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!anyArea?.id) throw new Error("ORG_HAS_NO_AREA");
+    return anyArea.id as string;
+  }
+
+  private async upsertCitizenStub(
+    line: LineContext,
+    event: EvolutionWebhook,
+  ): Promise<string> {
+    const { data: existingPhone } = await this.client
+      .from("citizen_phones")
+      .select("citizen_id")
+      .eq("org_id", line.orgId)
+      .eq("phone_normalized", event.phoneNormalized)
+      .maybeSingle();
+
+    if (existingPhone?.citizen_id) {
+      const citizenId = existingPhone.citizen_id as string;
+      if (event.pushName || event.avatarUrl) {
+        const patch: Record<string, unknown> = {};
+        if (event.pushName) patch.whatsapp_push_name = event.pushName;
+        if (event.avatarUrl) {
+          patch.whatsapp_avatar_url = event.avatarUrl;
+          patch.whatsapp_avatar_fetched_at = new Date().toISOString();
+        }
+        // Never overwrite citizens.latitude/longitude from inbound location
+        await this.client.from("citizens").update(patch).eq("id", citizenId);
+      }
+      return citizenId;
+    }
+
+    const { data: citizen, error: citizenError } = await this.client
+      .from("citizens")
+      .insert({
+        org_id: line.orgId,
+        registration_status: "unregistered",
+        party_kind: "person",
+        whatsapp_push_name: event.pushName ?? null,
+        whatsapp_avatar_url: event.avatarUrl ?? null,
+        whatsapp_avatar_fetched_at: event.avatarUrl ? new Date().toISOString() : null,
+      })
+      .select("id")
+      .single();
+    if (citizenError || !citizen?.id) throw citizenError ?? new Error("CITIZEN_INSERT_FAILED");
+
+    const { error: phoneError } = await this.client.from("citizen_phones").insert({
+      org_id: line.orgId,
+      citizen_id: citizen.id,
+      phone_normalized: event.phoneNormalized,
+    });
+    if (phoneError) throw phoneError;
+    return citizen.id as string;
+  }
+
+  private async upsertConversation(
+    line: LineContext,
+    event: EvolutionWebhook,
+  ): Promise<string> {
+    const areaId = await this.resolveDefaultAreaId(line);
+    const citizenId = await this.upsertCitizenStub(line, event);
+
+    const { data: existing } = await this.client
+      .from("conversations")
+      .select("id")
+      .eq("org_id", line.orgId)
+      .eq("line_id", line.lineId)
+      .eq("phone_normalized", event.phoneNormalized)
+      .maybeSingle();
+
+    if (existing?.id) {
+      await this.client
+        .from("conversations")
+        .update({ citizen_id: citizenId })
+        .eq("id", existing.id)
+        .is("citizen_id", null);
+      return existing.id as string;
+    }
+
+    const { data: created, error } = await this.client
+      .from("conversations")
+      .insert({
+        org_id: line.orgId,
+        line_id: line.lineId,
+        phone_normalized: event.phoneNormalized,
+        citizen_id: citizenId,
+        area_id: areaId,
+        bot_state: "active",
+        queue_column: "new",
+        entered_queue_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      // Race: unique conflict — re-read
+      const { data: raced } = await this.client
+        .from("conversations")
+        .select("id")
+        .eq("org_id", line.orgId)
+        .eq("line_id", line.lineId)
+        .eq("phone_normalized", event.phoneNormalized)
+        .maybeSingle();
+      if (raced?.id) return raced.id as string;
+      throw error;
+    }
+    return created.id as string;
+  }
+
+  private async touchConversationTimestamps(
+    conversationId: string,
+    direction: "inbound" | "outbound",
+  ): Promise<void> {
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      last_message_at: now,
+      needs_response: direction === "inbound",
+    };
+    if (direction === "inbound") patch.last_inbound_at = now;
+    if (direction === "outbound") patch.last_outbound_at = now;
+    await this.client.from("conversations").update(patch).eq("id", conversationId);
   }
 }
