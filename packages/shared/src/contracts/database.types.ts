@@ -63,13 +63,13 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "avatar_path": string | null,"created_at": string,"full_name": string,"id": string,"is_active": boolean,"org_id": string,"role": Database["public"]['Enums']["user_role"],"updated_at": string
+                    "avatar_path": string | null,"created_at": string,"deactivated_at": string | null,"email": string | null,"full_name": string,"id": string,"is_active": boolean,"org_id": string,"role": Database["public"]['Enums']["user_role"],"updated_at": string
                   }
                   Insert: {
-                    "avatar_path"?: string | null,"created_at"?: string,"full_name": string,"id": string,"is_active"?: boolean,"org_id": string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"deactivated_at"?: string | null,"email"?: string | null,"full_name": string,"id": string,"is_active"?: boolean,"org_id": string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
                   }
                   Update: {
-                    "avatar_path"?: string | null,"created_at"?: string,"full_name"?: string,"id"?: string,"is_active"?: boolean,"org_id"?: string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"deactivated_at"?: string | null,"email"?: string | null,"full_name"?: string,"id"?: string,"is_active"?: boolean,"org_id"?: string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -77,6 +77,50 @@ isOneToOne: false
       columns: ["org_id"]
 isOneToOne: false
       referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"areas": {
+                  Row: {
+                    "color": string,"created_at": string,"description": string | null,"id": string,"is_active": boolean,"is_default": boolean,"name": string,"org_id": string,"sla_critical_minutes": number | null,"sla_warning_minutes": number | null,"updated_at": string
+                  }
+                  Insert: {
+                    "color"?: string,"created_at"?: string,"description"?: string | null,"id"?: string,"is_active"?: boolean,"is_default"?: boolean,"name": string,"org_id": string,"sla_critical_minutes"?: number | null,"sla_warning_minutes"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "color"?: string,"created_at"?: string,"description"?: string | null,"id"?: string,"is_active"?: boolean,"is_default"?: boolean,"name"?: string,"org_id"?: string,"sla_critical_minutes"?: number | null,"sla_warning_minutes"?: number | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "areas_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"area_members": {
+                  Row: {
+                    "area_id": string,"created_at": string,"is_lead": boolean,"user_id": string
+                  }
+                  Insert: {
+                    "area_id": string,"created_at"?: string,"is_lead"?: boolean,"user_id": string
+                  }
+                  Update: {
+                    "area_id"?: string,"created_at"?: string,"is_lead"?: boolean,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "area_members_area_id_fkey"
+      columns: ["area_id"]
+isOneToOne: false
+      referencedRelation: "areas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "area_members_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
                   ]
@@ -192,6 +236,9 @@ isOneToOne: false
                            },
 "current_user_role":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["user_role"]
+                           },
+"current_area_ids":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "insert_client_error_report":
 { Args: { "p_details": Json,"p_limit": number,"p_message": string,"p_org_id": string,"p_trace_id": string,"p_user_id": string,"p_window_seconds": number }; Returns: string

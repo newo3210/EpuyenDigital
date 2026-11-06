@@ -46,3 +46,31 @@ values
   ('00000000-0000-4000-8000-000000000001', 'centro', 'CENT'),
   ('00000000-0000-4000-8000-000000000001', 'epuyen', 'EPU')
 on conflict (org_id, neighborhood_normalized) do nothing;
+
+-- Municipal areas - Mesa de Entrada (sole default) + Inspectoría (pet line label coincidence, not FK).
+insert into public.areas (id, org_id, name, description, color, is_active, is_default)
+values
+  (
+    '00000000-0000-4000-8000-000000000010',
+    '00000000-0000-4000-8000-000000000001',
+    'Mesa de Entrada',
+    'Cola general de mensajería municipal',
+    '#1B4F72',
+    true,
+    true
+  ),
+  (
+    '00000000-0000-4000-8000-000000000011',
+    '00000000-0000-4000-8000-000000000001',
+    'Inspectoría',
+    'Registro de mascotas y trámites de inspectoría',
+    '#196F3D',
+    true,
+    false
+  )
+on conflict (id) do update set
+  name = excluded.name,
+  description = excluded.description,
+  color = excluded.color,
+  is_active = excluded.is_active,
+  is_default = excluded.is_default;
