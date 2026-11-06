@@ -83,8 +83,8 @@
 - [x] 8.1 Mechanical verify → `reports/verify-mechanical.md` — **PASS WITH GAPS**
 - [x] 8.2 Acceptance matrix from scenarios — `reports/acceptance-matrix.md`
 - [x] 8.3 Adversarial-review subagent; fix loop until PASS / PASS WITH GAPS — first **FAIL** → §9 fixes → re-audit **PASS WITH GAPS** (`reports/adversarial-review-reaudit.md`)
-- [ ] 8.4 Human OK → archive; PR #6 open
-- [ ] 8.5 After archive: open `/director` for `mesa-entrada-inbox` with stored scope (INB full, dual coords, manual routing)
+- [x] 8.4 Human OK → archive; PR #6 — archived as `2026-11-06-whatsapp-channel-core`; merge 2026-11-06
+- [x] 8.5 After archive: open `/director` for `mesa-entrada-inbox` with stored scope (INB full, dual coords, manual routing) — next
 
 ## 9. Adversarial fix loop (post FAIL 2026-11-06)
 
