@@ -3,6 +3,7 @@ import {
   LifeBuoy,
   ListChecks,
   MessagesSquare,
+  Phone,
   Settings,
   UserCog,
   Users,
@@ -19,7 +20,7 @@ export type NavItem = {
   roles?: readonly Role[];
 };
 
-// Panel sections - sidebar order; Áreas/Operadores and Soporte are role-gated.
+// Panel sections - sidebar order; Áreas/Operadores/Líneas and Soporte are role-gated.
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/inbox', label: esAR.nav.inbox, icon: MessagesSquare },
   { href: '/citizens', label: esAR.nav.citizens, icon: Users },
@@ -27,6 +28,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/settings/profile', label: esAR.nav.settings, icon: Settings },
   { href: '/settings/areas', label: esAR.nav.areas, icon: Building2, roles: ['admin'] },
   { href: '/settings/operators', label: esAR.nav.operators, icon: UserCog, roles: ['admin'] },
+  { href: '/settings/lines', label: esAR.nav.lines, icon: Phone, roles: ['admin'] },
   { href: '/support/errors', label: esAR.nav.support, icon: LifeBuoy, roles: ['admin', 'support'] },
 ];
 
