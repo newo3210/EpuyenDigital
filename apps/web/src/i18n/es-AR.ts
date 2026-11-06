@@ -134,6 +134,7 @@ export const esAR = {
       apiKeyRequired: 'Ingresá la API key al crear la línea.',
       webhookSecretRequired: 'Ingresá el secreto del webhook al crear la línea.',
       idRequired: 'Falta el identificador de la línea.',
+      lineNotFound: 'No encontramos esa línea en tu organización.',
       duplicateInstance: 'Ya existe una línea con esa instancia Evolution.',
       saveFailed: 'No pudimos guardar la línea. Probá de nuevo.',
       missingCredentials: 'Faltan la URL o la API key para probar la conexión.',

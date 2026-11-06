@@ -53,8 +53,9 @@ export async function createLineAction(
     {
       orgId: operator.orgId,
       insertLine: (orgId, input) => insertLine(supabase, orgId, input),
-      upsertSecrets: (lineId, secrets) => upsertLineSecrets(admin, lineId, secrets),
-      loadLine: (lineId) => findWhatsappLineById(supabase, lineId),
+      upsertSecrets: (lineId, secrets) =>
+        upsertLineSecrets(admin, lineId, operator.orgId, secrets),
+      loadLine: (lineId) => findWhatsappLineById(supabase, lineId, admin),
     },
   );
 
@@ -69,7 +70,7 @@ export async function updateLineAction(
   _previous: LineFormState,
   formData: FormData,
 ): Promise<LineFormState> {
-  await requirePageRole(ADMIN_ROLES);
+  const operator = await requirePageRole(ADMIN_ROLES);
   const supabase = await createServerSupabase();
   const admin = createAdminSupabase();
 
@@ -86,8 +87,9 @@ export async function updateLineAction(
     },
     {
       updateLine: (lineId, input) => updateLineRow(supabase, lineId, input),
-      upsertSecrets: (lineId, secrets) => upsertLineSecrets(admin, lineId, secrets),
-      loadLine: (lineId) => findWhatsappLineById(supabase, lineId),
+      upsertSecrets: (lineId, secrets) =>
+        upsertLineSecrets(admin, lineId, operator.orgId, secrets),
+      loadLine: (lineId) => findWhatsappLineById(supabase, lineId, admin),
     },
   );
 
@@ -102,19 +104,25 @@ export type TestConnectionState = {
   message?: string;
 };
 
-// Probar conexión - updates status; surfaces non-secret error summary only.
+// Probar conexión - ownership under caller org before decrypt; never echoes secrets.
 export async function testConnectionAction(
   _previous: TestConnectionState,
   formData: FormData,
 ): Promise<TestConnectionState> {
-  await requirePageRole(ADMIN_ROLES);
+  const operator = await requirePageRole(ADMIN_ROLES);
   const supabase = await createServerSupabase();
   const admin = createAdminSupabase();
   const lineId = readOptionalText(formData, 'id');
   if (!lineId) return { status: 'error', message: esAR.lines.errors.idRequired };
 
+  // RLS-bound ownership check before any service-role decrypt
+  const owned = await findWhatsappLineById(supabase, lineId, admin);
+  if (!owned) {
+    return { status: 'error', message: esAR.lines.errors.lineNotFound };
+  }
+
   const result = await testLineConnection(lineId, {
-    loadCredentials: (id) => loadDecryptedLineCredentials(admin, id),
+    loadCredentials: (id) => loadDecryptedLineCredentials(admin, id, operator.orgId),
     testConnection: async ({ baseUrl, apiKey, instance }) => {
       const client = new HttpEvolutionClient(baseUrl, apiKey);
       return client.testConnection({ instance });

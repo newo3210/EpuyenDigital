@@ -44,11 +44,13 @@ function toLine(
   return parsed.data;
 }
 
+// secretFlags - service-role only; returns presence booleans, never ciphertext.
+// Authenticated JWT cannot SELECT whatsapp_line_secrets after REVOKE.
 async function secretFlags(
-  client: DbClient,
+  secretsClient: DbClient,
   lineId: string,
 ): Promise<{ hasApiKey: boolean; hasWebhookSecret: boolean }> {
-  const { data, error } = await client
+  const { data, error } = await secretsClient
     .from('whatsapp_line_secrets')
     .select('api_key_ciphertext, webhook_secret_ciphertext, webhook_secret')
     .eq('line_id', lineId)
@@ -56,14 +58,32 @@ async function secretFlags(
   if (error) throw new RepositoryError('lines.secrets_read_failed', error.message);
   return {
     hasApiKey: Boolean(data?.api_key_ciphertext),
-    hasWebhookSecret: Boolean(
-      data?.webhook_secret_ciphertext || data?.webhook_secret,
-    ),
+    hasWebhookSecret: Boolean(data?.webhook_secret_ciphertext || data?.webhook_secret),
   };
 }
 
-// List - organization lines (non-secret fields) visible under RLS.
-export async function listWhatsappLines(client: DbClient): Promise<WhatsappLine[]> {
+async function assertLineOwnedByOrg(
+  admin: DbClient,
+  lineId: string,
+  orgId: string,
+): Promise<void> {
+  const { data, error } = await admin
+    .from('whatsapp_lines')
+    .select('id')
+    .eq('id', lineId)
+    .eq('org_id', orgId)
+    .maybeSingle();
+  if (error) throw new RepositoryError('lines.read_failed', error.message);
+  if (!data?.id) {
+    throw new RepositoryError('lines.forbidden_or_missing', 'line not in caller org');
+  }
+}
+
+// List - organization lines under RLS; secret presence via service-role helper.
+export async function listWhatsappLines(
+  client: DbClient,
+  secretsClient: DbClient,
+): Promise<WhatsappLine[]> {
   const { data, error } = await client
     .from('whatsapp_lines')
     .select(LINE_COLUMNS)
@@ -72,7 +92,7 @@ export async function listWhatsappLines(client: DbClient): Promise<WhatsappLine[
   const rows = (data ?? []) as LineRow[];
   const result: WhatsappLine[] = [];
   for (const row of rows) {
-    const flags = await secretFlags(client, row.id);
+    const flags = await secretFlags(secretsClient, row.id);
     result.push(toLine(row, flags));
   }
   return result;
@@ -81,6 +101,7 @@ export async function listWhatsappLines(client: DbClient): Promise<WhatsappLine[
 export async function findWhatsappLineById(
   client: DbClient,
   lineId: string,
+  secretsClient: DbClient,
 ): Promise<WhatsappLine | null> {
   const { data, error } = await client
     .from('whatsapp_lines')
@@ -89,7 +110,7 @@ export async function findWhatsappLineById(
     .maybeSingle();
   if (error) throw new RepositoryError('lines.read_failed', error.message);
   if (!data) return null;
-  const flags = await secretFlags(client, data.id);
+  const flags = await secretFlags(secretsClient, data.id);
   return toLine(data as LineRow, flags);
 }
 
@@ -156,12 +177,14 @@ export async function updateLineStatus(
   if (error) throw new RepositoryError('lines.status_failed', error.message);
 }
 
-// upsertLineSecrets - service-role only; stores ciphertext, never returns cleartext.
+// upsertLineSecrets - service-role only; binds to caller org before write.
 export async function upsertLineSecrets(
   admin: DbClient,
   lineId: string,
+  orgId: string,
   secrets: { apiKey?: string; webhookSecret?: string },
 ): Promise<void> {
+  await assertLineOwnedByOrg(admin, lineId, orgId);
   const key = requireEncryptionKey();
   const patch: {
     line_id: string;
@@ -181,16 +204,25 @@ export async function upsertLineSecrets(
   if (error) throw new RepositoryError('lines.secrets_write_failed', error.message);
 }
 
+// loadDecryptedLineCredentials - service-role decrypt bound to caller org_id (no cross-org IDOR).
 export async function loadDecryptedLineCredentials(
   admin: DbClient,
   lineId: string,
-): Promise<{ apiKey: string | null; webhookSecret: string | null; baseUrl: string | null; instance: string }> {
+  orgId: string,
+): Promise<{
+  apiKey: string | null;
+  webhookSecret: string | null;
+  baseUrl: string | null;
+  instance: string;
+}> {
   const { data: line, error: lineError } = await admin
     .from('whatsapp_lines')
-    .select('evolution_base_url, evolution_instance')
+    .select('evolution_base_url, evolution_instance, org_id')
     .eq('id', lineId)
+    .eq('org_id', orgId)
     .maybeSingle();
-  if (lineError || !line) throw new RepositoryError('lines.read_failed', lineError?.message ?? 'missing');
+  if (lineError) throw new RepositoryError('lines.read_failed', lineError.message);
+  if (!line) throw new RepositoryError('lines.forbidden_or_missing', 'line not in caller org');
 
   const { data: secret, error: secretError } = await admin
     .from('whatsapp_line_secrets')
