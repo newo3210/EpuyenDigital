@@ -36,11 +36,26 @@ function resolveWebhookSecret(row: {
     if (!key) {
       throw new Error("CREDENTIALS_ENCRYPTION_KEY_MISSING");
     }
-    return decryptSecret(cipher, key);
+    try {
+      return decryptSecret(cipher, key);
+    } catch {
+      // Fail closed — ciphertext present but key missing/wrong must not open the webhook
+      throw new Error("CREDENTIALS_ENCRYPTION_KEY_MISSING");
+    }
   }
   // Legacy plaintext column (local seed / pre-migration rows)
   return row.webhook_secret ?? null;
 }
+
+const ACK_RANK: Record<string, number> = {
+  pending: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+  simulated: 0,
+  blocked: 0,
+  failed: 0,
+};
 
 export class SupabaseInboundStore implements InboundStore {
   constructor(private readonly client: SupabaseClient) {}
@@ -126,6 +141,23 @@ export class SupabaseInboundStore implements InboundStore {
     line: LineContext;
     ack: DeliveryAck;
   }): Promise<{ updated: boolean }> {
+    const { data: existing, error: readError } = await this.client
+      .from("messages")
+      .select("id, delivery_status")
+      .eq("line_id", params.line.lineId)
+      .eq("external_id", params.ack.externalId)
+      .eq("direction", "outbound")
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!existing?.id) return { updated: false };
+
+    const currentRank = ACK_RANK[String(existing.delivery_status ?? "")] ?? -1;
+    const nextRank = ACK_RANK[params.ack.deliveryStatus] ?? -1;
+    // Monotonic upgrade only — late "sent" must not overwrite delivered/read
+    if (nextRank < currentRank) {
+      return { updated: false };
+    }
+
     const patch: Record<string, unknown> = {
       delivery_status: params.ack.deliveryStatus,
     };
@@ -140,9 +172,7 @@ export class SupabaseInboundStore implements InboundStore {
     const { data, error } = await this.client
       .from("messages")
       .update(patch)
-      .eq("line_id", params.line.lineId)
-      .eq("external_id", params.ack.externalId)
-      .eq("direction", "outbound")
+      .eq("id", existing.id)
       .select("id")
       .maybeSingle();
 
@@ -240,7 +270,19 @@ export class SupabaseInboundStore implements InboundStore {
       citizen_id: citizen.id,
       phone_normalized: event.phoneNormalized,
     });
-    if (phoneError) throw phoneError;
+    if (phoneError) {
+      // Race on unique (org_id, phone_normalized) — re-select winner like conversations
+      if (phoneError.code === "23505") {
+        const { data: raced } = await this.client
+          .from("citizen_phones")
+          .select("citizen_id")
+          .eq("org_id", line.orgId)
+          .eq("phone_normalized", event.phoneNormalized)
+          .maybeSingle();
+        if (raced?.citizen_id) return raced.citizen_id as string;
+      }
+      throw phoneError;
+    }
     return citizen.id as string;
   }
 

@@ -54,6 +54,18 @@ describe("ingestInboundEvent", () => {
     expect(store.jobs).toHaveLength(0);
   });
 
+  it("returns 503 SECRET_NOT_CONFIGURED when ciphertext decrypt key is missing (no persist)", async () => {
+    const store = new MemoryInboundStore();
+    store.findLineByInstance = async () => {
+      throw new Error("CREDENTIALS_ENCRYPTION_KEY_MISSING");
+    };
+    const result = await ingestInboundEvent(store, baseEvent, "secret");
+    expect(result.httpStatus).toBe(503);
+    expect(result.body.code).toBe("SECRET_NOT_CONFIGURED");
+    expect(store.messages.size).toBe(0);
+    expect(store.jobs).toHaveLength(0);
+  });
+
   it("returns 401 when provided secret does not match line secret", async () => {
     const store = new MemoryInboundStore();
     store.lines.set("inspectoria", { ...line });

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { encryptSecret } from '@epuyen/shared';
 import { z } from 'zod';
 
 // Fixed org / line ids - must match supabase/seed.sql so SQL + TS seeds coexist.
@@ -151,12 +152,20 @@ async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Prom
   return data.id as string;
 }
 
-// Line secret - SEED_WEBHOOK_SECRET or the same default as seed.sql.
+// Line secret - ciphertext when CREDENTIALS_ENCRYPTION_KEY is set; else legacy plaintext.
 async function upsertLineSecret(admin: SupabaseClient, lineId: string, webhookSecret: string): Promise<void> {
-  const { error } = await admin.from('whatsapp_line_secrets').upsert(
-    { line_id: lineId, webhook_secret: webhookSecret },
-    { onConflict: 'line_id' },
-  );
+  const encKey = process.env.CREDENTIALS_ENCRYPTION_KEY?.trim();
+  const row = encKey
+    ? {
+        line_id: lineId,
+        webhook_secret_ciphertext: encryptSecret(webhookSecret, encKey),
+        webhook_secret: null as string | null,
+      }
+    : {
+        line_id: lineId,
+        webhook_secret: webhookSecret,
+      };
+  const { error } = await admin.from('whatsapp_line_secrets').upsert(row, { onConflict: 'line_id' });
   if (error) throw new Error(`whatsapp_line_secrets upsert failed: ${error.message}`);
 }
 

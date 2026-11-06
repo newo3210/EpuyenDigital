@@ -72,6 +72,8 @@ on conflict (evolution_instance) do update set
   status = excluded.status,
   default_area_id = excluded.default_area_id;
 
+-- Legacy plaintext webhook_secret for local SQL seed without CREDENTIALS_ENCRYPTION_KEY.
+-- TS seed (seed.ts) writes ciphertext when the encryption key is present.
 insert into public.whatsapp_line_secrets (line_id, webhook_secret)
 values (
   '00000000-0000-4000-8000-000000000002',

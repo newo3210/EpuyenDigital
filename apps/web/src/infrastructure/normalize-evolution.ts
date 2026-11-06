@@ -60,6 +60,7 @@ function readMediaUrl(source: RawData, fallback?: RawData): string | undefined {
 // normalizeEvolutionPayload - thin presentation mapping (no I/O)
 export function normalizeEvolutionPayload(raw: unknown): {
   ignored: boolean;
+  instance: string;
   reason?: "group" | "broadcast" | "newsletter" | "invalid" | "not_message";
   event?: EvolutionWebhook;
   deliveryAck?: DeliveryAck;
@@ -96,28 +97,29 @@ export function normalizeEvolutionPayload(raw: unknown): {
         deliveryStatus: mapped,
       });
       if (parsed.success) {
-        return { ignored: false, deliveryAck: parsed.data };
+        return { ignored: false, instance, deliveryAck: parsed.data };
       }
     }
     if (isUpdateEvent && !hasMessageBody) {
-      return { ignored: true, reason: "not_message" };
+      return { ignored: true, instance, reason: "not_message" };
     }
   }
 
   if (isBroadcastOrNewsletter(remoteJid, data)) {
     return {
       ignored: true,
+      instance,
       reason: remoteJid.includes("@newsletter") ? "newsletter" : "broadcast",
     };
   }
   if (isGroupJid(remoteJid)) {
-    return { ignored: true, reason: "group" };
+    return { ignored: true, instance, reason: "group" };
   }
 
   // Never invent external ids — missing Evolution key.id breaks idempotency
   const externalId = readString(key, "id") ?? readString(data, "id", "messageId");
   if (!externalId) {
-    return { ignored: true, reason: "invalid" };
+    return { ignored: true, instance, reason: "invalid" };
   }
 
   // Unresolved @lid without alternate phone cannot be stored safely
@@ -125,7 +127,7 @@ export function normalizeEvolutionPayload(raw: unknown): {
   if (!phoneRaw || remoteJid.includes("@lid") && phoneRaw === remoteJid.replace(/@.+$/, "")) {
     // phoneRaw equals lid digits when alt missing
     if (remoteJid.includes("@lid") && !readString(key, "remoteJidAlt") && !readString(data, "senderPn")) {
-      return { ignored: true, reason: "invalid" };
+      return { ignored: true, instance, reason: "invalid" };
     }
   }
 
@@ -133,7 +135,7 @@ export function normalizeEvolutionPayload(raw: unknown): {
   try {
     phoneNormalized = normalizePhone(phoneRaw);
   } catch {
-    return { ignored: true, reason: "invalid" };
+    return { ignored: true, instance, reason: "invalid" };
   }
 
   const message = asRecord(data.message ?? data);
@@ -219,7 +221,7 @@ export function normalizeEvolutionPayload(raw: unknown): {
   });
 
   if (!parsed.success) {
-    return { ignored: true, reason: "invalid" };
+    return { ignored: true, instance, reason: "invalid" };
   }
-  return { ignored: false, event: parsed.data };
+  return { ignored: false, instance, event: parsed.data };
 }

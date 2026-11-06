@@ -132,16 +132,51 @@ export class MemoryInboundStore implements InboundStore {
   }
 }
 
+function isSecretConfigError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message === "CREDENTIALS_ENCRYPTION_KEY_MISSING" ||
+    error.message === "CREDENTIALS_ENCRYPTION_KEY_INVALID" ||
+    error.message === "CIPHERTEXT_FORMAT_INVALID" ||
+    error.message === "SECRET_DECRYPT_FAILED" ||
+    error.name === "CredentialsKeyError"
+  );
+}
+
+async function resolveLineOrSecretError(
+  store: InboundStore,
+  instance: string,
+): Promise<
+  | { ok: true; line: LineContext }
+  | { ok: false; httpStatus: number; body: Record<string, unknown> }
+> {
+  try {
+    const line = await store.findLineByInstance(instance);
+    if (!line) {
+      return { ok: false, httpStatus: 404, body: { ok: false, code: "LINE_NOT_FOUND" } };
+    }
+    return { ok: true, line };
+  } catch (error) {
+    if (isSecretConfigError(error)) {
+      return {
+        ok: false,
+        httpStatus: 503,
+        body: { ok: false, code: "SECRET_NOT_CONFIGURED" },
+      };
+    }
+    throw error;
+  }
+}
+
 // ingestInboundEvent - application orchestration called from thin route
 export async function ingestInboundEvent(
   store: InboundStore,
   event: EvolutionWebhook,
   providedSecret?: string | null,
 ): Promise<{ httpStatus: number; body: Record<string, unknown> }> {
-  const line = await store.findLineByInstance(event.instance);
-  if (!line) {
-    return { httpStatus: 404, body: { ok: false, code: "LINE_NOT_FOUND" } };
-  }
+  const resolved = await resolveLineOrSecretError(store, event.instance);
+  if (!resolved.ok) return { httpStatus: resolved.httpStatus, body: resolved.body };
+  const line = resolved.line;
 
   // Per-line webhook secret is source of truth (spec: 503 if null)
   const secretCheck = verifyWebhookSecret(line.webhookSecret, providedSecret);
@@ -179,7 +214,7 @@ export async function ingestInboundEvent(
       orgId: line.orgId,
     });
 
-    // Channel media download — pet process_inbound may also enqueue; download is idempotent
+    // Channel media download — no pet sessionId; worker stores under whatsapp-media/
     if (MEDIA_KINDS.has(event.kind) && event.mediaUrl) {
       await store.enqueueJob({
         type: "download_media",
@@ -208,10 +243,9 @@ export async function ingestDeliveryAck(
   ack: DeliveryAck,
   providedSecret?: string | null,
 ): Promise<{ httpStatus: number; body: Record<string, unknown> }> {
-  const line = await store.findLineByInstance(ack.instance);
-  if (!line) {
-    return { httpStatus: 404, body: { ok: false, code: "LINE_NOT_FOUND" } };
-  }
+  const resolved = await resolveLineOrSecretError(store, ack.instance);
+  if (!resolved.ok) return { httpStatus: resolved.httpStatus, body: resolved.body };
+  const line = resolved.line;
   const secretCheck = verifyWebhookSecret(line.webhookSecret, providedSecret);
   if (!secretCheck.ok) {
     return {
