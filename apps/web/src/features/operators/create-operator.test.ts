@@ -14,10 +14,19 @@ const valid = {
 };
 
 // Test deps - Auth create + profile/memberships with optional failure points.
-function makeDeps(options?: { failProfile?: boolean; failMemberships?: boolean; failAuth?: boolean }) {
-  const deleteAuthUser = vi.fn(async () => undefined);
+function makeDeps(options?: {
+  failProfile?: boolean;
+  failMemberships?: boolean;
+  failAuth?: boolean;
+  failCompensation?: boolean;
+  callerRole?: CreateOperatorDeps['callerRole'];
+}) {
+  const deleteAuthUser = vi.fn(async () => {
+    if (options?.failCompensation) throw new Error('Auth delete denied');
+  });
   const deps: CreateOperatorDeps = {
     orgId: ORG_ID,
+    callerRole: options?.callerRole ?? 'admin',
     createAuthUser: vi.fn(async () => {
       if (options?.failAuth) throw new Error('User already registered');
       return { id: USER_ID };
@@ -44,12 +53,33 @@ describe('createOperator', () => {
     expect(deleteAuthUser).not.toHaveBeenCalled();
   });
 
+  it('rejects non-admin callers before Auth provisioning', async () => {
+    const { deps, deleteAuthUser } = makeDeps({ callerRole: 'operator' });
+    await expect(createOperator(valid, deps)).resolves.toEqual({
+      status: 'failed',
+      message: esAR.operators.errors.forbidden,
+    });
+    expect(deps.createAuthUser).not.toHaveBeenCalled();
+    expect(deleteAuthUser).not.toHaveBeenCalled();
+  });
+
   it('compensates by deleting the Auth user when profile insert fails', async () => {
     const { deps, deleteAuthUser } = makeDeps({ failProfile: true });
     await expect(createOperator(valid, deps)).resolves.toEqual({
       status: 'failed',
       message: esAR.operators.errors.createFailed,
     });
+    expect(deleteAuthUser).toHaveBeenCalledWith(USER_ID);
+  });
+
+  it('surfaces compensation failure when deleteAuthUser throws', async () => {
+    const { deps, deleteAuthUser } = makeDeps({ failProfile: true, failCompensation: true });
+    const result = await createOperator(valid, deps);
+    expect(result.status).toBe('failed');
+    if (result.status !== 'failed') throw new Error('expected failed');
+    expect(result.message).toContain(esAR.operators.errors.compensationFailed);
+    expect(result.message).toContain('profiles write failed');
+    expect(result.message).toContain('Auth delete denied');
     expect(deleteAuthUser).toHaveBeenCalledWith(USER_ID);
   });
 

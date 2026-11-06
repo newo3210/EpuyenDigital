@@ -25,6 +25,10 @@ describe('areas-operators-admin migration SQL', () => {
     expect(sql).toContain('org_requires_default_area');
   });
 
+  it('skips sole-default check on nested trigger depth (promote/swap fix)', () => {
+    expect(sql).toContain('pg_trigger_depth() > 1');
+  });
+
   it('creates area_members with same-org guard and composite PK', () => {
     expect(sql).toContain('create table if not exists public.area_members');
     expect(sql).toContain('primary key (area_id, user_id)');
@@ -39,11 +43,21 @@ describe('areas-operators-admin migration SQL', () => {
     expect(sql).toContain('profiles_sync_deactivated_at');
   });
 
-  it('exposes current_area_ids and last-active-admin protection', () => {
+  it('exposes current_area_ids and last-active-admin protection with lock + org move', () => {
     expect(sql).toContain('create or replace function public.current_area_ids()');
     expect(sql).toContain('returns setof uuid');
     expect(sql).toContain('profiles_guard_last_active_admin');
     expect(sql).toContain('last_active_admin');
+    expect(sql).toContain('pg_advisory_xact_lock');
+    expect(sql).toContain('hashtextextended');
+    expect(sql).toContain('new.org_id is distinct from old.org_id');
+  });
+
+  it('provides atomic replace_area_memberships RPC', () => {
+    expect(sql).toContain('create or replace function public.replace_area_memberships');
+    expect(sql).toContain('p_memberships jsonb');
+    expect(sql).toContain('delete from public.area_members');
+    expect(sql).toContain('jsonb_array_elements(p_memberships)');
   });
 
   it('enables RLS with org isolation and admin-only writes', () => {

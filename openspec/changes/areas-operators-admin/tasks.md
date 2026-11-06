@@ -49,9 +49,9 @@
 
 ## 7. Adversarial fix loop (post FAIL 2026-11-06)
 
-- [ ] 7.1 **Blocker:** Fix `areas_guard_default` promote/swap (e.g. `pg_trigger_depth() > 1` skip on clear, or SECURITY DEFINER swap RPC); add behavioral test for Mesa ↔ Inspectoría promote
-- [ ] 7.2 **Major:** Harden last-admin with advisory/`FOR UPDATE` lock; treat `org_id` move of active admin as leaving source org
-- [ ] 7.3 **Major:** Atomic membership replace (single RPC/transaction); fail closed without wiping on insert error
-- [ ] 7.4 **Major:** Surface Auth compensation failure when `deleteAuthUser` throws; add unit test
-- [ ] 7.5 **Minor (bundle):** default `isActive=true` when FormData omits field; optional admin assert inside createOperator use case
+- [x] 7.1 **Blocker:** Fix `areas_guard_default` promote/swap — `pg_trigger_depth() > 1` skip in `20261106120000_areas_operators_admin.sql`; behavioral unit `areas-guard-default.logic.test.ts` (Mesa ↔ Inspectoría); SQL proof script `reports/default-area-swap-sql-proof.sql` (not live-run: no Docker); migration-sql asserts depth pattern
+- [x] 7.2 **Major:** `pg_advisory_xact_lock(hashtextextended(org_id))` + treat `org_id` move of active admin as leaving source org in `profiles_guard_last_active_admin`
+- [x] 7.3 **Major:** `replace_area_memberships(uuid, jsonb)` RPC (INVOKER, admin check); repository uses RPC only — `operators-memberships.test.ts`
+- [x] 7.4 **Major:** Compensation failure composed into result when `deleteAuthUser` throws; unit test in `create-operator.test.ts`; i18n `compensationFailed`
+- [x] 7.5 **Minor (bundle):** `readBoolean(..., true)` default on create; form always sends explicit booleans; `callerRole` admin assert in `createOperator`
 - [ ] 7.6 Refresh acceptance-matrix notes for fixed scenarios; re-audit subagent until PASS / PASS WITH GAPS with no Blocker/Major
