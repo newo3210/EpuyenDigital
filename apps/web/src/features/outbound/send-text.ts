@@ -27,9 +27,14 @@ export type SendTextDeps = {
     phone: string;
     text: string;
     authorUserId: string;
-    deliveryStatus: 'sent' | 'simulated' | 'blocked' | 'failed';
+    deliveryStatus: 'pending' | 'sent' | 'simulated' | 'blocked' | 'failed';
     externalId?: string;
   }) => Promise<{ messageId: string }>;
+  updateOutbound: (params: {
+    messageId: string;
+    deliveryStatus: 'sent' | 'failed';
+    externalId?: string;
+  }) => Promise<void>;
   sendViaEvolution: (params: {
     baseUrl: string;
     apiKey: string;
@@ -45,6 +50,7 @@ export type SendTextResult =
   | { status: 'failed'; message: string };
 
 // sendOperatorText - composer use case with shared send_mode guard + phone normalize.
+// Production path: persist pending → Evolution → update sent/failed (never send-before-persist).
 export async function sendOperatorText(
   input: unknown,
   deps: SendTextDeps,
@@ -105,6 +111,17 @@ export async function sendOperatorText(
     return { status: 'failed', message: messages.missingLineCredentials };
   }
 
+  const pending = await deps.persistOutbound({
+    orgId: conversation.orgId,
+    lineId: conversation.lineId,
+    conversationId: conversation.id,
+    phone,
+    text: parsed.data.text,
+    authorUserId: deps.authorUserId,
+    deliveryStatus: 'pending',
+    externalId: `pending-${crypto.randomUUID()}`,
+  });
+
   try {
     const sent = await deps.sendViaEvolution({
       baseUrl: creds.baseUrl,
@@ -113,32 +130,21 @@ export async function sendOperatorText(
       phone,
       text: parsed.data.text,
     });
-    const persisted = await deps.persistOutbound({
-      orgId: conversation.orgId,
-      lineId: conversation.lineId,
-      conversationId: conversation.id,
-      phone,
-      text: parsed.data.text,
-      authorUserId: deps.authorUserId,
+    await deps.updateOutbound({
+      messageId: pending.messageId,
       deliveryStatus: 'sent',
       externalId: sent.externalId,
     });
     return {
       status: 'ok',
-      messageId: persisted.messageId,
+      messageId: pending.messageId,
       deliveryStatus: 'sent',
       dryRun: false,
     };
   } catch {
-    await deps.persistOutbound({
-      orgId: conversation.orgId,
-      lineId: conversation.lineId,
-      conversationId: conversation.id,
-      phone,
-      text: parsed.data.text,
-      authorUserId: deps.authorUserId,
+    await deps.updateOutbound({
+      messageId: pending.messageId,
       deliveryStatus: 'failed',
-      externalId: `fail-${crypto.randomUUID()}`,
     });
     return { status: 'failed', message: messages.sendFailed };
   }

@@ -243,7 +243,9 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- RLS: conversations + messages (org-scoped; area tightening deferred to inbox)
+-- RLS: conversations + messages (org-scoped SELECT; writes via service role)
+-- Authenticated INSERT/UPDATE dropped for this change — composer/webhook use
+-- service role. Area-scoped write policies deferred to mesa-entrada-inbox.
 -- ---------------------------------------------------------------------------
 alter table public.conversations enable row level security;
 
@@ -253,15 +255,7 @@ create policy conversations_select_org on public.conversations
   using (org_id = public.current_org_id());
 
 drop policy if exists conversations_insert_org on public.conversations;
-create policy conversations_insert_org on public.conversations
-  for insert to authenticated
-  with check (org_id = public.current_org_id());
-
 drop policy if exists conversations_update_org on public.conversations;
-create policy conversations_update_org on public.conversations
-  for update to authenticated
-  using (org_id = public.current_org_id())
-  with check (org_id = public.current_org_id());
 
 drop policy if exists messages_select_org on public.messages;
 create policy messages_select_org on public.messages
@@ -269,15 +263,7 @@ create policy messages_select_org on public.messages
   using (org_id = public.current_org_id());
 
 drop policy if exists messages_insert_org on public.messages;
-create policy messages_insert_org on public.messages
-  for insert to authenticated
-  with check (org_id = public.current_org_id());
-
 drop policy if exists messages_update_org on public.messages;
-create policy messages_update_org on public.messages
-  for update to authenticated
-  using (org_id = public.current_org_id())
-  with check (org_id = public.current_org_id());
 
 -- Lines: org read; admin write
 drop policy if exists whatsapp_lines_select_org on public.whatsapp_lines;

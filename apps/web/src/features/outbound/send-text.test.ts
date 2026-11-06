@@ -8,23 +8,29 @@ const conversation = {
   phoneNormalized: '5492944216586',
 };
 
+function baseDeps(overrides: Record<string, unknown> = {}) {
+  return {
+    authorUserId: '00000000-0000-4000-8000-000000000099',
+    loadConversation: async () => conversation,
+    loadOrgSendMode: async () => ({ sendMode: 'production' as const, allowlistPhones: [] }),
+    loadLineCredentials: async () => ({
+      apiKey: 'k',
+      baseUrl: 'http://127.0.0.1:8080',
+      instance: 'inspectoria',
+    }),
+    persistOutbound: async () => ({ messageId: 'm1' }),
+    updateOutbound: async () => undefined,
+    sendViaEvolution: async () => ({ externalId: 'wamid.out' }),
+    ...overrides,
+  };
+}
+
 describe('sendOperatorText', () => {
   it('rejects empty body without calling Evolution', async () => {
     const sendViaEvolution = vi.fn();
     const result = await sendOperatorText(
       { conversationId: conversation.id, text: '   ' },
-      {
-        authorUserId: '00000000-0000-4000-8000-000000000099',
-        loadConversation: async () => conversation,
-        loadOrgSendMode: async () => ({ sendMode: 'production', allowlistPhones: [] }),
-        loadLineCredentials: async () => ({
-          apiKey: 'k',
-          baseUrl: 'http://127.0.0.1:8080',
-          instance: 'inspectoria',
-        }),
-        persistOutbound: async () => ({ messageId: 'm1' }),
-        sendViaEvolution,
-      },
+      baseDeps({ sendViaEvolution }),
     );
     expect(result.status).toBe('invalid');
     expect(sendViaEvolution).not.toHaveBeenCalled();
@@ -35,18 +41,11 @@ describe('sendOperatorText', () => {
     const persistOutbound = vi.fn(async () => ({ messageId: 'm-dry' }));
     const result = await sendOperatorText(
       { conversationId: conversation.id, text: 'hola' },
-      {
-        authorUserId: '00000000-0000-4000-8000-000000000099',
-        loadConversation: async () => conversation,
+      baseDeps({
         loadOrgSendMode: async () => ({ sendMode: 'dry_run', allowlistPhones: [] }),
-        loadLineCredentials: async () => ({
-          apiKey: 'k',
-          baseUrl: 'http://127.0.0.1:8080',
-          instance: 'inspectoria',
-        }),
         persistOutbound,
         sendViaEvolution,
-      },
+      }),
     );
     expect(result).toMatchObject({
       status: 'ok',
@@ -61,8 +60,7 @@ describe('sendOperatorText', () => {
     const sendViaEvolution = vi.fn();
     const result = await sendOperatorText(
       { conversationId: conversation.id, text: 'hola' },
-      {
-        authorUserId: '00000000-0000-4000-8000-000000000099',
+      baseDeps({
         loadConversation: async () => ({
           ...conversation,
           phoneNormalized: '5491111111111',
@@ -71,39 +69,65 @@ describe('sendOperatorText', () => {
           sendMode: 'allowlist',
           allowlistPhones: ['5492944216586'],
         }),
-        loadLineCredentials: async () => ({
-          apiKey: 'k',
-          baseUrl: 'http://127.0.0.1:8080',
-          instance: 'inspectoria',
-        }),
         persistOutbound: async () => ({ messageId: 'm-block' }),
         sendViaEvolution,
-      },
+      }),
     );
     expect(result).toMatchObject({ status: 'ok', deliveryStatus: 'blocked', dryRun: false });
     expect(sendViaEvolution).not.toHaveBeenCalled();
   });
 
-  it('production calls Evolution with normalized phone', async () => {
-    const sendViaEvolution = vi.fn(async () => ({ externalId: 'wamid.out' }));
+  it('production persists pending before Evolution then updates to sent', async () => {
+    const order: string[] = [];
+    const persistOutbound = vi.fn(async () => {
+      order.push('persist');
+      return { messageId: 'm-prod' };
+    });
+    const sendViaEvolution = vi.fn(async () => {
+      order.push('evolution');
+      return { externalId: 'wamid.out' };
+    });
+    const updateOutbound = vi.fn(async () => {
+      order.push('update');
+    });
+
     const result = await sendOperatorText(
       { conversationId: conversation.id, text: 'hola producción' },
-      {
-        authorUserId: '00000000-0000-4000-8000-000000000099',
-        loadConversation: async () => conversation,
-        loadOrgSendMode: async () => ({ sendMode: 'production', allowlistPhones: [] }),
-        loadLineCredentials: async () => ({
-          apiKey: 'k',
-          baseUrl: 'http://127.0.0.1:8080',
-          instance: 'inspectoria',
-        }),
-        persistOutbound: async () => ({ messageId: 'm-prod' }),
-        sendViaEvolution,
-      },
+      baseDeps({ persistOutbound, sendViaEvolution, updateOutbound }),
     );
+
     expect(result.status).toBe('ok');
+    expect(order).toEqual(['persist', 'evolution', 'update']);
+    expect(persistOutbound).toHaveBeenCalledWith(
+      expect.objectContaining({ deliveryStatus: 'pending' }),
+    );
+    expect(updateOutbound).toHaveBeenCalledWith({
+      messageId: 'm-prod',
+      deliveryStatus: 'sent',
+      externalId: 'wamid.out',
+    });
     expect(sendViaEvolution).toHaveBeenCalledWith(
       expect.objectContaining({ phone: '5492944216586', text: 'hola producción' }),
     );
+  });
+
+  it('marks pending row failed when Evolution throws (row already persisted)', async () => {
+    const persistOutbound = vi.fn(async () => ({ messageId: 'm-fail' }));
+    const updateOutbound = vi.fn(async () => undefined);
+    const sendViaEvolution = vi.fn(async () => {
+      throw new Error('evolution down');
+    });
+
+    const result = await sendOperatorText(
+      { conversationId: conversation.id, text: 'hola' },
+      baseDeps({ persistOutbound, updateOutbound, sendViaEvolution }),
+    );
+
+    expect(result.status).toBe('failed');
+    expect(persistOutbound).toHaveBeenCalled();
+    expect(updateOutbound).toHaveBeenCalledWith({
+      messageId: 'm-fail',
+      deliveryStatus: 'failed',
+    });
   });
 });

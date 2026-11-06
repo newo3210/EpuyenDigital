@@ -22,7 +22,8 @@ export async function handleDownloadMedia(
 
   const downloaded = await ctx.evolution.downloadMedia(payload.mediaUrl);
   const isImage = downloaded.mime.startsWith("image/");
-  const folder = isImage ? "animal-media" : "whatsapp-media";
+  // Pet sessions keep animal-media/; channel / non-session images go to whatsapp-media/
+  const folder = payload.sessionId && isImage ? "animal-media" : "whatsapp-media";
   const path = `${payload.orgId}/${folder}/${payload.messageId}`;
   const stored = await ctx.store.saveMedia({
     orgId: payload.orgId,

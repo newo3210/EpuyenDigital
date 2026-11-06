@@ -41,9 +41,17 @@ describe('whatsapp-channel-core migration SQL', () => {
     expect(sql).toContain("wl.evolution_instance = 'inspectoria'");
   });
 
-  it('enables org-scoped RLS on conversations and admin writes on whatsapp_lines', () => {
+  it('enables org-scoped SELECT RLS; drops authenticated message/conversation writes', () => {
     expect(sql).toContain('alter table public.conversations enable row level security');
     expect(sql).toContain('conversations_select_org');
+    expect(sql).toContain('messages_select_org');
+    expect(sql).toContain('drop policy if exists messages_insert_org');
+    expect(sql).toContain('drop policy if exists messages_update_org');
+    expect(sql).toContain('drop policy if exists conversations_insert_org');
+    expect(sql).toContain('drop policy if exists conversations_update_org');
+    expect(sql).not.toMatch(
+      /create policy messages_insert_org[\s\S]*for insert to authenticated/,
+    );
     expect(sql).toContain("public.current_user_role() = 'admin'");
     expect(sql).toContain('whatsapp_lines_admin_insert');
   });

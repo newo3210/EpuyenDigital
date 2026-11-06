@@ -23,6 +23,7 @@ function readOptionalText(formData: FormData, key: string): string | undefined {
 }
 
 // Send composer text - any authenticated org member with conversation RLS access.
+// Persists via service role (authenticated has SELECT-only on messages).
 export async function sendComposerTextAction(
   _previous: ComposerState,
   formData: FormData,
@@ -61,7 +62,8 @@ export async function sendComposerTextAction(
           allowlistPhones: (data?.allowlist_phones as string[] | null) ?? [],
         };
       },
-      loadLineCredentials: (lineId) => loadDecryptedLineCredentials(admin, lineId),
+      loadLineCredentials: (lineId) =>
+        loadDecryptedLineCredentials(admin, lineId, operator.orgId),
       persistOutbound: async (params) => {
         const { data, error } = await admin
           .from('messages')
@@ -90,6 +92,12 @@ export async function sendComposerTextAction(
           })
           .eq('id', params.conversationId);
         return { messageId: data.id as string };
+      },
+      updateOutbound: async ({ messageId, deliveryStatus, externalId }) => {
+        const patch: Record<string, unknown> = { delivery_status: deliveryStatus };
+        if (externalId) patch.external_id = externalId;
+        const { error } = await admin.from('messages').update(patch).eq('id', messageId);
+        if (error) throw error;
       },
       sendViaEvolution: async ({ baseUrl, apiKey, instance, phone, text }) => {
         const client = new HttpEvolutionClient(baseUrl, apiKey);
