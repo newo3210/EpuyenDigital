@@ -82,7 +82,7 @@
 
 - [x] 8.1 Mechanical verify → `reports/verify-mechanical.md` — **PASS WITH GAPS**
 - [x] 8.2 Acceptance matrix from scenarios — `reports/acceptance-matrix.md`
-- [ ] 8.3 Adversarial-review subagent; fix loop until PASS / PASS WITH GAPS — first pass **FAIL** (`reports/adversarial-review.md`); fix §9 then re-audit
+- [x] 8.3 Adversarial-review subagent; fix loop until PASS / PASS WITH GAPS — first **FAIL** → §9 fixes → re-audit **PASS WITH GAPS** (`reports/adversarial-review-reaudit.md`)
 - [ ] 8.4 Human OK → archive; PR #6 open
 - [ ] 8.5 After archive: open `/director` for `mesa-entrada-inbox` with stored scope (INB full, dual coords, manual routing)
 
@@ -100,5 +100,5 @@
   - Evidence: `upsertCitizenStub` 23505 re-select; `send-text` pending→Evolution→update; migration drops messages/conversations write policies; send-text order test
 - [x] 9.6 **Major/docs:** Honest WA-05/WA-11 checkboxes (partial); optional minors media folder + ACK monotonicity if cheap
   - Evidence: `.planning/REQUIREMENTS.md` WA-05/WA-11 `[~]` PARTIAL; download-media `whatsapp-media` without sessionId; ACK rank monotonic; `reports/adversarial-fixes-round1.md`
-- [x] 9.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major
+- [x] 9.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major — **PASS WITH GAPS** (`reports/adversarial-review-reaudit.md`)
   - Evidence: `reports/acceptance-matrix.md` refreshed; `reports/adversarial-review-reaudit.md` → **PASS WITH GAPS** (no Blocker/Major)
