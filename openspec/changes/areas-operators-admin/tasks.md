@@ -42,7 +42,7 @@
 
 ## 6. Close loop (director-owned after apply)
 
-- [ ] 6.1 Mechanical `/opsx:verify` — report under `reports/verify-mechanical.md`
-- [ ] 6.2 Write `reports/acceptance-matrix.md` from spec scenarios with evidence
+- [x] 6.1 Mechanical `/opsx:verify` — report under `reports/verify-mechanical.md` — **PASS WITH GAPS**
+- [x] 6.2 Write `reports/acceptance-matrix.md` from spec scenarios with evidence — **PASS WITH GAPS / live BLOCKED**
 - [ ] 6.3 Auto-launch adversarial-review subagent (`audit areas-operators-admin`); fix loop until PASS / PASS WITH GAPS
-- [ ] 6.4 Human OK → archive; open PR to `main`
+- [ ] 6.4 Human OK → archive; open PR to `main` (PR opened when ready; archive waits human OK)
