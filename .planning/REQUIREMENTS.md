@@ -159,7 +159,7 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 |-------------|-------|--------|
 | FND-01, FND-07, FND-08 | Phase 1 (`foundation-workspace-auth`) | Implemented — pending review/archive |
 | FND-06 | Phase 1 (`foundation-workspace-auth` org level; `areas-operators-admin` helper; inbox applies area RLS) | Partial (helper shipped) |
-| FND-02..05 | Phase 1 (`areas-operators-admin`) | Done (pending archive/PR) |
+| FND-02..05 | Phase 1 (`areas-operators-admin`) | Done (archived 2026-11-06) |
 | WA-01..12 | Phase 2 | Pending |
 | INSP-PET-01..08 | Phase 2.1 (INSERTED) | Done — archived `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot` |
 | INB-01..15 | Phase 3 | Pending |

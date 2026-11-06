@@ -45,7 +45,7 @@
 - [x] 6.1 Mechanical `/opsx:verify` — report under `reports/verify-mechanical.md` — **PASS WITH GAPS**
 - [x] 6.2 Write `reports/acceptance-matrix.md` from spec scenarios with evidence — **PASS WITH GAPS / live BLOCKED**
 - [x] 6.3 Auto-launch adversarial-review subagent (`audit areas-operators-admin`); fix loop until PASS / PASS WITH GAPS — first **FAIL** → §7 fixes → re-audit **PASS WITH GAPS** (`reports/adversarial-review-reaudit.md`)
-- [ ] 6.4 Human OK → archive; PR #5 open — archive waits human OK
+- [x] 6.4 Human OK → archive; PR #5 — archived as `2026-11-06-areas-operators-admin`; merge requested 2026-11-06
 
 ## 7. Adversarial fix loop (post FAIL 2026-11-06)
 
