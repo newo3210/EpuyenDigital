@@ -10,21 +10,22 @@ const ORGANIZATION = {
   name: 'Municipalidad de Epuyén',
   timezone: 'America/Argentina/Buenos_Aires',
 } as const;
+// Fixed area ids - must match supabase/seed.sql (Mesa default + Inspectoría).
+const MESA_AREA_ID = '00000000-0000-4000-8000-000000000010';
+const INSPECTORIA_AREA_ID = '00000000-0000-4000-8000-000000000011';
 const INSPECTORIA_LINE = {
   id: LINE_ID,
   org_id: ORG_ID,
   name: 'Inspectoría',
   display_phone: '+5492944216586',
   evolution_instance: 'inspectoria',
-  status: 'active',
+  status: 'disconnected',
+  default_area_id: MESA_AREA_ID,
 } as const;
 const NEIGHBORHOODS = [
   { org_id: ORG_ID, neighborhood_normalized: 'centro', code: 'CENT' },
   { org_id: ORG_ID, neighborhood_normalized: 'epuyen', code: 'EPU' },
 ] as const;
-// Fixed area ids - must match supabase/seed.sql (Mesa default + Inspectoría).
-const MESA_AREA_ID = '00000000-0000-4000-8000-000000000010';
-const INSPECTORIA_AREA_ID = '00000000-0000-4000-8000-000000000011';
 const AREAS = [
   {
     id: MESA_AREA_ID,
@@ -126,6 +127,7 @@ async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Prom
         name: INSPECTORIA_LINE.name,
         display_phone: INSPECTORIA_LINE.display_phone,
         status: INSPECTORIA_LINE.status,
+        default_area_id: INSPECTORIA_LINE.default_area_id,
       })
       .eq('id', byInstance.id);
     if (updateError) throw new Error(`whatsapp_lines update failed: ${updateError.message}`);
@@ -141,6 +143,7 @@ async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Prom
       display_phone: INSPECTORIA_LINE.display_phone,
       evolution_instance: INSPECTORIA_LINE.evolution_instance,
       status: INSPECTORIA_LINE.status,
+      default_area_id: INSPECTORIA_LINE.default_area_id,
     })
     .select('id')
     .single();
@@ -239,10 +242,11 @@ async function main(): Promise<void> {
 
   const orgId = await upsertOrganization(admin);
   await upsertOrgSettings(admin, orgId);
+  // Areas before line so default_area_id → Mesa de Entrada FK resolves.
+  await upsertAreas(admin, orgId);
   const lineId = await upsertInspectoriaLine(admin, orgId);
   await upsertLineSecret(admin, lineId, env.SEED_WEBHOOK_SECRET);
   await upsertNeighborhoods(admin, orgId);
-  await upsertAreas(admin, orgId);
 
   const user = await ensureAdminUser(admin, env);
   const profileCreated = await ensureAdminProfile(admin, user.id, orgId, env.SEED_ADMIN_EMAIL);
