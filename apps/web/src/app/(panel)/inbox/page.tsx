@@ -48,11 +48,15 @@ export default async function InboxPage({ searchParams }: PageProps) {
     },
   });
 
-  const [{ data: areas }, { data: lines }, { data: owners }] = await Promise.all([
-    supabase.from('areas').select('id, name').eq('is_active', true).order('name'),
-    supabase.from('whatsapp_lines').select('id, name').order('name'),
-    supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
-  ]);
+  const [{ data: areas }, { data: lines }, { data: owners }, { data: memberships }] =
+    await Promise.all([
+      supabase.from('areas').select('id, name').eq('is_active', true).order('name'),
+      supabase.from('whatsapp_lines').select('id, name').order('name'),
+      supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
+      supabase.from('area_members').select('area_id').eq('user_id', operator.id),
+    ]);
+
+  const callerAreaIds = (memberships ?? []).map((m) => m.area_id as string);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -61,7 +65,11 @@ export default async function InboxPage({ searchParams }: PageProps) {
           <h1 className="text-2xl font-bold">{esAR.inbox.title}</h1>
           <p className="mt-1 text-sm text-muted">{esAR.inbox.subtitle}</p>
         </div>
-        <InboxRealtimeProvider orgId={operator.orgId} currentUserId={operator.id} />
+        <InboxRealtimeProvider
+          orgId={operator.orgId}
+          currentUserId={operator.id}
+          callerAreaIds={callerAreaIds}
+        />
       </header>
 
       <Suspense fallback={null}>

@@ -19,6 +19,9 @@ type OperatorOption = { id: string; fullName: string };
 type ConversationThreadViewProps = {
   thread: ConversationThread;
   currentUserId: string;
+  callerAreaIds?: string[];
+  isAdmin?: boolean;
+  isAreaLead?: boolean;
   quickReplies: QuickReply[];
   areas: AreaOption[];
   operators: OperatorOption[];
@@ -28,6 +31,9 @@ type ConversationThreadViewProps = {
 export function ConversationThreadView({
   thread,
   currentUserId,
+  callerAreaIds = [],
+  isAdmin = false,
+  isAreaLead = false,
   quickReplies,
   areas,
   operators,
@@ -47,6 +53,12 @@ export function ConversationThreadView({
     thread.conversation.awaitingAcceptance &&
       thread.conversation.ownerUserId === currentUserId,
   );
+  const pendingAreaId = thread.conversation.pendingAreaId ?? null;
+  const callerInPendingArea = Boolean(
+    pendingAreaId && (isAdmin || callerAreaIds.includes(pendingAreaId)),
+  );
+  // Reject area handoff: admin, area_lead role, or is_lead of the pending area.
+  const canRejectAreaDelegation = Boolean(isAdmin || isAreaLead);
 
   useEffect(() => {
     const lastId = thread.messages.at(-1)?.id;
@@ -76,8 +88,12 @@ export function ConversationThreadView({
         conversationId={thread.conversation.id}
         queueColumn={thread.conversation.queueColumn}
         awaitingAcceptance={thread.conversation.awaitingAcceptance}
-        isOwner={Boolean(isOwner && !thread.conversation.awaitingAcceptance)}
+        pendingAreaId={pendingAreaId}
+        isOwner={Boolean(isOwner)}
         isPendingTarget={isPendingTarget}
+        callerInPendingArea={callerInPendingArea}
+        canRejectAreaDelegation={canRejectAreaDelegation}
+        isAdmin={isAdmin}
         areas={areas}
         operators={operators}
       />

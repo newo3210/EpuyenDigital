@@ -22,8 +22,14 @@ type ThreadActionsProps = {
   conversationId: string;
   queueColumn?: string;
   awaitingAcceptance?: boolean;
+  pendingAreaId?: string | null;
   isOwner: boolean;
   isPendingTarget: boolean;
+  /** Caller belongs to pending_area_id (area handoff claim-as-accept). */
+  callerInPendingArea?: boolean;
+  /** area_lead / admin / lead of pending area may reject area handoff. */
+  canRejectAreaDelegation?: boolean;
+  isAdmin?: boolean;
   areas: AreaOption[];
   operators: OperatorOption[];
 };
@@ -42,8 +48,12 @@ export function ThreadActions({
   conversationId,
   queueColumn,
   awaitingAcceptance,
+  pendingAreaId,
   isOwner,
   isPendingTarget,
+  callerInPendingArea = false,
+  canRejectAreaDelegation = false,
+  isAdmin = false,
   areas,
   operators,
 }: ThreadActionsProps) {
@@ -61,10 +71,19 @@ export function ThreadActions({
   );
   const [areaState, areaAction, areaPending] = useActionState(setConversationAreaAction, {});
 
+  const areaHandoffPending = Boolean(
+    awaitingAcceptance && pendingAreaId && !isPendingTarget,
+  );
+  const showClaim =
+    queueColumn !== 'resolved' &&
+    ((!isOwner && !awaitingAcceptance) || (areaHandoffPending && callerInPendingArea));
+  const showAreaReject = areaHandoffPending && canRejectAreaDelegation;
+  const showSetArea = (isOwner || isAdmin) && !awaitingAcceptance;
+
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4">
       <div className="flex flex-wrap gap-2">
-        {!isOwner && !awaitingAcceptance && queueColumn !== 'resolved' ? (
+        {showClaim ? (
           <form action={claimAction}>
             <input type="hidden" name="conversationId" value={conversationId} />
             <button
@@ -106,6 +125,25 @@ export function ThreadActions({
               </button>
             </form>
           </>
+        ) : null}
+
+        {showAreaReject ? (
+          <form action={rejectAction} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="conversationId" value={conversationId} />
+            <input
+              name="note"
+              required
+              placeholder={copy.actions.rejectNote}
+              className="rounded-md border border-line px-2 py-1 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={rejectPending}
+              className="rounded-lg border border-line px-3 py-1.5 text-sm disabled:opacity-60"
+            >
+              {copy.actions.reject}
+            </button>
+          </form>
         ) : null}
 
         {isOwner && !awaitingAcceptance ? (
@@ -186,7 +224,7 @@ export function ThreadActions({
         </form>
       ) : null}
 
-      {(isOwner || true) && (
+      {showSetArea ? (
         <form action={areaAction} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="conversationId" value={conversationId} />
           <label className="flex flex-col gap-1 text-xs">
@@ -211,7 +249,7 @@ export function ThreadActions({
             {copy.actions.setArea}
           </button>
         </form>
-      )}
+      ) : null}
 
       <ActionFeedback state={claimState} />
       <ActionFeedback state={acceptState} />

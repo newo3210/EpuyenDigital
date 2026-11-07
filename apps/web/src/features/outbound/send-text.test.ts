@@ -57,6 +57,42 @@ describe('sendOperatorText', () => {
     expect(persistOutbound).not.toHaveBeenCalled();
   });
 
+  it('maps FORBIDDEN distinctly from CLAIM_CONFLICT', async () => {
+    const persistOutbound = vi.fn();
+    const result = await sendOperatorText(
+      { conversationId: conversation.id, text: 'hola' },
+      baseDeps({
+        ensureOwner: async () => ({
+          status: 'error',
+          error: { code: 'FORBIDDEN', message: 'AREA_FORBIDDEN' },
+        }),
+        persistOutbound,
+      }),
+    );
+    expect(result.status).toBe('conflict');
+    if (result.status === 'conflict') {
+      expect(result.message).toMatch(/permiso/i);
+      expect(result.message).not.toMatch(/tiene/i);
+    }
+    expect(persistOutbound).not.toHaveBeenCalled();
+  });
+
+  it('maps INVALID_STATE without owned-by wording', async () => {
+    const result = await sendOperatorText(
+      { conversationId: conversation.id, text: 'hola' },
+      baseDeps({
+        ensureOwner: async () => ({
+          status: 'error',
+          error: { code: 'INVALID_STATE', message: 'RESOLVED' },
+        }),
+      }),
+    );
+    expect(result.status).toBe('conflict');
+    if (result.status === 'conflict') {
+      expect(result.message).toMatch(/estado/i);
+    }
+  });
+
   it('claims via ensureOwner then dry_run persists simulated', async () => {
     const ensureOwner = vi.fn(async () => ({ status: 'ok' as const }));
     const sendViaEvolution = vi.fn();

@@ -79,11 +79,27 @@ export async function sendOperatorText(
 
   const ownership = await deps.ensureOwner(conversation.id);
   if (ownership.status === 'error') {
-    const ownerLabel = ownership.ownerName?.trim() || messages.unknownOwner;
-    return {
-      status: 'conflict',
-      message: messages.ownedByOther.replace('{name}', ownerLabel),
-    };
+    const code = ownership.error.code;
+    if (code === 'CLAIM_CONFLICT') {
+      const ownerLabel = ownership.ownerName?.trim() || messages.unknownOwner;
+      return {
+        status: 'conflict',
+        message: messages.ownedByOther.replace('{name}', ownerLabel),
+      };
+    }
+    if (code === 'FORBIDDEN') {
+      return { status: 'conflict', message: messages.forbidden };
+    }
+    if (code === 'NOT_FOUND') {
+      return { status: 'failed', message: messages.notFound };
+    }
+    if (code === 'INVALID_STATE') {
+      return { status: 'conflict', message: messages.invalidState };
+    }
+    if (code === 'INVALID_ARGUMENT') {
+      return { status: 'failed', message: messages.invalidArgument };
+    }
+    return { status: 'failed', message: messages.unknownOwnership };
   }
 
   let phone: string;
