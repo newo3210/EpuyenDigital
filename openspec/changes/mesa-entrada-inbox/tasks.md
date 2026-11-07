@@ -45,5 +45,5 @@
 
 - [x] 6.1 Mechanical verify — `reports/verify-mechanical.md` **PASS WITH GAPS**
 - [x] 6.2 Acceptance matrix — `reports/acceptance-matrix.md`
-- [ ] 6.3 Adversarial (+ fix loop) — launched
+- [x] 6.3 Adversarial (+ fix loop) — `reports/adversarial-review.md` **FAIL** (pet gate Blocker + Majors); fix loop pending
 - [ ] 6.4 Human OK → archive + PR merge
