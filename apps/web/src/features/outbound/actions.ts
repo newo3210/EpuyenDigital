@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requirePageRole } from '@/features/auth/server';
+import { ensureOwnerForReply } from '@/features/inbox/transitions';
 import { esAR } from '@/i18n/es-AR';
 import { HttpEvolutionClient } from '@/infrastructure/evolution/client';
 import { getConversationThread } from '@/infrastructure/repositories/conversations';
@@ -22,8 +23,7 @@ function readOptionalText(formData: FormData, key: string): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-// Send composer text - any authenticated org member with conversation RLS access.
-// Persists via service role (authenticated has SELECT-only on messages).
+// Send composer text - ensure_owner_for_reply then persist/send under send_mode.
 export async function sendComposerTextAction(
   _previous: ComposerState,
   formData: FormData,
@@ -49,6 +49,28 @@ export async function sendComposerTextAction(
           lineId: thread.conversation.lineId,
           phoneNormalized: thread.conversation.phoneNormalized,
         };
+      },
+      ensureOwner: async (id) => {
+        const outcome = await ensureOwnerForReply(
+          {
+            rpc: async (fn, args) => {
+              const { data, error } = await supabase.rpc(fn as never, args as never);
+              return { data, error };
+            },
+          },
+          id,
+        );
+        if (outcome.status === 'ok') return { status: 'ok' };
+        let ownerName: string | null = null;
+        if (outcome.error.ownerUserId) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', outcome.error.ownerUserId)
+            .maybeSingle();
+          ownerName = (data?.full_name as string | null) ?? null;
+        }
+        return { status: 'error', error: outcome.error, ownerName };
       },
       loadOrgSendMode: async (orgId) => {
         const { data, error } = await admin
@@ -89,12 +111,16 @@ export async function sendComposerTextAction(
             last_message_at: new Date().toISOString(),
             last_outbound_at: new Date().toISOString(),
             needs_response: false,
+            last_message_preview: params.text.slice(0, 160),
           })
           .eq('id', params.conversationId);
         return { messageId: data.id as string };
       },
       updateOutbound: async ({ messageId, deliveryStatus, externalId }) => {
-        const patch: Record<string, unknown> = { delivery_status: deliveryStatus };
+        const patch: {
+          delivery_status: 'sent' | 'failed';
+          external_id?: string;
+        } = { delivery_status: deliveryStatus };
         if (externalId) patch.external_id = externalId;
         const { error } = await admin.from('messages').update(patch).eq('id', messageId);
         if (error) throw error;
@@ -109,7 +135,7 @@ export async function sendComposerTextAction(
   if (result.status === 'invalid') {
     return { status: 'error', fieldErrors: result.fieldErrors };
   }
-  if (result.status === 'failed') {
+  if (result.status === 'conflict' || result.status === 'failed') {
     return { status: 'error', message: result.message };
   }
 

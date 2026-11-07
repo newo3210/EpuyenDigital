@@ -155,11 +155,15 @@ async function upsertInspectoriaLine(admin: SupabaseClient, orgId: string): Prom
 // Line secret - ciphertext when CREDENTIALS_ENCRYPTION_KEY is set; else legacy plaintext.
 async function upsertLineSecret(admin: SupabaseClient, lineId: string, webhookSecret: string): Promise<void> {
   const encKey = process.env.CREDENTIALS_ENCRYPTION_KEY?.trim();
-  const row = encKey
+  const row: {
+    line_id: string;
+    webhook_secret?: string | null;
+    webhook_secret_ciphertext?: string | null;
+  } = encKey
     ? {
         line_id: lineId,
         webhook_secret_ciphertext: encryptSecret(webhookSecret, encKey),
-        webhook_secret: null as string | null,
+        webhook_secret: null,
       }
     : {
         line_id: lineId,

@@ -1,14 +1,14 @@
-import Link from 'next/link';
-import type { ConversationListItem } from '@/contracts/conversations';
+import type { QueueCard } from '@/contracts/inbox';
 import { esAR } from '@/i18n/es-AR';
+import { QueueCardView } from './queue-card';
 
 const copy = esAR.inbox;
 
 type ConversationListProps = {
-  conversations: ConversationListItem[];
+  conversations: QueueCard[];
 };
 
-// ConversationList - org-scoped channel threads (triage claim UI deferred).
+// ConversationList - FIFO triage queue with card flags + SLA.
 export function ConversationList({ conversations }: ConversationListProps) {
   if (conversations.length === 0) {
     return (
@@ -19,32 +19,32 @@ export function ConversationList({ conversations }: ConversationListProps) {
     );
   }
 
+  const byColumn = {
+    new: conversations.filter((c) => c.queueColumn === 'new'),
+    claimed: conversations.filter((c) => c.queueColumn === 'claimed'),
+    in_progress: conversations.filter((c) => c.queueColumn === 'in_progress'),
+    waiting_external: conversations.filter((c) => c.queueColumn === 'waiting_external'),
+  } as const;
+
   return (
-    <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
-      {conversations.map((conversation) => {
-        const title = conversation.citizenPushName ?? conversation.phoneNormalized;
-        return (
-          <li key={conversation.id}>
-            <Link
-              href={`/inbox/${conversation.id}`}
-              className="flex flex-col gap-1 px-4 py-3 hover:bg-canvas"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium">{title}</span>
-                {conversation.needsResponse ? (
-                  <span className="text-xs font-medium text-brand-700">{copy.needsResponse}</span>
-                ) : null}
-              </div>
-              <span className="text-xs text-muted">
-                {conversation.phoneNormalized}
-                {conversation.lastMessageAt
-                  ? ` · ${new Date(conversation.lastMessageAt).toLocaleString('es-AR')}`
-                  : ''}
-              </span>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      {(Object.keys(byColumn) as Array<keyof typeof byColumn>).map((column) => (
+        <section key={column} className="rounded-xl border border-line bg-surface">
+          <header className="border-b border-line px-4 py-2 text-sm font-semibold">
+            {copy.columns[column]}
+            <span className="ml-2 text-xs font-normal text-muted">
+              {byColumn[column].length}
+            </span>
+          </header>
+          <ul>
+            {byColumn[column].length === 0 ? (
+              <li className="px-4 py-6 text-center text-xs text-muted">—</li>
+            ) : (
+              byColumn[column].map((card) => <QueueCardView key={card.id} card={card} />)
+            )}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }

@@ -6,7 +6,12 @@ import {
   type EvolutionWebhook,
   type JobPayload,
 } from "@epuyen/shared";
-import type { InboundStore, LineContext, PersistResult } from "./inbound-repository";
+import {
+  decideShouldEnqueuePetProcessInbound,
+  type InboundStore,
+  type LineContext,
+  type PersistResult,
+} from "./inbound-repository";
 
 // Supabase inbound store - service-role persist, conversation upsert, job enqueue
 
@@ -133,8 +138,63 @@ export class SupabaseInboundStore implements InboundStore {
       return { status: "duplicate", messageId: existing, conversationId };
     }
 
-    await this.touchConversationTimestamps(conversationId, direction);
+    await this.touchConversationTimestamps(conversationId, direction, params.event);
     return { status: "inserted", messageId: data.id as string, conversationId };
+  }
+
+  async reopenIfResolved(conversationId: string): Promise<void> {
+    const { error } = await this.client.rpc("reopen_conversation", {
+      p_conversation_id: conversationId,
+    });
+    if (error) throw error;
+  }
+
+  async shouldEnqueuePetProcessInbound(params: {
+    orgId: string;
+    lineId: string;
+    phoneNormalized: string;
+    conversationId: string;
+    evolutionInstance: string;
+  }): Promise<boolean> {
+    let areaName: string | null = null;
+    const { data: conversation } = await this.client
+      .from("conversations")
+      .select("area_id")
+      .eq("id", params.conversationId)
+      .maybeSingle();
+
+    if (conversation?.area_id) {
+      const { data: area } = await this.client
+        .from("areas")
+        .select("name")
+        .eq("id", conversation.area_id as string)
+        .maybeSingle();
+      areaName = (area?.name as string | undefined) ?? null;
+    }
+
+    let lineName: string | null = null;
+    const { data: line } = await this.client
+      .from("whatsapp_lines")
+      .select("name")
+      .eq("id", params.lineId)
+      .maybeSingle();
+    lineName = (line?.name as string | undefined) ?? null;
+
+    const { data: session } = await this.client
+      .from("registration_sessions")
+      .select("id")
+      .eq("line_id", params.lineId)
+      .eq("phone_normalized", params.phoneNormalized)
+      .gt("expires_at", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    return decideShouldEnqueuePetProcessInbound({
+      evolutionInstance: params.evolutionInstance,
+      lineName,
+      areaName,
+      hasOpenSession: Boolean(session?.id),
+    });
   }
 
   async applyDeliveryAck(params: {
@@ -343,6 +403,7 @@ export class SupabaseInboundStore implements InboundStore {
   private async touchConversationTimestamps(
     conversationId: string,
     direction: "inbound" | "outbound",
+    event?: EvolutionWebhook,
   ): Promise<void> {
     const now = new Date().toISOString();
     const patch: Record<string, unknown> = {
@@ -351,6 +412,22 @@ export class SupabaseInboundStore implements InboundStore {
     };
     if (direction === "inbound") patch.last_inbound_at = now;
     if (direction === "outbound") patch.last_outbound_at = now;
+    if (event?.text) {
+      patch.last_message_preview = event.text.slice(0, 160);
+    }
+    if (event && ["image", "audio", "video", "document", "sticker"].includes(event.kind)) {
+      patch.has_attachments = true;
+    }
+    // Dual coords: denorm inquiry pin on conversation; never touch citizens GPS.
+    if (
+      direction === "inbound" &&
+      event?.kind === "location" &&
+      event.latitude != null &&
+      event.longitude != null
+    ) {
+      patch.inquiry_latitude = event.latitude;
+      patch.inquiry_longitude = event.longitude;
+    }
     await this.client.from("conversations").update(patch).eq("id", conversationId);
   }
 }

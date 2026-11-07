@@ -1,5 +1,6 @@
 import { decideSend, normalizePhone, composerTextSchema, type SendMode } from '@epuyen/shared';
 import { esAR } from '@/i18n/es-AR';
+import type { OwnershipError } from '@/features/inbox/ownership-errors';
 
 const messages = esAR.inbox.composer.errors;
 
@@ -11,6 +12,10 @@ export type SendTextDeps = {
     lineId: string;
     phoneNormalized: string;
   } | null>;
+  ensureOwner: (conversationId: string) => Promise<
+    | { status: 'ok' }
+    | { status: 'error'; error: OwnershipError; ownerName?: string | null }
+  >;
   loadOrgSendMode: (orgId: string) => Promise<{
     sendMode: SendMode;
     allowlistPhones: string[];
@@ -47,10 +52,10 @@ export type SendTextDeps = {
 export type SendTextResult =
   | { status: 'ok'; messageId: string; deliveryStatus: string; dryRun: boolean }
   | { status: 'invalid'; fieldErrors: Partial<Record<'conversationId' | 'text', string>> }
+  | { status: 'conflict'; message: string }
   | { status: 'failed'; message: string };
 
-// sendOperatorText - composer use case with shared send_mode guard + phone normalize.
-// Production path: persist pending → Evolution → update sent/failed (never send-before-persist).
+// sendOperatorText - ensure_owner_for_reply then send_mode guard + Evolution.
 export async function sendOperatorText(
   input: unknown,
   deps: SendTextDeps,
@@ -70,6 +75,31 @@ export async function sendOperatorText(
   const conversation = await deps.loadConversation(parsed.data.conversationId);
   if (!conversation) {
     return { status: 'failed', message: messages.conversationNotFound };
+  }
+
+  const ownership = await deps.ensureOwner(conversation.id);
+  if (ownership.status === 'error') {
+    const code = ownership.error.code;
+    if (code === 'CLAIM_CONFLICT') {
+      const ownerLabel = ownership.ownerName?.trim() || messages.unknownOwner;
+      return {
+        status: 'conflict',
+        message: messages.ownedByOther.replace('{name}', ownerLabel),
+      };
+    }
+    if (code === 'FORBIDDEN') {
+      return { status: 'conflict', message: messages.forbidden };
+    }
+    if (code === 'NOT_FOUND') {
+      return { status: 'failed', message: messages.notFound };
+    }
+    if (code === 'INVALID_STATE') {
+      return { status: 'conflict', message: messages.invalidState };
+    }
+    if (code === 'INVALID_ARGUMENT') {
+      return { status: 'failed', message: messages.invalidArgument };
+    }
+    return { status: 'failed', message: messages.unknownOwnership };
   }
 
   let phone: string;
