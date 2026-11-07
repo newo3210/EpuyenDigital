@@ -27,6 +27,18 @@ export type InboundStore = {
     ack: DeliveryAck;
   }): Promise<{ updated: boolean }>;
   enqueueJob(payload: JobPayload): Promise<void>;
+  /** Reopen resolved conversations on citizen inbound (INB-07). */
+  reopenIfResolved?(conversationId: string): Promise<void>;
+  /**
+   * Pet process_inbound gate: true when area is Inspectoría or an open
+   * registration session exists for the phone (shared-line coexistence).
+   */
+  shouldEnqueuePetProcessInbound?(params: {
+    orgId: string;
+    lineId: string;
+    phoneNormalized: string;
+    conversationId: string;
+  }): Promise<boolean>;
 };
 
 const MEDIA_KINDS = new Set(["image", "audio", "video", "document", "sticker"]);
@@ -46,13 +58,24 @@ export class MemoryInboundStore implements InboundStore {
   >();
   conversations = new Map<
     string,
-    { id: string; orgId: string; lineId: string; phone: string; areaId: string; citizenId?: string }
+    {
+      id: string;
+      orgId: string;
+      lineId: string;
+      phone: string;
+      areaId: string;
+      citizenId?: string;
+      queueColumn?: string;
+      areaName?: string;
+    }
   >();
   citizens = new Map<
     string,
     { id: string; orgId: string; phone: string; pushName?: string; avatarUrl?: string }
   >();
+  registrationSessions = new Set<string>();
   jobs: JobPayload[] = [];
+  reopenCalls: string[] = [];
 
   async findLineByInstance(instance: string): Promise<LineContext | null> {
     return this.lines.get(instance) ?? null;
@@ -96,6 +119,8 @@ export class MemoryInboundStore implements InboundStore {
         phone: params.event.phoneNormalized,
         areaId: params.line.defaultAreaId ?? "00000000-0000-4000-8000-000000000010",
         citizenId: citizen.id,
+        queueColumn: "new",
+        areaName: "Mesa de Entrada",
       };
       this.conversations.set(convKey, conversation);
     }
@@ -109,6 +134,29 @@ export class MemoryInboundStore implements InboundStore {
       conversationId: conversation.id,
     });
     return { status: "inserted", messageId: id, conversationId: conversation.id };
+  }
+
+  async reopenIfResolved(conversationId: string): Promise<void> {
+    this.reopenCalls.push(conversationId);
+    for (const conversation of this.conversations.values()) {
+      if (conversation.id === conversationId && conversation.queueColumn === "resolved") {
+        conversation.queueColumn = "new";
+      }
+    }
+  }
+
+  async shouldEnqueuePetProcessInbound(params: {
+    orgId: string;
+    lineId: string;
+    phoneNormalized: string;
+    conversationId: string;
+  }): Promise<boolean> {
+    for (const conversation of this.conversations.values()) {
+      if (conversation.id !== params.conversationId) continue;
+      if ((conversation.areaName ?? "").toLowerCase().includes("inspector")) return true;
+    }
+    const sessionKey = `${params.lineId}:${params.phoneNormalized}`;
+    return this.registrationSessions.has(sessionKey);
   }
 
   async applyDeliveryAck(params: {
@@ -207,12 +255,28 @@ export async function ingestInboundEvent(
   }
 
   if (persisted.status === "inserted") {
-    await store.enqueueJob({
-      type: "process_inbound",
-      messageId: persisted.messageId,
-      lineId: line.lineId,
-      orgId: line.orgId,
-    });
+    // Citizen inbound on a resolved thread re-enters the triage queue.
+    if (!event.fromMe && store.reopenIfResolved) {
+      await store.reopenIfResolved(persisted.conversationId);
+    }
+
+    const enqueuePet =
+      !store.shouldEnqueuePetProcessInbound ||
+      (await store.shouldEnqueuePetProcessInbound({
+        orgId: line.orgId,
+        lineId: line.lineId,
+        phoneNormalized: event.phoneNormalized,
+        conversationId: persisted.conversationId,
+      }));
+
+    if (enqueuePet) {
+      await store.enqueueJob({
+        type: "process_inbound",
+        messageId: persisted.messageId,
+        lineId: line.lineId,
+        orgId: line.orgId,
+      });
+    }
 
     // Channel media download — no pet sessionId; worker stores under whatsapp-media/
     if (MEDIA_KINDS.has(event.kind) && event.mediaUrl) {

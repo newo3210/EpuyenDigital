@@ -27,7 +27,7 @@ const baseEvent: EvolutionWebhook = {
 };
 
 describe("ingestInboundEvent", () => {
-  it("persists once, upserts conversation, and enqueues process_inbound when secret matches", async () => {
+  it("persists once, upserts conversation, and skips pet enqueue on Mesa without session", async () => {
     const store = new MemoryInboundStore();
     store.lines.set("inspectoria", { ...line });
 
@@ -39,9 +39,37 @@ describe("ingestInboundEvent", () => {
     expect(store.messages.size).toBe(1);
     expect(store.conversations.size).toBe(1);
     expect(store.citizens.size).toBe(1);
-    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
+    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(0);
+    expect(typeof first.body.conversationId).toBe("string");
+    expect(store.reopenCalls).toContain(String(first.body.conversationId));
     expect(second.body.duplicate).toBe(true);
-    expect(first.body.conversationId).toBeTruthy();
+  });
+
+  it("enqueues process_inbound when conversation area is Inspectoría", async () => {
+    const store = new MemoryInboundStore();
+    store.lines.set("inspectoria", { ...line });
+    const original = store.persistInbound.bind(store);
+    store.persistInbound = async (params) => {
+      const result = await original(params);
+      if (result.status !== "ignored") {
+        const conversation = [...store.conversations.values()].find(
+          (row) => row.id === result.conversationId,
+        );
+        if (conversation) conversation.areaName = "Inspectoría";
+      }
+      return result;
+    };
+
+    await ingestInboundEvent(store, { ...baseEvent, externalId: "insp-1" }, "secret");
+    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
+  });
+
+  it("enqueues process_inbound on Mesa when an open registration session exists", async () => {
+    const store = new MemoryInboundStore();
+    store.lines.set("inspectoria", { ...line });
+    store.registrationSessions.add(`${line.lineId}:${baseEvent.phoneNormalized}`);
+    await ingestInboundEvent(store, { ...baseEvent, externalId: "sess-1" }, "secret");
+    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
   });
 
   it("returns 503 when line webhook secret is not configured", async () => {

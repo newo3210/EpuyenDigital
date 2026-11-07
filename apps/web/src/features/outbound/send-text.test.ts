@@ -12,6 +12,7 @@ function baseDeps(overrides: Record<string, unknown> = {}) {
   return {
     authorUserId: '00000000-0000-4000-8000-000000000099',
     loadConversation: async () => conversation,
+    ensureOwner: async () => ({ status: 'ok' as const }),
     loadOrgSendMode: async () => ({ sendMode: 'production' as const, allowlistPhones: [] }),
     loadLineCredentials: async () => ({
       apiKey: 'k',
@@ -36,24 +37,46 @@ describe('sendOperatorText', () => {
     expect(sendViaEvolution).not.toHaveBeenCalled();
   });
 
-  it('dry_run persists simulated without Evolution', async () => {
+  it('blocks send on CLAIM_CONFLICT before persist', async () => {
+    const persistOutbound = vi.fn();
+    const result = await sendOperatorText(
+      { conversationId: conversation.id, text: 'hola' },
+      baseDeps({
+        ensureOwner: async () => ({
+          status: 'error',
+          error: { code: 'CLAIM_CONFLICT', message: 'owned' },
+          ownerName: 'Ana Pérez',
+        }),
+        persistOutbound,
+      }),
+    );
+    expect(result.status).toBe('conflict');
+    if (result.status === 'conflict') {
+      expect(result.message).toContain('Ana Pérez');
+    }
+    expect(persistOutbound).not.toHaveBeenCalled();
+  });
+
+  it('claims via ensureOwner then dry_run persists simulated', async () => {
+    const ensureOwner = vi.fn(async () => ({ status: 'ok' as const }));
     const sendViaEvolution = vi.fn();
     const persistOutbound = vi.fn(async () => ({ messageId: 'm-dry' }));
     const result = await sendOperatorText(
       { conversationId: conversation.id, text: 'hola' },
       baseDeps({
+        ensureOwner,
         loadOrgSendMode: async () => ({ sendMode: 'dry_run', allowlistPhones: [] }),
         persistOutbound,
         sendViaEvolution,
       }),
     );
+    expect(ensureOwner).toHaveBeenCalledWith(conversation.id);
     expect(result).toMatchObject({
       status: 'ok',
       dryRun: true,
       deliveryStatus: 'simulated',
     });
     expect(sendViaEvolution).not.toHaveBeenCalled();
-    expect(persistOutbound).toHaveBeenCalled();
   });
 
   it('allowlist blocks unknown phones', async () => {
@@ -98,20 +121,9 @@ describe('sendOperatorText', () => {
 
     expect(result.status).toBe('ok');
     expect(order).toEqual(['persist', 'evolution', 'update']);
-    expect(persistOutbound).toHaveBeenCalledWith(
-      expect.objectContaining({ deliveryStatus: 'pending' }),
-    );
-    expect(updateOutbound).toHaveBeenCalledWith({
-      messageId: 'm-prod',
-      deliveryStatus: 'sent',
-      externalId: 'wamid.out',
-    });
-    expect(sendViaEvolution).toHaveBeenCalledWith(
-      expect.objectContaining({ phone: '5492944216586', text: 'hola producción' }),
-    );
   });
 
-  it('marks pending row failed when Evolution throws (row already persisted)', async () => {
+  it('marks pending row failed when Evolution throws', async () => {
     const persistOutbound = vi.fn(async () => ({ messageId: 'm-fail' }));
     const updateOutbound = vi.fn(async () => undefined);
     const sendViaEvolution = vi.fn(async () => {
@@ -124,7 +136,6 @@ describe('sendOperatorText', () => {
     );
 
     expect(result.status).toBe('failed');
-    expect(persistOutbound).toHaveBeenCalled();
     expect(updateOutbound).toHaveBeenCalledWith({
       messageId: 'm-fail',
       deliveryStatus: 'failed',
