@@ -43,7 +43,7 @@
 
 ## 6. Close loop (director)
 
-- [ ] 6.1 Mechanical verify
-- [ ] 6.2 Acceptance matrix
-- [ ] 6.3 Adversarial (+ fix loop)
+- [x] 6.1 Mechanical verify — `reports/verify-mechanical.md` **PASS WITH GAPS**
+- [x] 6.2 Acceptance matrix — `reports/acceptance-matrix.md`
+- [ ] 6.3 Adversarial (+ fix loop) — launched
 - [ ] 6.4 Human OK → archive + PR merge
