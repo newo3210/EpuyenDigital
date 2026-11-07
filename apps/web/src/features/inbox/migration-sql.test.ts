@@ -57,8 +57,21 @@ describe('mesa-entrada-inbox migration SQL', () => {
   it('defines SLA helpers and FIFO indexes', () => {
     expect(sql).toContain('create or replace function public.business_minutes_between');
     expect(sql).toContain('create or replace function public.compute_conversation_sla_status');
+    expect(sql).toContain('create or replace function public.add_business_minutes');
+    expect(sql).toContain('public.add_business_minutes(v_org_id, v_entered, v_crit)');
     expect(sql).toContain('conversations_fifo_unowned_idx');
     expect(sql).toContain('add column if not exists business_hours');
+  });
+
+  it('authorizes current owner in lock_conversation_for_transition', () => {
+    expect(sql).toMatch(
+      /Admin \/ current owner always[\s\S]*?v_row\.owner_user_id is distinct from v_uid[\s\S]*?conversation_area_accessible/,
+    );
+  });
+
+  it('captures from_area before area update on delegate', () => {
+    expect(sql).toContain('v_from_area := v_row.area_id');
+    expect(sql).toContain('case when p_target_area_id is not null then v_from_area else null end');
   });
 
   it('seeds municipal quick replies and publishes realtime tables', () => {

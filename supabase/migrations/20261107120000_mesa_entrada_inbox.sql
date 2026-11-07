@@ -367,7 +367,120 @@ revoke execute on function public.compute_conversation_sla_status(uuid, timestam
 grant execute on function public.compute_conversation_sla_status(uuid, timestamptz)
   to authenticated, service_role;
 
--- Refresh sla_due_at using area critical minutes as due clock (calendar when no hours)
+-- add_business_minutes: advance wall clock by N business minutes (matches business_minutes_between)
+create or replace function public.add_business_minutes(
+  p_org_id uuid,
+  p_from timestamptz,
+  p_minutes integer
+)
+returns timestamptz
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_hours jsonb;
+  v_holidays date[];
+  v_tz text := 'America/Argentina/Buenos_Aires';
+  v_cursor timestamptz := p_from;
+  v_remaining integer := greatest(0, coalesce(p_minutes, 0));
+  v_day date;
+  v_dow text;
+  v_ranges jsonb;
+  v_range jsonb;
+  v_start_local time;
+  v_end_local time;
+  v_day_start timestamptz;
+  v_day_end timestamptz;
+  v_seg_start timestamptz;
+  v_seg_end timestamptz;
+  v_avail integer;
+  v_guard integer := 0;
+begin
+  if v_remaining = 0 then
+    return p_from;
+  end if;
+
+  select o.timezone into v_tz
+  from public.organizations o
+  where o.id = p_org_id;
+  if v_tz is null or length(trim(v_tz)) = 0 then
+    v_tz := 'America/Argentina/Buenos_Aires';
+  end if;
+
+  select coalesce(os.business_hours, '{}'::jsonb), coalesce(os.holidays, '{}')
+  into v_hours, v_holidays
+  from public.org_settings os
+  where os.org_id = p_org_id;
+
+  if v_hours is null or v_hours = '{}'::jsonb then
+    return p_from + make_interval(mins => v_remaining);
+  end if;
+
+  while v_remaining > 0 and v_guard < 800 loop
+    v_guard := v_guard + 1;
+    v_day := (v_cursor at time zone v_tz)::date;
+    if v_holidays is not null and v_day = any (v_holidays) then
+      v_cursor := ((v_day + 1)::timestamp at time zone v_tz);
+      continue;
+    end if;
+
+    v_dow := case extract(isodow from v_day)
+      when 1 then 'mon'
+      when 2 then 'tue'
+      when 3 then 'wed'
+      when 4 then 'thu'
+      when 5 then 'fri'
+      when 6 then 'sat'
+      else 'sun'
+    end;
+
+    v_ranges := coalesce(v_hours -> v_dow, '[]'::jsonb);
+    if jsonb_typeof(v_ranges) <> 'array' or jsonb_array_length(v_ranges) = 0 then
+      v_cursor := ((v_day + 1)::timestamp at time zone v_tz);
+      continue;
+    end if;
+
+    for v_range in select * from jsonb_array_elements(v_ranges)
+    loop
+      exit when v_remaining <= 0;
+      v_start_local := (v_range ->> 'start')::time;
+      v_end_local := (v_range ->> 'end')::time;
+      if v_start_local is null or v_end_local is null or v_end_local <= v_start_local then
+        continue;
+      end if;
+      v_day_start := ((v_day::text || ' ' || v_start_local::text)::timestamp at time zone v_tz);
+      v_day_end := ((v_day::text || ' ' || v_end_local::text)::timestamp at time zone v_tz);
+      v_seg_start := greatest(v_cursor, v_day_start);
+      v_seg_end := v_day_end;
+      if v_seg_end <= v_seg_start then
+        continue;
+      end if;
+      v_avail := floor(extract(epoch from (v_seg_end - v_seg_start)) / 60)::integer;
+      if v_avail <= 0 then
+        continue;
+      end if;
+      if v_remaining <= v_avail then
+        return v_seg_start + make_interval(mins => v_remaining);
+      end if;
+      v_remaining := v_remaining - v_avail;
+      v_cursor := v_seg_end;
+    end loop;
+
+    v_cursor := ((v_day + 1)::timestamp at time zone v_tz);
+  end loop;
+
+  return v_cursor;
+end;
+$$;
+
+revoke execute on function public.add_business_minutes(uuid, timestamptz, integer)
+  from public, anon;
+grant execute on function public.add_business_minutes(uuid, timestamptz, integer)
+  to authenticated, service_role;
+
+-- Refresh sla_due_at using area critical minutes as business-minute due clock
 create or replace function public.refresh_conversation_sla_due(p_conversation_id uuid)
 returns void
 language plpgsql
@@ -399,7 +512,7 @@ begin
   end if;
 
   update public.conversations
-  set sla_due_at = v_entered + make_interval(mins => v_crit)
+  set sla_due_at = public.add_business_minutes(v_org_id, v_entered, v_crit)
   where id = p_conversation_id;
 end;
 $$;
@@ -445,8 +558,9 @@ begin
             detail = 'WRONG_ORG';
   end if;
 
-  -- Admin always; else area membership OR pending delegation targeting caller
+  -- Admin / current owner always; else area membership OR pending delegation targeting caller
   if v_role <> 'admin'
+     and v_row.owner_user_id is distinct from v_uid
      and not public.conversation_area_accessible(v_row.area_id)
      and not (
        v_row.awaiting_acceptance
@@ -756,6 +870,7 @@ declare
   v_uid uuid := auth.uid();
   v_event uuid;
   v_target_org uuid;
+  v_from_area uuid;
 begin
   v_row := public.lock_conversation_for_transition(p_conversation_id);
 
@@ -784,6 +899,9 @@ begin
       using errcode = '22023',
             detail = 'NOTE_REQUIRED';
   end if;
+
+  -- Capture source area before any update so DELEGATED audit keeps correct from_area_id.
+  v_from_area := v_row.area_id;
 
   if p_target_user_id is not null then
     if p_target_user_id = v_uid then
@@ -832,7 +950,7 @@ begin
   v_event := public.insert_conversation_event(
     v_row.org_id, v_row.id, 'DELEGATED', 'operator', v_uid,
     null, null,
-    case when p_target_area_id is not null then v_row.area_id else null end,
+    case when p_target_area_id is not null then v_from_area else null end,
     p_target_area_id,
     trim(p_note),
     jsonb_build_object(

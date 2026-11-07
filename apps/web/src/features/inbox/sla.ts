@@ -61,6 +61,22 @@ function zonedParts(date: Date, timeZone: string): { ymd: string; minutes: numbe
   };
 }
 
+/** Next local calendar day start after `date` in `timeZone` (zoned midnight walk). */
+function nextLocalMidnight(date: Date, timeZone: string): Date {
+  const ymd = ymdInTz(date, timeZone);
+  let lo = date.getTime();
+  let hi = date.getTime() + 36 * 60 * 60 * 1000;
+  while (ymdInTz(new Date(hi), timeZone) === ymd) {
+    hi += 12 * 60 * 60 * 1000;
+  }
+  while (hi - lo > 30_000) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (ymdInTz(new Date(mid), timeZone) === ymd) lo = mid;
+    else hi = mid;
+  }
+  return new Date(hi);
+}
+
 // businessMinutesBetween - counts only configured ranges; empty hours → calendar minutes.
 export function businessMinutesBetween(params: {
   from: Date;
@@ -80,15 +96,14 @@ export function businessMinutesBetween(params: {
 
   const holidays = new Set(params.holidays ?? []);
   let total = 0;
-  const cursor = new Date(from.getTime());
-  // Walk calendar days in org TZ by advancing 24h from local midnight approximations.
+  let cursor = new Date(from.getTime());
   let guard = 0;
   while (cursor < to && guard < 400) {
     guard += 1;
     const key = dayKeyInTz(cursor, timeZone);
     const ymd = ymdInTz(cursor, timeZone);
     if (holidays.has(ymd)) {
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
+      cursor = nextLocalMidnight(cursor, timeZone);
       continue;
     }
     const ranges = hours[key] ?? [];
@@ -97,20 +112,55 @@ export function businessMinutesBetween(params: {
       const startMin = parseHm(range.start);
       const endMin = parseHm(range.end);
       if (startMin == null || endMin == null || endMin <= startMin) continue;
-      const segStart = Math.max(dayParts.minutes, startMin);
-      // Compare against `to` in same local day minutes when same ymd.
       const toParts = zonedParts(to, timeZone);
-      const endCap = toParts.ymd === ymd ? Math.min(toParts.minutes, endMin) : endMin;
       const fromParts = zonedParts(from, timeZone);
+      const endCap = toParts.ymd === ymd ? Math.min(toParts.minutes, endMin) : endMin;
       const startCap = fromParts.ymd === ymd ? Math.max(fromParts.minutes, startMin) : startMin;
-      const localStart = Math.max(segStart, startCap);
+      const localStart = Math.max(dayParts.minutes, startCap, startMin);
       const localEnd = endCap;
       if (localEnd > localStart) total += localEnd - localStart;
     }
-    // Advance to next local day: jump ~26h then snap via day key change.
-    cursor.setTime(cursor.getTime() + 24 * 60 * 60 * 1000);
+    cursor = nextLocalMidnight(cursor, timeZone);
   }
   return total;
+}
+
+/**
+ * Advance wall clock by N business minutes (aligned with businessMinutesBetween /
+ * SQL add_business_minutes). Empty hours → calendar add.
+ */
+export function addBusinessMinutes(params: {
+  from: Date;
+  minutes: number;
+  businessHours?: BusinessHours | null;
+  holidays?: string[] | null;
+  timeZone?: string;
+}): Date {
+  const minutes = Math.max(0, Math.floor(params.minutes));
+  if (minutes === 0) return new Date(params.from.getTime());
+  const hours = params.businessHours ?? {};
+  const hasRanges = DOW_KEYS.some((k) => (hours[k]?.length ?? 0) > 0);
+  if (!hasRanges) {
+    return new Date(params.from.getTime() + minutes * 60_000);
+  }
+
+  // Binary search the earliest `to` where elapsed business minutes >= target.
+  // Upper bound: calendar minutes * ~4 to absorb overnight/weekend gaps, min 14d.
+  let lo = params.from.getTime();
+  let hi = params.from.getTime() + Math.max(minutes * 4, 14 * 24 * 60) * 60_000;
+  for (let i = 0; i < 48; i += 1) {
+    const mid = new Date(Math.floor((lo + hi) / 2));
+    const elapsed = businessMinutesBetween({
+      from: params.from,
+      to: mid,
+      businessHours: params.businessHours,
+      holidays: params.holidays,
+      timeZone: params.timeZone,
+    });
+    if (elapsed >= minutes) hi = mid.getTime();
+    else lo = mid.getTime();
+  }
+  return new Date(hi);
 }
 
 // computeSlaStatus - ok / warning / critical from area minutes + business elapsed.
