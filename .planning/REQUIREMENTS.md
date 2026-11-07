@@ -43,12 +43,12 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 - [x] **INB-06**: Operador dueño puede mover la conversación entre columnas (tomada, en curso, esperando externo) y resolverla
 - [x] **INB-07**: Si el vecino escribe sobre una conversación resuelta, vuelve a la cola como nueva
 - [x] **INB-08**: Cada conversación muestra su línea de eventos (derivación del bot, tomada, movida, delegada, aceptada, rechazada, resuelta, reabierta) con actor y fecha/hora
-- [x] **INB-09**: La cola y el hilo se actualizan en tiempo real sin recargar *(código + publication; live E2E NO_DOCKER)*
+- [~] **INB-09**: La cola y el hilo se actualizan en tiempo real sin recargar *(código + publication + filtros; live E2E / Realtime RLS NO_DOCKER)*
 - [x] **INB-10**: Cada tarjeta muestra flags: fecha/hora del último mensaje, registrado / no registrado, dueño, área, delegación pendiente, necesita respuesta, SLA (ok / aviso / crítico), bot activo / pausado, tiene adjuntos
 - [x] **INB-11**: Operador puede filtrar la cola por área, línea, dueño, "esperando mi aceptación", "sin responder" y "con adjuntos"
 - [x] **INB-12**: El sistema registra leído / no leído por conversación y por operador
 - [x] **INB-13**: Operador puede usar respuestas rápidas (plantillas municipales) desde el composer
-- [x] **INB-14**: Operador recibe aviso en el panel (badge + sonido opcional) cuando entra un mensaje nuevo o le delegan algo *(código; live E2E NO_DOCKER)*
+- [~] **INB-14**: Operador recibe aviso en el panel (badge + sonido opcional) cuando entra un mensaje nuevo o le delegan algo *(código badge inbound/delegation-to-self; live E2E NO_DOCKER)*
 - [x] **INB-15**: El SLA se configura por área y cuenta solo horario hábil
 
 ### Pobladores (POB)

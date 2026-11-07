@@ -42,8 +42,10 @@ Citizen → Evolution → POST /api/webhooks/evolution
   → persist message + conversation
   → denorm inquiry lat/lng on conversation (never citizens GPS)
   → reopen_conversation if resolved
-  → pet process_inbound only if area is Inspectoría OR open registration session
-  → realtime notifies panel
+  → pet process_inbound if open registration session OR Evolution instance/line name
+    looks like Inspectoría OR conversation area is Inspectoría
+    (Mesa-only instance without session skips pet; seeded `inspectoria` line still starts registration)
+  → realtime notifies panel (org-filtered; badge inbound / delegation-to-self)
 ```
 
 ### 3.2 Operator triage / outbound
@@ -69,9 +71,9 @@ Migration `20261107120000_mesa_entrada_inbox.sql`:
 - Tables: `conversation_events`, `conversation_reads`, `quick_replies` (+ municipal seed)
 - Columns: `conversations.inquiry_*`, `last_message_preview`, `has_attachments`; `org_settings.business_hours/holidays/bot_paused`
 - RPCs: `claim_conversation`, `delegate_conversation`, `accept/reject_conversation_delegation`, `ensure_owner_for_reply`, `move_conversation`, `resolve_conversation`, `reopen_conversation`, `set_conversation_area`, `mark_conversation_read`
-- Helpers: `business_minutes_between`, `compute_conversation_sla_status`
-- RLS: conversations/messages via `current_area_ids()` + admin + delegation visibility
-- Realtime publication: conversations, messages, conversation_events
+- Helpers: `business_minutes_between`, `add_business_minutes`, `compute_conversation_sla_status`, `refresh_conversation_sla_due` (business-minute due)
+- RLS: conversations/messages via `current_area_ids()` + admin + delegation visibility; lock helper also authorizes current `owner_user_id`
+- Realtime publication: conversations, messages, conversation_events (client filters `org_id`; badge inbound/delegation-to-self; **Realtime RLS must be enabled** in the Supabase project)
 
 ## 6. AI / LLM boundaries
 
@@ -80,8 +82,9 @@ Migration `20261107120000_mesa_entrada_inbox.sql`:
 ## 7. Error handling
 
 - Ownership races → `CLAIM_CONFLICT` (mapped to es-AR toast with owner name).
+- `ensureOwner` FORBIDDEN / INVALID_STATE / NOT_FOUND mapped distinctly in send-text (not as “owned by other”).
 - Webhook secret fail-closed unchanged.
-- Pet gate skips `process_inbound` on Mesa without registration session (documented product rule).
+- Pet gate: enqueue when instance/line/area is Inspectoría or open session; skip only Mesa-only lines without session.
 
 ## 8. Local environment
 

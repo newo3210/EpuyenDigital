@@ -29,7 +29,8 @@ Progress: [██████░░░░] ~45% (foundation + areas + WA channel
 
 ### Decisions
 
-- [2026-11-07 inbox]: SQL transitions + CLAIM_CONFLICT; dual inquiry coords; pet process_inbound gated to Inspectoría or open session; SLA business hours with calendar fallback; realtime postgres_changes
+- [2026-11-07 inbox]: SQL transitions + CLAIM_CONFLICT; dual inquiry coords; pet process_inbound gated by instance/line/area Inspectoría or open session; SLA due via add_business_minutes; realtime org-filtered badge inbound/delegation-to-self
+- [2026-11-07 inbox adversarial round1]: Fixed pet gate Blocker + Majors (area UI, cross-area lock/picker, SLA due, realtime, INB [~])
 - [2026-11-06 areas]: Temp password once; admin-only writes; last-admin + advisory lock; email on profiles; SLA columns; default area swap
 - [2026-11-06 WA]: Channel before inbox; conversations; encrypted secrets; shared line default Mesa
 
@@ -43,7 +44,8 @@ Progress: [██████░░░░] ~45% (foundation + areas + WA channel
 ### Blockers/Concerns
 
 - Agent env sin Docker/Podman for live SQL/E2E (honest NO_DOCKER reports)
-- Pet gate changes prior “always enqueue process_inbound” behavior on Mesa without session
+- Pet gate: Mesa-only instance without session skips process_inbound; seeded inspectoria instance still enqueues on first contact
+- Realtime RLS must be enabled in Supabase project (NO_DOCKER residual)
 
 ### Process
 

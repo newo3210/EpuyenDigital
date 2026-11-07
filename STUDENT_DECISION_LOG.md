@@ -39,8 +39,9 @@ Operador → /inbox (FIFO unowned-first)
 
 ```text
 Vecino escribe sobre resuelta → reopen_conversation → cola new
-Inbound Mesa sin sesión de registro → no encola process_inbound
-Inbound Inspectoría o con sesión → process_inbound (bot de mascotas)
+Inbound en instancia/línea Inspectoría (p. ej. seed `inspectoria`) → process_inbound aunque el área default sea Mesa
+Inbound área Inspectoría o con sesión abierta → process_inbound
+Inbound en línea solo-Mesa sin sesión → no encola process_inbound (triage)
 ```
 
 ### 2.3 Composer

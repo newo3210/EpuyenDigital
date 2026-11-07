@@ -50,10 +50,10 @@
 
 ## 7. Adversarial fix loop (post FAIL 2026-11-07)
 
-- [ ] 7.1 **Blocker:** Fix pet gate chicken-and-egg — first-contact Inspectoría registration on shared Mesa-default line (gate by instance/session/area Inspectoría); scenario + test
-- [ ] 7.2 **Major:** Area delegation UI — Claim when awaiting+pending_area and caller in area; Reject for area_lead/admin
-- [ ] 7.3 **Major:** Cross-area user delegate — restrict targets to area members OR authorize owner in lock; map FORBIDDEN in send-text
-- [ ] 7.4 **Major:** Align `sla_due_at` with business minutes; extend SLA tests
-- [ ] 7.5 **Major:** Tighten realtime filters; badge inbound/delegation-to-self; document Realtime RLS
-- [ ] 7.6 **Major/docs:** Soften INB REQUIREMENTS `[~]` where live-only; minors (set-area visibility, DELEGATED from_area, OwnershipError mapping)
+- [x] 7.1 **Blocker:** Fix pet gate chicken-and-egg — first-contact Inspectoría registration on shared Mesa-default line (gate by instance/session/area Inspectoría); scenario + test — `decideShouldEnqueuePetProcessInbound`; ingest test enqueues on `inspectoria` + Mesa area; Mesa-only instance skips
+- [x] 7.2 **Major:** Area delegation UI — Claim when awaiting+pending_area and caller in area; Reject for area_lead/admin — `thread-actions.tsx` + thread page memberships
+- [x] 7.3 **Major:** Cross-area user delegate — restrict targets to area members OR authorize owner in lock; map FORBIDDEN in send-text — picker filtered by `area_members`; lock allows `owner_user_id`; send-text maps codes
+- [x] 7.4 **Major:** Align `sla_due_at` with business minutes; extend SLA tests — SQL `add_business_minutes` + TS `addBusinessMinutes`; lunch/holiday/overnight tests
+- [x] 7.5 **Major:** Tighten realtime filters; badge inbound/delegation-to-self; document Realtime RLS — `inbox-realtime.tsx` org_id + inbound/delegation badge; note in `reports/adversarial-fixes-round1.md`
+- [x] 7.6 **Major/docs:** Soften INB REQUIREMENTS `[~]` where live-only; minors (set-area visibility, DELEGATED from_area, OwnershipError mapping) — INB-09/14 `[~]`; set-area `isOwner||isAdmin`; `v_from_area` before update
 - [ ] 7.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major
