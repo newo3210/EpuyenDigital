@@ -30,16 +30,38 @@ export type InboundStore = {
   /** Reopen resolved conversations on citizen inbound (INB-07). */
   reopenIfResolved?(conversationId: string): Promise<void>;
   /**
-   * Pet process_inbound gate: true when area is Inspectoría or an open
-   * registration session exists for the phone (shared-line coexistence).
+   * Pet process_inbound gate — see decideShouldEnqueuePetProcessInbound.
    */
   shouldEnqueuePetProcessInbound?(params: {
     orgId: string;
     lineId: string;
     phoneNormalized: string;
     conversationId: string;
+    evolutionInstance: string;
   }): Promise<boolean>;
 };
+
+/**
+ * Pet enqueue rule for shared Mesa/Inspectoría line coexistence.
+ * True when: open registration session, Evolution instance/line name looks like
+ * Inspectoría, or conversation area is Inspectoría. False only for clearly
+ * Mesa-only lines (non-inspectoria instance) with Mesa area and no session.
+ */
+export function decideShouldEnqueuePetProcessInbound(params: {
+  evolutionInstance: string;
+  lineName?: string | null;
+  areaName?: string | null;
+  hasOpenSession: boolean;
+}): boolean {
+  if (params.hasOpenSession) return true;
+  const instance = params.evolutionInstance.toLowerCase();
+  if (instance.includes("inspector")) return true;
+  const lineName = String(params.lineName ?? "").toLowerCase();
+  if (lineName.includes("inspector")) return true;
+  const areaName = String(params.areaName ?? "").toLowerCase();
+  if (areaName.includes("inspector")) return true;
+  return false;
+}
 
 const MEDIA_KINDS = new Set(["image", "audio", "video", "document", "sticker"]);
 
@@ -150,13 +172,21 @@ export class MemoryInboundStore implements InboundStore {
     lineId: string;
     phoneNormalized: string;
     conversationId: string;
+    evolutionInstance: string;
   }): Promise<boolean> {
+    let areaName: string | null = null;
     for (const conversation of this.conversations.values()) {
-      if (conversation.id !== params.conversationId) continue;
-      if ((conversation.areaName ?? "").toLowerCase().includes("inspector")) return true;
+      if (conversation.id === params.conversationId) {
+        areaName = conversation.areaName ?? null;
+        break;
+      }
     }
     const sessionKey = `${params.lineId}:${params.phoneNormalized}`;
-    return this.registrationSessions.has(sessionKey);
+    return decideShouldEnqueuePetProcessInbound({
+      evolutionInstance: params.evolutionInstance,
+      areaName,
+      hasOpenSession: this.registrationSessions.has(sessionKey),
+    });
   }
 
   async applyDeliveryAck(params: {
@@ -267,6 +297,7 @@ export async function ingestInboundEvent(
         lineId: line.lineId,
         phoneNormalized: event.phoneNormalized,
         conversationId: persisted.conversationId,
+        evolutionInstance: line.instance,
       }));
 
     if (enqueuePet) {

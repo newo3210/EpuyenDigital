@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EvolutionWebhook } from "@epuyen/shared";
 import {
+  decideShouldEnqueuePetProcessInbound,
   ingestDeliveryAck,
   ingestInboundEvent,
   MemoryInboundStore,
@@ -12,6 +13,12 @@ const line = {
   instance: "inspectoria",
   webhookSecret: "secret",
   defaultAreaId: "00000000-0000-4000-8000-000000000010",
+} as const;
+
+const mesaOnlyLine = {
+  ...line,
+  lineId: "00000000-0000-4000-8000-000000000003",
+  instance: "mesa-entrada",
 } as const;
 
 const baseEvent: EvolutionWebhook = {
@@ -26,8 +33,61 @@ const baseEvent: EvolutionWebhook = {
   text: "hola",
 };
 
+describe("decideShouldEnqueuePetProcessInbound", () => {
+  it("enqueues when Evolution instance is inspectoria (seeded shared line)", () => {
+    expect(
+      decideShouldEnqueuePetProcessInbound({
+        evolutionInstance: "inspectoria",
+        areaName: "Mesa de Entrada",
+        hasOpenSession: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("skips only for Mesa-only instance without session or Inspectoría area", () => {
+    expect(
+      decideShouldEnqueuePetProcessInbound({
+        evolutionInstance: "mesa-entrada",
+        areaName: "Mesa de Entrada",
+        hasOpenSession: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("enqueues on Mesa-only instance when open session exists", () => {
+    expect(
+      decideShouldEnqueuePetProcessInbound({
+        evolutionInstance: "mesa-entrada",
+        areaName: "Mesa de Entrada",
+        hasOpenSession: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("enqueues when conversation area is Inspectoría", () => {
+    expect(
+      decideShouldEnqueuePetProcessInbound({
+        evolutionInstance: "mesa-entrada",
+        areaName: "Inspectoría",
+        hasOpenSession: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("enqueues when line name contains inspector", () => {
+    expect(
+      decideShouldEnqueuePetProcessInbound({
+        evolutionInstance: "shared-1",
+        lineName: "Inspectoría",
+        areaName: "Mesa de Entrada",
+        hasOpenSession: false,
+      }),
+    ).toBe(true);
+  });
+});
+
 describe("ingestInboundEvent", () => {
-  it("persists once, upserts conversation, and skips pet enqueue on Mesa without session", async () => {
+  it("persists once and enqueues process_inbound on first Mesa-default inbound for inspectoria instance", async () => {
     const store = new MemoryInboundStore();
     store.lines.set("inspectoria", { ...line });
 
@@ -39,15 +99,28 @@ describe("ingestInboundEvent", () => {
     expect(store.messages.size).toBe(1);
     expect(store.conversations.size).toBe(1);
     expect(store.citizens.size).toBe(1);
-    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(0);
+    // Seeded line instance=inspectoria → first contact can start pet registration
+    // even while conversation.default area is Mesa.
+    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
     expect(typeof first.body.conversationId).toBe("string");
     expect(store.reopenCalls).toContain(String(first.body.conversationId));
     expect(second.body.duplicate).toBe(true);
   });
 
+  it("skips process_inbound on Mesa-only line without session (triage-only)", async () => {
+    const store = new MemoryInboundStore();
+    store.lines.set("mesa-entrada", { ...mesaOnlyLine });
+    await ingestInboundEvent(
+      store,
+      { ...baseEvent, instance: "mesa-entrada", externalId: "mesa-1" },
+      "secret",
+    );
+    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(0);
+  });
+
   it("enqueues process_inbound when conversation area is Inspectoría", async () => {
     const store = new MemoryInboundStore();
-    store.lines.set("inspectoria", { ...line });
+    store.lines.set("mesa-entrada", { ...mesaOnlyLine });
     const original = store.persistInbound.bind(store);
     store.persistInbound = async (params) => {
       const result = await original(params);
@@ -60,15 +133,23 @@ describe("ingestInboundEvent", () => {
       return result;
     };
 
-    await ingestInboundEvent(store, { ...baseEvent, externalId: "insp-1" }, "secret");
+    await ingestInboundEvent(
+      store,
+      { ...baseEvent, instance: "mesa-entrada", externalId: "insp-1" },
+      "secret",
+    );
     expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
   });
 
   it("enqueues process_inbound on Mesa when an open registration session exists", async () => {
     const store = new MemoryInboundStore();
-    store.lines.set("inspectoria", { ...line });
-    store.registrationSessions.add(`${line.lineId}:${baseEvent.phoneNormalized}`);
-    await ingestInboundEvent(store, { ...baseEvent, externalId: "sess-1" }, "secret");
+    store.lines.set("mesa-entrada", { ...mesaOnlyLine });
+    store.registrationSessions.add(`${mesaOnlyLine.lineId}:${baseEvent.phoneNormalized}`);
+    await ingestInboundEvent(
+      store,
+      { ...baseEvent, instance: "mesa-entrada", externalId: "sess-1" },
+      "secret",
+    );
     expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
   });
 

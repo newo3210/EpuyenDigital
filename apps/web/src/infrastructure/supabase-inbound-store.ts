@@ -6,7 +6,12 @@ import {
   type EvolutionWebhook,
   type JobPayload,
 } from "@epuyen/shared";
-import type { InboundStore, LineContext, PersistResult } from "./inbound-repository";
+import {
+  decideShouldEnqueuePetProcessInbound,
+  type InboundStore,
+  type LineContext,
+  type PersistResult,
+} from "./inbound-repository";
 
 // Supabase inbound store - service-role persist, conversation upsert, job enqueue
 
@@ -149,7 +154,9 @@ export class SupabaseInboundStore implements InboundStore {
     lineId: string;
     phoneNormalized: string;
     conversationId: string;
+    evolutionInstance: string;
   }): Promise<boolean> {
+    let areaName: string | null = null;
     const { data: conversation } = await this.client
       .from("conversations")
       .select("area_id")
@@ -162,9 +169,16 @@ export class SupabaseInboundStore implements InboundStore {
         .select("name")
         .eq("id", conversation.area_id as string)
         .maybeSingle();
-      const areaName = String(area?.name ?? "").toLowerCase();
-      if (areaName.includes("inspector")) return true;
+      areaName = (area?.name as string | undefined) ?? null;
     }
+
+    let lineName: string | null = null;
+    const { data: line } = await this.client
+      .from("whatsapp_lines")
+      .select("name")
+      .eq("id", params.lineId)
+      .maybeSingle();
+    lineName = (line?.name as string | undefined) ?? null;
 
     const { data: session } = await this.client
       .from("registration_sessions")
@@ -175,7 +189,12 @@ export class SupabaseInboundStore implements InboundStore {
       .limit(1)
       .maybeSingle();
 
-    return Boolean(session?.id);
+    return decideShouldEnqueuePetProcessInbound({
+      evolutionInstance: params.evolutionInstance,
+      lineName,
+      areaName,
+      hasOpenSession: Boolean(session?.id),
+    });
   }
 
   async applyDeliveryAck(params: {
