@@ -4,124 +4,92 @@
 > **Location:** repository root `ARCHITECTURE_SDD.md`.
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
-**Last updated:** 2026-11-06  
-**Related OpenSpec change:** `openspec/changes/whatsapp-channel-core/`
+**Last updated:** 2026-11-07  
+**Related OpenSpec change:** `openspec/changes/mesa-entrada-inbox/`
 
 ---
 
 ## 1. System overview
 
-"Mesa de Entrada Digital" is a web messaging panel for the Municipality of Epuyén. Citizens write through WhatsApp (Evolution API). Operators work a **channel thread list + composer** now; full triage (claim/delegate/SLA/realtime) remains `mesa-entrada-inbox`. Verticals such as Inspectoría run area workflows on the **same** WhatsApp line initially (`+5492944216586`), with line `default_area_id` → Mesa de Entrada.
+"Mesa de Entrada Digital" is a web messaging panel for the Municipality of Epuyén. Citizens write through WhatsApp (Evolution API). Operators triage a **FIFO unowned-first queue** with claim/delegate, SLA colors, realtime badges, quick replies, delivery ticks, and inquiry map pins.
 
 **Integrated baseline:**
 
-- **Foundation** (archived): operator auth, org tenancy helpers, profiles, error tracking, panel shell.
-- **Inspectoría pet registry** (main): Evolution webhook, worker jobs, registration state machine, animal tables.
-- **Areas + operators admin** (archived): `areas` / `area_members`, profile email/deactivation, admin UI.
-- **WhatsApp channel core** (this change): `conversations`, encrypted line secrets, inbound hardenings, delivery ACK persistence, admin `/settings/lines`, minimal inbox list/thread/composer with `send_mode` guard.
+- Foundation, areas/operators admin, WhatsApp channel core (conversations, encrypted secrets, composer).
+- **Mesa de Entrada inbox (this change):** SQL transition RPCs, `conversation_events`, read state, quick replies, area RLS via `current_area_ids()`, SLA helpers, queue UI, realtime, dual inquiry coords, optional pet `process_inbound` gate.
 
 **Deferred follow-ups:**
 
-- `mesa-entrada-inbox` — claim/delegate/realtime/SLA filters, delivery ticks UI polish, dual coords map UI, `current_area_ids()` on conversations RLS.
-- Do **not** overload `citizens.latitude/longitude` (pet registration GPS) with mesa inquiry pins (inquiry coords live on `messages`).
+- LLM auto-routing / RAG bot (Phase 6)
+- Full POB CRUD; tasks epic; WA media outbound composer
+- Live Docker DB proof when containers available
 
 ## 2. Layer mapping (this project)
 
 | Conceptual layer | Paths in this repo | Notes |
 |---|---|---|
-| Presentation / HTTP thin | `(panel)/settings/lines`, `(panel)/inbox/**`, `api/webhooks/evolution/**`, `presentation/whatsapp/**` | Thin pages/forms; admin-only lines nav. |
-| Application / services | `features/whatsapp-lines/**`, `features/outbound/**`, `features/conversations/**` (repos), worker jobs | Line CRUD/test; send-text; ingest + ACK. |
-| Infrastructure / repositories | `infrastructure/{normalize-evolution,supabase-inbound-store,evolution,repositories}/**`, `worker/src/infrastructure/**`, migrations | Evolution client, AES secrets, inbound store. |
-| Contracts / schemas | `contracts/{whatsapp-lines,conversations}.ts`, `packages/shared` (`send-mode`, `credentials`, `delivery-ack`, webhook) | Zod at API/LLM/webhook boundaries. |
+| Presentation / HTTP thin | `(panel)/inbox/**`, `presentation/whatsapp/**` | Queue/kanban, thread actions, map, realtime badge |
+| Application / services | `features/inbox/**`, `features/outbound/**` | Transitions wrappers, SLA, queue sort, ensure_owner on send |
+| Infrastructure / repositories | `infrastructure/repositories/{inbox-queue,conversations}.ts`, inbound store, migrations | RPC repos, reopen + pet gate |
+| Contracts / schemas | `contracts/{inbox,conversations}.ts`, shared `database.types` | Zod filters/cards/events |
 
 ## 3. Data & control flow
 
 ### 3.1 Inbound WhatsApp
 
 ```text
-Citizen (WhatsApp) → Evolution → POST /api/webhooks/evolution
-  → normalize (ignore group/broadcast/newsletter; resolve @lid; fromMe; media/location)
-  → verify line webhook secret (fail closed if missing)
-  → upsert citizen stub + conversation (default_area_id)
-  → idempotent message upsert (line_id, external_id)
-  → enqueue process_inbound (+ download_media for media kinds)
-Worker → pet state machine unchanged; download_media idempotent on storage_path
-messages.update → delivery_ack → update outbound delivery_status
+Citizen → Evolution → POST /api/webhooks/evolution
+  → persist message + conversation
+  → denorm inquiry lat/lng on conversation (never citizens GPS)
+  → reopen_conversation if resolved
+  → pet process_inbound only if area is Inspectoría OR open registration session
+  → realtime notifies panel
 ```
 
-### 3.2 Operator outbound
+### 3.2 Operator triage / outbound
 
 ```text
-Inbox thread → sendComposerTextAction
-  → normalize phone → decideSend(org send_mode)
-  → dry_run/allowlist-block: persist simulated/blocked, no Evolution
-  → production/allowlisted: Evolution sendText + persist outbound
-```
-
-### 3.3 Line admin
-
-```text
-Admin → /settings/lines → create/update (RLS) + upsert ciphertext secrets (service role)
-  → Probar conexión → Evolution connectionState → status/last_status_at
+/inbox → listInboxQueue (FIFO unowned-first + filters + SLA)
+/inbox/[id] → claim/delegate/accept/reject/move/resolve/set_area RPCs
+Composer → ensure_owner_for_reply → decideSend(send_mode) → Evolution
 ```
 
 ## 4. Routes
 
-### 4.1 Pages
-
 | Path | Notes |
 |---|---|
-| `/login` | Email/password operator sign-in |
-| `/inbox` | Conversation list (channel; no claim UI) |
-| `/inbox/[conversationId]` | Thread + text composer |
-| `/citizens`, `/tasks` | Placeholders |
-| `/settings/profile` | Name + avatar |
-| `/settings/areas` | Admin areas |
-| `/settings/operators` | Admin operators |
-| `/settings/lines` | Admin WhatsApp lines + connection test |
-| `/support/errors` | Support/admin error list |
-
-### 4.2 API
-
-| Method | Path | Auth |
-|---|---|---|
-| GET | `/api/health` | none |
-| POST | `/api/webhooks/evolution` | per-line webhook secret |
-| POST | `/api/errors/report` | session |
+| `/inbox` | Triage queue (kanban columns), filters, realtime badge/sound |
+| `/inbox/[conversationId]` | Thread, events, delivery ticks, actions, quick replies, map |
+| `/settings/lines` | WhatsApp line admin (unchanged) |
 
 ## 5. Data schemas & models
 
-Migration `20261107010000_whatsapp_channel_core.sql`:
+Migration `20261107120000_mesa_entrada_inbox.sql`:
 
-- `whatsapp_lines`: `default_area_id`, `last_status_at`, status ∈ `connected|disconnected|error`
-- `whatsapp_line_secrets`: `webhook_secret_ciphertext` (+ existing `api_key_ciphertext`); revoke authenticated; legacy `webhook_secret` for local seed
-- `conversations`: unique `(org_id, line_id, phone_normalized)`; queue/bot defaults for inbox prep
-- `messages.conversation_id`, delivery timestamps; location stays on message
-- `citizens`: `registration_status`, `whatsapp_push_name` / avatar fields (POB-01 stub)
-- Seed: Inspectoría line `default_area_id` → Mesa de Entrada
-- Bucket `whatsapp-media` (private)
-
-Encryption: AES-256-GCM via `CREDENTIALS_ENCRYPTION_KEY` (no service-role fallback).
+- Tables: `conversation_events`, `conversation_reads`, `quick_replies` (+ municipal seed)
+- Columns: `conversations.inquiry_*`, `last_message_preview`, `has_attachments`; `org_settings.business_hours/holidays/bot_paused`
+- RPCs: `claim_conversation`, `delegate_conversation`, `accept/reject_conversation_delegation`, `ensure_owner_for_reply`, `move_conversation`, `resolve_conversation`, `reopen_conversation`, `set_conversation_area`, `mark_conversation_read`
+- Helpers: `business_minutes_between`, `compute_conversation_sla_status`
+- RLS: conversations/messages via `current_area_ids()` + admin + delegation visibility
+- Realtime publication: conversations, messages, conversation_events
 
 ## 6. AI / LLM boundaries
 
-- Pet vision only in worker; webhook/panel channel paths have no LLM.
+- No LLM in inbox triage paths.
 
 ## 7. Error handling
 
-- Webhook: 503 if secret not configured; 401 on mismatch; ignore groups without persistence.
-- Composer: validation + send_mode outcomes; Evolution failures persist `failed` without leaking secrets.
-- Connection test: non-secret status detail only.
+- Ownership races → `CLAIM_CONFLICT` (mapped to es-AR toast with owner name).
+- Webhook secret fail-closed unchanged.
+- Pet gate skips `process_inbound` on Mesa without registration session (documented product rule).
 
 ## 8. Local environment
 
-- `.env.example` documents Evolution URL/instance/key, webhook secret, `CREDENTIALS_ENCRYPTION_KEY`, `SEND_MODE=dry_run`.
-- Seed remains runnable in dry_run without live Evolution.
-- Agent/CI without Docker: Vitest + static SQL tests; live `db reset` / curl / E2E documented as gaps.
+- Agent/CI without Docker: Vitest + static SQL contract tests; live `db reset` / curl RPC / E2E → **NO_DOCKER** gap reports under change `reports/`.
 
 ## 9. Non-goals / out of scope (this change)
 
-Claim/delegate/realtime/SLA filters, inquiry map UI, Meta Cloud API, full WA-08 media send from panel (text only), delivery tick polish UI.
+LLM routing, full POB CRUD, tasks epic, WA media outbound.
 
 ## 10. Change log (architecture)
 
@@ -129,7 +97,8 @@ Claim/delegate/realtime/SLA filters, inquiry map UI, Meta Cloud API, full WA-08 
 |---|---|---|
 | 2026-09-30 | Design baseline at SDD bootstrap | — |
 | 2026-10-05 | Foundation auth/tenancy/profile/errors archived | `foundation-workspace-auth` |
-| 2026-10-12 | Inspectoría pet registry MVP + UX v2 | `inspectoria-pet-registry-bot`, `inspectoria-pet-registry-ux-v2` |
-| 2026-11-04 | Reconcile foundation into main + organizations superset | `reconcile-foundation-to-main` |
-| 2026-11-06 | Areas, operators admin, `current_area_ids()`, last-admin | `areas-operators-admin` |
-| 2026-11-06 | Conversations, line admin, inbound/outbound channel core | `whatsapp-channel-core` |
+| 2026-10-12 | Inspectoría pet registry MVP + UX v2 | `inspectoria-pet-registry-*` |
+| 2026-11-04 | Reconcile foundation into main | `reconcile-foundation-to-main` |
+| 2026-11-06 | Areas, operators admin, `current_area_ids()` | `areas-operators-admin` |
+| 2026-11-06 | Conversations, line admin, channel core | `whatsapp-channel-core` |
+| 2026-11-07 | Mesa triage inbox INB-01..15 + dual coords + area RLS | `mesa-entrada-inbox` |

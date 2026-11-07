@@ -14,7 +14,7 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 - [x] **FND-03**: Admin puede editar el rol de un operador y desactivarlo (sin borrar su historial) *(implementado en `areas-operators-admin`; last-admin en DB)*
 - [x] **FND-04**: Admin puede crear áreas municipales (nombre, descripción, color, activa/inactiva) *(implementado en `areas-operators-admin`; también default + SLA minutos)*
 - [x] **FND-05**: Admin puede asignar operadores a una o más áreas *(implementado en `areas-operators-admin`)*
-- [x] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador *(org RLS + `current_area_ids()` en `areas-operators-admin`; políticas de conversaciones/tareas pendientes en `mesa-entrada-inbox`)*
+- [x] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador *(org RLS + `current_area_ids()`; conversaciones/mensajes con RLS de área en `mesa-entrada-inbox`; tareas aún pendientes)*
 - [x] **FND-07**: Operador puede editar su nombre y avatar *(implementado en `foundation-workspace-auth`, pendiente de review/archive)*
 - [x] **FND-08**: Los errores de web, API y webhook se registran con trace-id, enmascarando DNI/CUIT/teléfono, y soporte puede verlos y marcarlos resueltos *(implementado en `foundation-workspace-auth`; el webhook de la fase 2 queda cubierto por `onRequestError` como route handler, `source = 'api'`)*
 
@@ -35,21 +35,21 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 
 ### Panel de mensajería (INB)
 
-- [ ] **INB-01**: Operador ve una cola de conversaciones donde las que no tienen dueño aparecen primero en orden FIFO (la que más espera arriba)
-- [ ] **INB-02**: Operador puede tomar (claim) una conversación sin dueño; si otro la tomó antes, recibe un aviso de conflicto
-- [ ] **INB-03**: Responder una conversación sin dueño la toma automáticamente; responder una delegación pendiente propia la acepta
-- [ ] **INB-04**: Operador dueño puede delegar una conversación a otro operador o a un área, con nota
-- [ ] **INB-05**: El destinatario de una delegación puede aceptarla o rechazarla con motivo; al rechazar vuelve a quien la delegó
-- [ ] **INB-06**: Operador dueño puede mover la conversación entre columnas (tomada, en curso, esperando externo) y resolverla
-- [ ] **INB-07**: Si el vecino escribe sobre una conversación resuelta, vuelve a la cola como nueva
-- [ ] **INB-08**: Cada conversación muestra su línea de eventos (derivación del bot, tomada, movida, delegada, aceptada, rechazada, resuelta, reabierta) con actor y fecha/hora
-- [ ] **INB-09**: La cola y el hilo se actualizan en tiempo real sin recargar
-- [ ] **INB-10**: Cada tarjeta muestra flags: fecha/hora del último mensaje, registrado / no registrado, dueño, área, delegación pendiente, necesita respuesta, SLA (ok / aviso / crítico), bot activo / pausado, tiene adjuntos
-- [ ] **INB-11**: Operador puede filtrar la cola por área, línea, dueño, "esperando mi aceptación", "sin responder" y "con adjuntos"
-- [ ] **INB-12**: El sistema registra leído / no leído por conversación y por operador
-- [ ] **INB-13**: Operador puede usar respuestas rápidas (plantillas municipales) desde el composer
-- [ ] **INB-14**: Operador recibe aviso en el panel (badge + sonido opcional) cuando entra un mensaje nuevo o le delegan algo
-- [ ] **INB-15**: El SLA se configura por área y cuenta solo horario hábil
+- [x] **INB-01**: Operador ve una cola de conversaciones donde las que no tienen dueño aparecen primero en orden FIFO (la que más espera arriba)
+- [x] **INB-02**: Operador puede tomar (claim) una conversación sin dueño; si otro la tomó antes, recibe un aviso de conflicto
+- [x] **INB-03**: Responder una conversación sin dueño la toma automáticamente; responder una delegación pendiente propia la acepta
+- [x] **INB-04**: Operador dueño puede delegar una conversación a otro operador o a un área, con nota
+- [x] **INB-05**: El destinatario de una delegación puede aceptarla o rechazarla con motivo; al rechazar vuelve a quien la delegó
+- [x] **INB-06**: Operador dueño puede mover la conversación entre columnas (tomada, en curso, esperando externo) y resolverla
+- [x] **INB-07**: Si el vecino escribe sobre una conversación resuelta, vuelve a la cola como nueva
+- [x] **INB-08**: Cada conversación muestra su línea de eventos (derivación del bot, tomada, movida, delegada, aceptada, rechazada, resuelta, reabierta) con actor y fecha/hora
+- [x] **INB-09**: La cola y el hilo se actualizan en tiempo real sin recargar *(código + publication; live E2E NO_DOCKER)*
+- [x] **INB-10**: Cada tarjeta muestra flags: fecha/hora del último mensaje, registrado / no registrado, dueño, área, delegación pendiente, necesita respuesta, SLA (ok / aviso / crítico), bot activo / pausado, tiene adjuntos
+- [x] **INB-11**: Operador puede filtrar la cola por área, línea, dueño, "esperando mi aceptación", "sin responder" y "con adjuntos"
+- [x] **INB-12**: El sistema registra leído / no leído por conversación y por operador
+- [x] **INB-13**: Operador puede usar respuestas rápidas (plantillas municipales) desde el composer
+- [x] **INB-14**: Operador recibe aviso en el panel (badge + sonido opcional) cuando entra un mensaje nuevo o le delegan algo *(código; live E2E NO_DOCKER)*
+- [x] **INB-15**: El SLA se configura por área y cuenta solo horario hábil
 
 ### Pobladores (POB)
 

@@ -1,6 +1,6 @@
 # Modelo de datos — Mesa de Entrada Digital Epuyén
 
-> Estado: diseño inicial (2026-09-30), actualizado 2026-11-06 con `whatsapp-channel-core` (migración `supabase/migrations/20261107010000_whatsapp_channel_core.sql`) además de foundation/areas. Nombres técnicos en inglés; comentarios en español.
+> Estado: diseño inicial (2026-09-30), actualizado 2026-11-07 con `mesa-entrada-inbox` (migración `supabase/migrations/20261107120000_mesa_entrada_inbox.sql`) además de channel core / foundation / areas. Nombres técnicos en inglés; comentarios en español.
 > Convenciones: toda tabla de negocio tiene `id uuid pk`, `org_id uuid not null`, `created_at`, `updated_at` (trigger). RLS habilitado en todas.
 > Marcas: **[implementado]** existe en la base; **[pendiente]** columna diseñada que todavía no se creó; el resto es diseño.
 
@@ -56,8 +56,10 @@ Público para lectura por URL, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user
 Responsables que reciben tareas por WhatsApp sin usar el panel.
 `area_id`, `full_name`, `phone_normalized`, `is_active`. Único `(org_id, phone_normalized)`.
 
-### `org_settings`
-`org_id pk`, `send_mode send_mode default 'allowlist'`, `allowlist_phones text[]`, `bot_paused bool default false`, `business_hours jsonb` (por día: rangos hh:mm), `holidays date[]`, `task_abandon_days int default 7`, `privacy_notice text`, `out_of_hours_message text`.
+### `org_settings` [parcialmente implementado]
+`org_id pk`, `send_mode`, `allowlist_phones`, `registration_session_ttl_hours`, `privacy_notice_version`.
+- `bot_paused`, `business_hours`, `holidays` **[implementado inbox]** — SLA / resolve resume.
+- `task_abandon_days`, `privacy_notice`, `out_of_hours_message` **[pendiente]**.
 
 ## 3. Canal WhatsApp
 
@@ -67,8 +69,8 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 ### `whatsapp_line_secrets` [implementado — channel core]
 `line_id pk`, `api_key_ciphertext`, `webhook_secret_ciphertext`, legacy `webhook_secret` (plaintext local seed). **RLS sin políticas** + `revoke` a `authenticated`/`anon` (solo service role).
 
-### `quick_replies`
-`area_id null` (null = todas), `shortcut`, `title`, `body`, `is_active`.
+### `quick_replies` [implementado — inbox]
+`area_id null` (null = todas), `shortcut` único por org, `title`, `body`, `is_active`. Seed municipal (`/saludo`, `/horario`, `/derivacion`, `/gracias`).
 
 ## 4. Pobladores
 
@@ -94,7 +96,7 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 
 ## 5. Conversaciones y mensajes
 
-### `conversations` [implementado — channel core; claim RPCs pendientes]
+### `conversations` [implementado — channel core + inbox RPCs]
 Una por `(org_id, line_id, phone_normalized)`.
 
 | Columna | Notas |
@@ -104,15 +106,17 @@ Una por `(org_id, line_id, phone_normalized)`.
 | `bot_state bot_state` | `active` / `handoff` / `paused` (default `active`) |
 | `queue_column queue_column` | default `new`; claim/move en inbox |
 | `owner_user_id null` | dueño humano (inbox) |
-| `delegated_from_user_id`, `pending_area_id`, `awaiting_acceptance bool` | columnas listas; UI/RPC en inbox |
+| `delegated_from_user_id`, `pending_area_id`, `awaiting_acceptance bool` | soft handoff |
 | `entered_queue_at` | cuándo entró a la cola (base del FIFO) |
 | `resolved_at`, `resolved_by` | |
 | `last_message_at`, `last_inbound_at`, `last_outbound_at` | actualizados en inbound/outbound |
 | `needs_response bool` | último mensaje es del vecino y no fue respondido |
-| `sla_due_at` | calculado con horario hábil del área (inbox) |
+| `sla_due_at` | refresco en claim/reopen/set_area |
+| `inquiry_latitude`, `inquiry_longitude` | **[implementado inbox]** pin de consulta; nunca a `citizens` |
+| `last_message_preview`, `has_attachments` | **[implementado inbox]** denorm para tarjetas |
 | `topic`, `urgency` | sugeridos por el bot (pendiente) |
 
-Índice para la cola: `(org_id, area_id, owner_user_id nulls first, entered_queue_at)` donde `queue_column <> 'resolved'`.
+Índices FIFO: unowned por `entered_queue_at`; owned por `last_inbound_at`.
 
 ### `messages` [implementado parcialmente — channel core]
 | Columna | Notas |
@@ -125,10 +129,10 @@ Una por `(org_id, line_id, phone_normalized)`.
 | `delivered_at`, `read_at` | timestamps de ACK |
 | `quoted_external_id`, `transcription`, `media_summary`, `metadata` | **[pendiente]** |
 
-### `conversation_events` (append-only)
-`conversation_id`, `event_type conversation_event_type`, `actor_kind actor_kind`, `actor_user_id`, `from_column`, `to_column`, `from_area_id`, `to_area_id`, `note`, `metadata jsonb`.
+### `conversation_events` [implementado — inbox] (append-only)
+`conversation_id`, `event_type`, `actor_kind`, `actor_user_id`, `from_column`, `to_column`, `from_area_id`, `to_area_id`, `note`, `metadata jsonb`.
 
-### `conversation_reads`
+### `conversation_reads` [implementado — inbox]
 `conversation_id`, `user_id`, `last_read_at`, `last_read_message_id`. PK `(conversation_id, user_id)`.
 
 ## 6. Tareas y notas
@@ -236,7 +240,7 @@ Una por `(org_id, line_id, phone_normalized)`.
 | Secretos | nadie (service role) | | | |
 | error_logs | lectura + cambiar estado (su org) | — | — | lectura + cambiar estado (su org y filas con `org_id` null) |
 
-**Implementado hoy (nivel organización + áreas):** las funciones `current_org_id()` y `current_user_role()` (`security definer`, `stable`, `search_path = ''`) devuelven null si el perfil no existe o está inactivo, así que un usuario desactivado no coincide con ninguna política. `current_area_ids()` devuelve las membresías del operador activo (vacío si inactivo). `organizations`: lectura de la propia org. `profiles`: lectura de la propia org; actualización de la fila propia o, para admin, de cualquier fila de su org; trigger last-admin. `areas` / `area_members`: lectura org; escrituras admin. `anon` no tiene permisos. `authenticated` no tiene `INSERT` en `profiles` (altas con service role). La aplicación de `current_area_ids()` a conversaciones/tareas queda para `mesa-entrada-inbox`.
+**Implementado hoy (organización + áreas + inbox):** `current_org_id()`, `current_user_role()`, `current_area_ids()`. `conversations` / `messages` SELECT por área (`current_area_ids`) con bypass admin y visibilidad de delegación (pending target / delegator / owner). Escrituras de mensajes/ownership vía service role o RPCs. `conversation_events` SELECT org; `conversation_reads` solo propias; `quick_replies` lectura activa + admin write. Tareas siguen pendientes de RLS por área.
 
 ## 11. Funciones SQL (transiciones atómicas)
 

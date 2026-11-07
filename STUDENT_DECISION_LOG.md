@@ -4,85 +4,68 @@
 > **Ubicación:** raíz del repo `STUDENT_DECISION_LOG.md`.
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
-**Última actualización:** 2026-11-06  
-**Change relacionado:** `whatsapp-channel-core`
+**Última actualización:** 2026-11-07  
+**Change relacionado:** `mesa-entrada-inbox`
 
 ---
 
 ## 1. Resumen de la decisión
 
-Se implementa el **núcleo del canal WhatsApp** (WA-01..12 a nivel canal) antes de la cola de Mesa de Entrada. Aparecen `conversations`, secretos cifrados de línea, webhook endurecido, composer mínimo y persistencia de estados de entrega. El registro de mascotas de Inspectoría sigue en la misma línea; el área por defecto de la línea apunta a Mesa de Entrada.
+Se implementa el **panel de triage de Mesa de Entrada** (INB-01..15): cola FIFO sin dueño primero, claim/delegación con aceptación, eventos, leído/no leído, respuestas rápidas, SLA por área y horario hábil, mapa de consulta (coords distintas del GPS de mascotas), realtime con badge/sonido opcional, y RLS por `current_area_ids()`.
 
-Decisiones de diseño de este change (D1–D8):
+Decisiones de diseño (D1–D6 del `design.md`):
 
 | Id | Decisión | Por qué |
 |---|---|---|
-| D1 | Crear `conversations` ahora (claim después) | El inbox necesita hilos; no bloquear el canal |
-| D2 | Evolucionar `messages` hacia adelante (`conversation_id`) | No romper el log del bot de mascotas |
-| D3 | Cifrar API key + webhook secret con `CREDENTIALS_ENCRYPTION_KEY` | Sin fallback a service role (bug del CRM) |
-| D4 | `default_area_id` de la línea → Mesa de Entrada | Un solo número compartido Mesa + Inspectoría |
-| D5 | Ubicación solo en el mensaje | No pisar GPS de mascotas en `citizens` |
-| D6 | Composer mínimo en `/inbox` | Evitar página throwaway; claim queda fuera |
-| D7 | Portar normalización/send_mode desde seguros con correcciones | Media, `@lid`, fromMe, secreto obligatorio |
-| D8 | Convivencia con `process-inbound` | Idempotencia `(line_id, external_id)`; media download idempotente |
-
-Secuencia WA → inbox: este change deja hilos + mensajes + área default; `mesa-entrada-inbox` agrega claim, delegación, mapa de consulta, ticks UI y RLS por área.
+| D1 | Transiciones en SQL con `FOR UPDATE` | Una sola fuente de verdad; `CLAIM_CONFLICT` ante carreras |
+| D2 | Realtime vía Supabase postgres_changes | Actualiza cola/hilo sin recargar; badge local |
+| D3 | Dual coords (mensaje + denorm en conversación) | No pisar `citizens.lat/lng` de Inspectoría |
+| D4 | `set_conversation_area` + gate opcional de pet | Línea compartida: Mesa deriva a mano; pet solo si área Inspectoría o hay sesión |
+| D5 | SLA con `business_hours` o calendario | Configurable por área; vacío → minutos de reloj |
+| D6 | Quick replies con seed municipal | Operadores usan plantillas sin admin CRUD completo |
 
 ## 2. Mapa de flujo de datos
 
-### 2.1 Webhook entrante
+### 2.1 Cola y claim
 
 ```text
-WhatsApp → Evolution → POST /api/webhooks/evolution
-  → normalize (ignora grupos/broadcast/newsletter; resuelve @lid; fromMe)
-  → verifica secreto de la línea (sin secreto = rechazo)
-  → upsert ciudadano stub + conversation (área default)
-  → inserta message idempotente
-  → encola process_inbound (+ download_media si hay media)
-  → messages.update → actualiza delivery_status
+Operador → /inbox (FIFO unowned-first)
+  → claim_conversation / ensure_owner_for_reply al enviar
+  → bot_state = paused + evento CLAIMED
+  → delegar a usuario o área → accept/reject
 ```
 
-### 2.2 Composer saliente
+### 2.2 Reopen y pet gate
 
 ```text
-Operador → /inbox/[id] → sendComposerTextAction
-  → decideSend(send_mode de la org)
-  → dry_run / allowlist bloqueado: persiste sin Evolution
-  → production: sendText Evolution + message outbound
+Vecino escribe sobre resuelta → reopen_conversation → cola new
+Inbound Mesa sin sesión de registro → no encola process_inbound
+Inbound Inspectoría o con sesión → process_inbound (bot de mascotas)
 ```
 
-### 2.3 Admin de líneas
+### 2.3 Composer
 
 ```text
-Admin → /settings/lines
-  → guarda línea (RLS) + secretos cifrados (service role)
-  → Probar conexión → status connected/disconnected/error
+Composer → ensure_owner_for_reply → send_mode → Evolution / dry_run
+Hilo muestra ticks de delivery_status (sent/delivered/read)
 ```
 
 ## 3. Justificación de arquitectura limpia
 
-- La ruta del webhook solo normaliza y orquesta; no habla con LLM ni descarga media.
-- Casos de uso (`createLine`, `sendOperatorText`, `testLineConnection`) concentran reglas.
-- Repositorios e infraestructura (Supabase, Evolution, AES) no conocen copy de UI.
-- Contratos Zod en shared/web delimita webhook, ACK, composer y líneas.
+- Las reglas de ownership viven en Postgres (RPCs), no en componentes React.
+- `features/inbox` traduce errores RPC a copy es-AR; la UI solo dispara actions.
+- Repositorios leen bajo RLS; el webhook usa service role + `reopen_conversation`.
 
 ## 4. Control de salida / secretos
 
-- Secretos nunca vuelven a la UI en claro (solo flags “ya configurado”).
-- Logs no imprimen API keys ni webhook secrets.
-- `send_mode` es el único interruptor que permite o bloquea Evolution.
+- Sin cambios al cifrado de secretos de línea.
+- El mapa usa OpenStreetMap embed/link público con lat/lng de consulta (no datos de mascota).
 
 ## 5. Glosario breve
 
 | Término | Significado |
 |---|---|
-| Línea | Instancia Evolution + teléfono municipal |
-| Conversación | Hilo único por org/línea/teléfono normalizado `549…` |
-| fromMe | Mensaje escrito desde el teléfono de la línea (sale como outbound) |
-| dry_run | Modo que persiste el intento y no llama a Evolution |
-| Mesa de Entrada | Área default del canal compartido |
-
-## 6. Historial reciente
-
-- 2026-11-06: `areas-operators-admin` archivado.
-- 2026-11-06: implementación de `whatsapp-channel-core` (sin archivar; falta verify/adversarial/human OK).
+| Claim | Tomar una conversación sin dueño |
+| Soft handoff | Delegar con aceptación (usuario o área) |
+| Dual coords | Pin de consulta ≠ GPS de mascota en `citizens` |
+| SLA crítico | Esperó más que `sla_critical_minutes` del área (horario hábil) |
