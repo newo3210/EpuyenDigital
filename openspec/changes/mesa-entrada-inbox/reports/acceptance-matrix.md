@@ -1,8 +1,8 @@
 # Acceptance Matrix — mesa-entrada-inbox
 
 Scenarios from `openspec/changes/mesa-entrada-inbox/specs/**`.  
-**Date:** 2026-11-06 (America/Buenos_Aires)  
-**Author:** Project Director (not apply agent; apply by [Apply mesa-entrada-inbox](bc-0e6010c0-cd91-5a56-a385-6e630c1a6c82))
+**Date:** 2026-11-06 (America/Buenos_Aires); refreshed after adversarial fix round 1  
+**Author:** Project Director (not apply; apply by [Apply mesa-entrada-inbox](bc-0e6010c0-cd91-5a56-a385-6e630c1a6c82); fixes by [Fix inbox adversarial FAIL](bc-49a68a60-0679-5b5d-9845-27afcb2a3d32))
 
 ## Evidence legend
 
@@ -19,19 +19,20 @@ Scenarios from `openspec/changes/mesa-entrada-inbox/specs/**`.
 | ownership | Claim conflict | PASS (U) / BLOCKED (L) | `ownership-errors.test.ts` / CLAIM_CONFLICT |
 | ownership | Reply on unowned claims | PASS (U/C) / BLOCKED (L) | ensure_owner on send-text |
 | ownership | Reply blocked for other owner | PASS (U/C) / BLOCKED (L) | ownership errors |
-| ownership | Delegate to user | PASS (C) / BLOCKED (L) | delegate RPC + UI |
-| ownership | Accept and reject user delegation | PASS (C) / BLOCKED (L) | accept/reject RPCs |
+| ownership | Delegate to user | PASS (C) / BLOCKED (L) | delegate RPC + **same-area picker** (fix 7.3) |
+| ownership | Accept and reject user delegation | PASS (C) / BLOCKED (L) | accept/reject + **area Claim/Reject UI** (fix 7.2) |
 | lifecycle | Move to waiting external | PASS (C) / BLOCKED (L) | move RPC |
 | lifecycle | Resolve conversation | PASS (C) / BLOCKED (L) | resolve RPC |
 | lifecycle | Citizen message reopens resolved | PASS (C) / BLOCKED (L) | inbound reopen path |
 | lifecycle | Timeline after claim and resolve | PASS (C) / BLOCKED (L) | conversation_events |
 | lifecycle | Move conversation to Inspectoría area | PASS (C) / BLOCKED (L) | set_conversation_area |
-| realtime | New inbound appears live | PARTIAL (C) / BLOCKED (L) | Realtime subscription code |
-| realtime | Delegation badge | PARTIAL (C) / BLOCKED (L) | badge wiring |
+| realtime | New inbound appears live | PARTIAL (C) / BLOCKED (L) | Realtime + **org filter** (fix 7.5); needs Realtime RLS |
+| realtime | Delegation badge | PARTIAL (C) / BLOCKED (L) | badge **inbound/delegation-to-self** (fix 7.5) |
 | read-state | Open thread marks read | PASS (C) / BLOCKED (L) | mark_conversation_read |
 | quick-replies | Insert quick reply into composer | PASS (C) / BLOCKED (L) | quick replies UI + seed |
-| area-sla | Critical after elapsed business minutes | PASS (U) / BLOCKED (L) | `sla.test.ts` |
+| area-sla | Critical after elapsed business minutes | PASS (U) / BLOCKED (L) | `sla.test.ts` + **`add_business_minutes` due clock** (fix 7.4) |
 | inquiry-map | Location does not overwrite pet GPS | PASS (U) | `inquiry-coords.test.ts` |
+| pet-gate | First contact on shared Inspectoria instance | PASS (U) | enqueue despite Mesa `default_area` (fix 7.1) |
 | inquiry-map | Card shows map when coords present | PASS (C) / BLOCKED (L) | map component |
 | org-tenancy | Operator cannot read other area | PASS (C/static RLS) / BLOCKED (L) | migration policies |
 | org-tenancy | Admin reads all org areas | PASS (C/static) / BLOCKED (L) | admin bypass |
@@ -47,6 +48,6 @@ Scenarios from `openspec/changes/mesa-entrada-inbox/specs/**`.
 |---|---|---|---|
 | 28 | majority | 0 | nearly all live proofs |
 
-**Gaps for adversarial:** nested ensure_owner; pet gate behavior; NO_DOCKER.
+**Gaps remaining:** NO_DOCKER live proofs; Realtime RLS project setting; INB-09/14 `[~]`.
 
-**Verdict:** **PASS WITH GAPS** / live **BLOCKED** — director re-ran `npm test` (**643** pass). Ready for adversarial.
+**Verdict (pre re-audit):** Prior FAIL Blocker/Majors addressed (§7.1–7.6). Fix agent reported **659** tests. Archive depends on re-audit **PASS / PASS WITH GAPS** + human OK.
