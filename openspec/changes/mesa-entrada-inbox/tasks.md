@@ -56,4 +56,4 @@
 - [x] 7.4 **Major:** Align `sla_due_at` with business minutes; extend SLA tests — SQL `add_business_minutes` + TS `addBusinessMinutes`; lunch/holiday/overnight tests
 - [x] 7.5 **Major:** Tighten realtime filters; badge inbound/delegation-to-self; document Realtime RLS — `inbox-realtime.tsx` org_id + inbound/delegation badge; note in `reports/adversarial-fixes-round1.md`
 - [x] 7.6 **Major/docs:** Soften INB REQUIREMENTS `[~]` where live-only; minors (set-area visibility, DELEGATED from_area, OwnershipError mapping) — INB-09/14 `[~]`; set-area `isOwner||isAdmin`; `v_from_area` before update
-- [ ] 7.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major — matrix refreshed; re-audit launched
+- [x] 7.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major — matrix refreshed; re-audit **PASS WITH GAPS** (`reports/adversarial-review-reaudit.md`)
