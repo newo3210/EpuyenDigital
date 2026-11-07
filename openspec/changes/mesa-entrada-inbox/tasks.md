@@ -45,5 +45,15 @@
 
 - [x] 6.1 Mechanical verify — `reports/verify-mechanical.md` **PASS WITH GAPS**
 - [x] 6.2 Acceptance matrix — `reports/acceptance-matrix.md`
-- [x] 6.3 Adversarial (+ fix loop) — `reports/adversarial-review.md` **FAIL** (pet gate Blocker + Majors); fix loop pending
+- [x] 6.3 Adversarial (+ fix loop) — `reports/adversarial-review.md` **FAIL** (pet gate Blocker + Majors); fix §7 then re-audit
 - [ ] 6.4 Human OK → archive + PR merge
+
+## 7. Adversarial fix loop (post FAIL 2026-11-07)
+
+- [ ] 7.1 **Blocker:** Fix pet gate chicken-and-egg — first-contact Inspectoría registration on shared Mesa-default line (gate by instance/session/area Inspectoría); scenario + test
+- [ ] 7.2 **Major:** Area delegation UI — Claim when awaiting+pending_area and caller in area; Reject for area_lead/admin
+- [ ] 7.3 **Major:** Cross-area user delegate — restrict targets to area members OR authorize owner in lock; map FORBIDDEN in send-text
+- [ ] 7.4 **Major:** Align `sla_due_at` with business minutes; extend SLA tests
+- [ ] 7.5 **Major:** Tighten realtime filters; badge inbound/delegation-to-self; document Realtime RLS
+- [ ] 7.6 **Major/docs:** Soften INB REQUIREMENTS `[~]` where live-only; minors (set-area visibility, DELEGATED from_area, OwnershipError mapping)
+- [ ] 7.7 Refresh acceptance-matrix; re-audit until PASS / PASS WITH GAPS with no Blocker/Major
