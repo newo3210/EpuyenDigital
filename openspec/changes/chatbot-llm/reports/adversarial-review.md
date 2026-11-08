@@ -73,13 +73,15 @@
 
 ---
 
-## Verdict
+## Verdict (initial pass)
 
-**FAIL**
+**FAIL** — superseded by **Re-audit** below.
 
-At least one **Blocker** (audio dual-enqueue → premature handoff) plus multiple **Majors** (missing field extraction despite “done”, knowledge activate/reindex/PDF gap, resolve ignores global pause, missing `sender_kind=bot`, sources not shown, RAG/embeddings stubbed, pet/bot race, overstated acceptance matrix).
+At least one **Blocker** (audio dual-enqueue → premature handoff) plus multiple **Majors** were found on the first pass.
 
-**Archiving is not advisable** until blockers are fixed and majors are fixed or explicitly re-scoped in OpenSpec with acceptance matrix re-graded.
+## Verdict (current)
+
+**PASS WITH GAPS** — see Re-audit section.
 
 ---
 
@@ -102,3 +104,64 @@ At least one **Blocker** (audio dual-enqueue → premature handoff) plus multipl
 6. **Knowledge actions/UI**: activate + reindex; stop claiming PDF/FAQ until supported.
 7. **Field extraction**: worker + definer RPC, or mark deferred in tasks/proposal/matrix.
 8. **Acceptance matrix**: flip false PASSes to FAIL/GAP.
+
+---
+
+## Re-audit (post-fix) — 2026-11-08
+
+**Branch**: `cursor/chatbot-llm-3654` (working tree + listed fixes)  
+**Method**: re-read inbound, `bot-decision`, migration resolve/knowledge RPCs, `bot-reply`, outbound `senderKind`, knowledge UI, tasks, acceptance matrix.
+
+### Fix verification
+
+| Claimed fix | Verified? | Evidence |
+|---|---|---|
+| Audio: no dual `bot_reply`; only `transcribe_audio` then later `bot_reply` | **Yes** | `inbound-repository.ts` audio branch; unit test `enqueues transcribe_audio without immediate bot_reply` |
+| Empty `citizenText` → silent | **Yes** | `bot-decision.ts` early silent; unit test covers `"   "` |
+| `resolve_conversation` respects `bot_paused` | **Yes** | chatbot migration replace sets `bot_state=paused` and skips `BOT_RESUMED` when paused |
+| `senderKind=bot` persisted | **Yes** | job schema + `bot-reply` enqueue + `persistOutbound` writes `sender_kind` |
+| Sources in panel; activate/reindex RPCs+UI | **Yes** | `bot-runs-panel.tsx`; `set_knowledge_document_active` / `reindex_knowledge_document` + admin UI |
+| `extractProposedFields` → `bot_runs`; confirm→write deferred | **Yes** | proposed fields logged; tasks 2.3/2.4 reopened; matrix GAP |
+| Matrix re-graded; mesaBot silent run; pet re-check | **Yes** | honest GAPs; early `insertBotRun` when `!mesaBotEnabled`; 75ms pet re-check |
+
+### Prior blockers
+
+- Audio empty-body handoff: **cleared**
+- Field extraction claimed done while absent: **cleared as honesty issue** (now deferred MVP partial / GAP)
+
+### Remaining majors / gaps (tracked — not archive blockers if product accepts MVP)
+
+| Severity | Item | Notes |
+|---|---|---|
+| Major (deferred) | D6 confirm→citizen write | Proposed fields only; no affirmative turn / definer write / manual-wins enforcement in this change |
+| Major (deferred) | Embeddings + chat LLM RAG | Trigram/text MVP; `embedding` unused; threshold tuned for cosine not trigram |
+| Major (deferred) | Classification topic/urgency/suggested area | Not populated; area_id still not auto-set (constraint OK) |
+| Major (deferred) | Real STT / media vision summary | Stub jobs remain |
+| Major (deferred) | PDF/FAQ upload | Text corpus MVP; PDF deferred in tasks/matrix |
+| Major (residual) | Pet/`bot_reply` race | 75ms re-check is best-effort; not a hard per-phone serialize |
+| Major (residual) | Handoff conversation event | `markHandoff` still patches columns only; no `inbox_event` |
+| Minor / env | Live pgTAP / curl / browser | Honest `NO_DOCKER` GAP |
+
+### Constraints (re-check)
+
+| Constraint | Result |
+|---|---|
+| Dual jobs; silent rules | **OK** (audio sequenced correctly) |
+| Do not gate `process_inbound` by area | **OK** |
+| Do not auto-set `area_id` from bot | **OK** |
+| SECURITY DEFINER + `search_path ''` + `auth.uid()` on client RPCs | **OK** (incl. activate/reindex) |
+| `bot_runs` append-only for clients | **OK** (static) |
+| Honest NO_DOCKER | **OK** |
+
+### Re-audit verdict
+
+**PASS WITH GAPS**
+
+Blockers from the first pass are addressed or honestly deferred. Remaining items are deferred majors / residual soft risks already reflected in tasks 2.3–2.4 and the acceptance matrix. Archiving still requires human OK on the documented MVP gaps; live DB verification remains outstanding when Docker is available.
+
+### Recommended before archive (non-blocking if gaps accepted)
+
+1. Product sign-off on deferred D6 / embeddings / PDF / STT.
+2. Prefer per-phone job serialization over 75ms sleep for pet coexistence.
+3. Emit handoff/queued `inbox_event` from worker markHandoff path.
+4. Run live pgTAP + smoke curl/browser when environment allows; keep matrix GAP until then.
