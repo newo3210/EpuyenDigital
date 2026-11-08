@@ -95,7 +95,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
   3. Al cerrar una tarea queda registrado el resultado y quién la resolvió; cancelar sin motivo no es posible
   4. Una tarea sin actividad por N días pasa sola a "abandonada"
   5. Intentar borrar o editar historial desde el cliente falla; el informe exportado de un caso muestra la cadena completa
-**Plans**: TBD
+**Plans**: OpenSpec `tareas-notas-trazabilidad` — plan on `cursor/tareas-notas-3654` (apply waits for approval)
 **UI hint**: yes
 
 ### Phase 6: Chatbot LLM
