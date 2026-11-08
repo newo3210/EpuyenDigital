@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 4 — `pobladores-ficha` (apply landed, verify and adversarial review pending)
+**Current focus:** Phase 4 — `pobladores-ficha` (applied, adversarial PASS WITH GAPS, archive waits for a human OK)
 
 ## Current Position
 
@@ -36,7 +36,7 @@ Progress: [███████░░░] ~65% (foundation + areas/operators + 
 
 ### Pending Todos
 
-- Adversarial review of `pobladores-ficha`, then a human OK before archive
+- Human OK before archiving `pobladores-ficha`
 - Live `supabase db reset` / curl / browser claim-delegate when containers are available
 - WA-08 media outbound and WA-11 send_mode chooser
 - Optional: adversarial close of `inspectoria-pet-registry-ux-v2`
@@ -55,5 +55,5 @@ Progress: [███████░░░] ~65% (foundation + areas/operators + 
 ## Session Continuity
 
 Last session: 2026-11-08
-Stopped at: Ficha implementation written. Verification reports and adversarial review come next. Do not archive yet.
+Stopped at: Ficha applied. Adversarial review is PASS WITH GAPS (no blocker, no major). Archive waits for a human OK.
 Resume file: `openspec/changes/pobladores-ficha/tasks.md`

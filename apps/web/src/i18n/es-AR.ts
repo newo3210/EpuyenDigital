@@ -303,7 +303,8 @@ export const esAR = {
     },
     errors: {
       invalidField: 'Revisá los datos. La latitud y la longitud tienen que ser coordenadas válidas.',
-      missingFields: 'Faltan el nombre, el DNI o el teléfono para registrar.',
+      missingFields:
+        'Faltan datos obligatorios. En una persona son el nombre, el DNI y el teléfono. En una organización, el nombre y el teléfono.',
       alreadyRegistered: 'Este poblador ya está registrado.',
       noteRequired: 'Escribí el motivo de la unificación.',
       mergeSelf: 'Elegí otro registro. No se puede unificar una ficha consigo misma.',
