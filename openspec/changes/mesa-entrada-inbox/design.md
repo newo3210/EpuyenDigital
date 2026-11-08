@@ -68,7 +68,7 @@ Anchor is `last_inbound_at` while `needs_response` is true. `sla_due_at = add_bu
 
 SQL `public.add_business_minutes` and `public.business_minutes_between` are the source of truth. `packages/shared` mirrors them for Vitest with the same fixtures:
 
-- Friday 13:00 ART + 120 minutes, hours 08:00–14:00, weekend closed → Monday 10:00 ART
+- Friday 13:00 ART + 120 minutes, hours 08:00–14:00, weekend closed → Monday 09:00 ART (60 minutes left on Friday, 60 on Monday)
 - A holiday date is skipped like a weekend
 - Null minutes → null due
 

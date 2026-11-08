@@ -1,6 +1,6 @@
 # Modelo de datos — Mesa de Entrada Digital Epuyén
 
-> Estado: diseño inicial (2026-09-30), actualizado 2026-11-06 con `whatsapp-channel-core` (migración `supabase/migrations/20261107010000_whatsapp_channel_core.sql`) además de foundation/areas. Nombres técnicos en inglés; comentarios en español.
+> Estado: diseño inicial (2026-09-30), actualizado 2026-11-08 con `mesa-entrada-inbox` (migración `supabase/migrations/20261107120000_mesa_entrada_inbox.sql`) además de channel core, foundation y areas. Nombres técnicos en inglés; comentarios en español.
 > Convenciones: toda tabla de negocio tiene `id uuid pk`, `org_id uuid not null`, `created_at`, `updated_at` (trigger). RLS habilitado en todas.
 > Marcas: **[implementado]** existe en la base; **[pendiente]** columna diseñada que todavía no se creó; el resto es diseño.
 
@@ -33,7 +33,7 @@ erDiagram
 
 ### `organizations` [implementado]
 `name`, `slug unique`, `created_at`. Seed: `epuyen`.
-- `timezone` (default `America/Argentina/Buenos_Aires`) **[pendiente]**: hoy la zona horaria está fija en la UI (`Intl` con `America/Argentina/Buenos_Aires`) y en los filtros de soporte (UTC-3). Se agrega cuando se necesite el horario hábil (SLA, fase 3).
+- `timezone` (default `America/Argentina/Buenos_Aires`) **[implementado]**: lo leen el reloj de SLA y el seed. La UI de fechas del panel sigue formateando con `America/Argentina/Buenos_Aires`.
 
 ### `profiles` [implementado]
 `id = auth.users.id` (on delete cascade), `org_id`, `full_name` (2–80 caracteres), `role user_role default 'operator'`, `avatar_path`, `is_active bool default true`, `created_at`, `updated_at` (trigger `set_updated_at`). Índice `org_id`.
@@ -56,8 +56,10 @@ Público para lectura por URL, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user
 Responsables que reciben tareas por WhatsApp sin usar el panel.
 `area_id`, `full_name`, `phone_normalized`, `is_active`. Único `(org_id, phone_normalized)`.
 
-### `org_settings`
-`org_id pk`, `send_mode send_mode default 'allowlist'`, `allowlist_phones text[]`, `bot_paused bool default false`, `business_hours jsonb` (por día: rangos hh:mm), `holidays date[]`, `task_abandon_days int default 7`, `privacy_notice text`, `out_of_hours_message text`.
+### `org_settings` [parcial]
+`org_id pk`, `send_mode send_mode default 'allowlist'`, `allowlist_phones text[]`, `bot_paused bool default false`.
+- `business_hours jsonb` y `holidays date[]` **[implementado]**: seed lunes a viernes 08:00–14:00, sin feriados. Solo un admin lee la fila y solo `set_business_calendar` escribe esas dos columnas.
+- `task_abandon_days`, `privacy_notice`, `out_of_hours_message` siguen **[pendiente]**.
 
 ## 3. Canal WhatsApp
 
@@ -67,8 +69,8 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 ### `whatsapp_line_secrets` [implementado — channel core]
 `line_id pk`, `api_key_ciphertext`, `webhook_secret_ciphertext`, legacy `webhook_secret` (plaintext local seed). **RLS sin políticas** + `revoke` a `authenticated`/`anon` (solo service role).
 
-### `quick_replies`
-`area_id null` (null = todas), `shortcut`, `title`, `body`, `is_active`.
+### `quick_replies` [implementado]
+`area_id null` (null = todas), `shortcut`, `title`, `body`, `is_active`. Lectura de la organización; alta y baja solo admin. Índice único por org, área y atajo en minúsculas.
 
 ## 4. Pobladores
 
@@ -94,7 +96,8 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 
 ## 5. Conversaciones y mensajes
 
-### `conversations` [implementado — channel core; claim RPCs pendientes]
+### `conversations` [implementado — inbox]
+Transiciones por funciones `SECURITY DEFINER` (`claim_conversation`, `ensure_owner_for_reply`, `delegate_conversation`, `accept_conversation_delegation`, `reject_conversation_delegation`, `move_conversation`, `resolve_conversation`, `set_conversation_area`, `reopen_conversation`). `authenticated` no escribe la tabla.
 Una por `(org_id, line_id, phone_normalized)`.
 
 | Columna | Notas |
@@ -109,7 +112,8 @@ Una por `(org_id, line_id, phone_normalized)`.
 | `resolved_at`, `resolved_by` | |
 | `last_message_at`, `last_inbound_at`, `last_outbound_at` | actualizados en inbound/outbound |
 | `needs_response bool` | último mensaje es del vecino y no fue respondido |
-| `sla_due_at` | calculado con horario hábil del área (inbox) |
+| `sla_due_at` | trigger `conversations_sync_sla`: `last_inbound_at` + minutos críticos del área en horario hábil; null si no hay umbral o no `needs_response` |
+| `last_message_preview`, `last_message_kind`, `has_attachments` | denormalizados para la tarjeta de cola |
 | `topic`, `urgency` | sugeridos por el bot (pendiente) |
 
 Índice para la cola: `(org_id, area_id, owner_user_id nulls first, entered_queue_at)` donde `queue_column <> 'resolved'`.
@@ -125,11 +129,11 @@ Una por `(org_id, line_id, phone_normalized)`.
 | `delivered_at`, `read_at` | timestamps de ACK |
 | `quoted_external_id`, `transcription`, `media_summary`, `metadata` | **[pendiente]** |
 
-### `conversation_events` (append-only)
-`conversation_id`, `event_type conversation_event_type`, `actor_kind actor_kind`, `actor_user_id`, `from_column`, `to_column`, `from_area_id`, `to_area_id`, `note`, `metadata jsonb`.
+### `conversation_events` [implementado] (append-only)
+`conversation_id`, `event_type` (`QUEUED`, `CLAIMED`, `MOVED`, `DELEGATED`, `ACCEPTED`, `REJECTED`, `RESOLVED`, `REOPENED`, `BOT_PAUSED`, `BOT_RESUMED`, `AREA_CHANGED`), `actor_kind`, `actor_user_id`, `from_column`, `to_column`, `from_area_id`, `to_area_id`, `note`, `metadata jsonb`. Sin políticas de escritura para `authenticated`.
 
-### `conversation_reads`
-`conversation_id`, `user_id`, `last_read_at`, `last_read_message_id`. PK `(conversation_id, user_id)`.
+### `conversation_reads` [implementado]
+`conversation_id`, `user_id`, `last_read_at`, `last_read_message_id`. PK `(conversation_id, user_id)`. Cada operador actualiza solo su fila.
 
 ## 6. Tareas y notas
 

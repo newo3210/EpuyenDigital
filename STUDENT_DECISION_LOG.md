@@ -4,8 +4,8 @@
 > **Ubicación:** raíz del repo `STUDENT_DECISION_LOG.md`.
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
-**Última actualización:** 2026-11-06  
-**Change relacionado:** `whatsapp-channel-core`
+**Última actualización:** 2026-11-08  
+**Change relacionado:** `mesa-entrada-inbox`
 
 ---
 
@@ -81,8 +81,37 @@ Admin → /settings/lines
 | fromMe | Mensaje escrito desde el teléfono de la línea (sale como outbound) |
 | dry_run | Modo que persiste el intento y no llama a Evolution |
 | Mesa de Entrada | Área default del canal compartido |
+| Tomar (claim) | El primer operador que puede ver un hilo sin dueño se lo queda y pausa el bot |
+| Delegar | Pasa el hilo a una persona o a un área, con nota, y espera aceptación |
+| Horario hábil | Minutos de SLA que solo corren de lunes a viernes 08:00–14:00, salvo feriados |
+| Reapertura | Un mensaje nuevo del vecino sobre un hilo resuelto lo vuelve a la cola, sin dueño |
 
 ## 6. Historial reciente
 
 - 2026-11-06: `areas-operators-admin` archivado.
-- 2026-11-06: implementación de `whatsapp-channel-core` (sin archivar; falta verify/adversarial/human OK).
+- 2026-11-06: `whatsapp-channel-core` archivado.
+- 2026-11-08: implementación de `mesa-entrada-inbox` (sin archivar; falta revisión adversarial y OK humano).
+
+## 7. Mesa de entrada — por qué las funciones son definer
+
+El texto viejo del modelo de datos hablaba de security invoker. Si el invoker puede hacer UPDATE, cualquier operador que ve la fila puede escribirse como dueño. Si el invoker no puede hacer UPDATE, nadie puede tomar el hilo. Por eso las transiciones (`claim`, `delegate`, `accept`, `reject`, `move`, `resolve`, `set area`, `reopen`) son `SECURITY DEFINER` con `search_path = ''` y chequean `auth.uid()`, el rol y el área. El rol `authenticated` no inserta ni actualiza `conversations`, `messages` ni `conversation_events`.
+
+`reopen_conversation` solo corre con service role, desde el webhook, y es idempotente por id de mensaje: un webhook duplicado no escribe un segundo `REOPENED`.
+
+El SLA vive en SQL (`add_business_minutes` + trigger). El espejo de TypeScript sirve para los tests de calendario. Viernes 13:00 ART + 120 minutos hábiles (la ventana cierra a las 14:00) cae el lunes a las 09:00, no a las 10:00. Lunes 08:00 + 120 minutos sí es lunes 10:00.
+
+## 8. Por qué el job de mascotas sigue
+
+La línea compartida nace en Mesa de Entrada. Si `process_inbound` se apagara salvo cuando el área es Inspectoría, el registro de mascotas que ya está en producción dejaría de contestar. Cambiar el área a mano es una etiqueta humana. No cambia quién recibe el job.
+
+## 9. Flujo de la cola
+
+```text
+Vecino → webhook → mensaje
+  → si el hilo estaba resuelto: reopen (columna new, sin dueño)
+  → igual se encola process_inbound
+Operador → /inbox (orden SQL: sin dueño por entered_queue_at, después con dueño por último inbound)
+  → tomar / delegar / aceptar / rechazar / mover / resolver / cambiar área
+  → responder: ensure_owner_for_reply antes de persistir o llamar a Evolution
+Soporte: lee toda la organización y no ve controles que mutan
+```
