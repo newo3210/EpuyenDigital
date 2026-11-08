@@ -90,7 +90,7 @@ Admin → /settings/lines
 
 - 2026-11-06: `areas-operators-admin` archivado.
 - 2026-11-06: `whatsapp-channel-core` archivado.
-- 2026-11-08: implementación de `mesa-entrada-inbox` (sin archivar; falta revisión adversarial y OK humano).
+- 2026-11-08: `mesa-entrada-inbox` archivado en `openspec/changes/archive/2026-11-08-mesa-entrada-inbox`. Specs vivas en `openspec/specs/inbox-queue`, `conversation-ownership` e `inbox-thread`.
 
 ## 7. Mesa de entrada — por qué las funciones son definer
 

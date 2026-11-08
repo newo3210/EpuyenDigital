@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 3 — `mesa-entrada-inbox` (adversarial PASS WITH GAPS, waiting for human OK to archive)
+**Current focus:** Phase 4 — Pobladores (plan next)
 
 ## Current Position
 
-Phase: 1 Fundación + Phase 2 WhatsApp channel core + Phase 2.1 Inspectoría pets on main + Phase 3 inbox applied  
-Plan: OpenSpec `mesa-entrada-inbox` **approved and applied 2026-11-08**  
-Status: Triage code is on `cursor/mesa-entrada-inbox-3654`. Live `supabase test db`, curl against Postgres, and browser claim/delegate are blocked: this VM has no Docker.  
-Last activity: 2026-11-08 — apply of INB-01..15 (minus WA-08 and WA-11)
+Phase: 1 Fundación + Phase 2 WhatsApp channel core + Phase 2.1 Inspectoría pets + Phase 3 inbox archived  
+Plan: OpenSpec `mesa-entrada-inbox` **archived 2026-11-08** at `openspec/changes/archive/2026-11-08-mesa-entrada-inbox`  
+Status: Main specs updated (`inbox-queue`, `conversation-ownership`, `inbox-thread`, plus inbound, outbound, and municipal-areas). Live `supabase test db` remains a residual gap.  
+Last activity: 2026-11-08 — human OK to archive inbox and start Phase 4
 
-Progress: [██████░░░░] ~55% (foundation + areas/operators + WA channel archived + inbox implemented, not archived)
+Progress: [███████░░░] ~65% (foundation + areas/operators + WA channel + inbox archived)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (reconcile-foundation-to-main, areas-operators-admin, whatsapp-channel-core)
+- Total plans completed: 4 (reconcile-foundation-to-main, areas-operators-admin, whatsapp-channel-core, mesa-entrada-inbox)
 - Average duration: -
 - Total execution time: -
 
@@ -36,25 +36,24 @@ Progress: [██████░░░░] ~55% (foundation + areas/operators + 
 
 ### Pending Todos
 
-- Human OK before archive of `mesa-entrada-inbox` (adversarial PASS WITH GAPS, 2026-11-08)
+- Phase 4 Pobladores plan (POB-01..09), then human approval before apply
 - Live `supabase db reset` / curl / browser claim-delegate when containers are available
-- WA-08 media outbound and WA-11 send_mode chooser stay outside this inbox change
+- WA-08 media outbound and WA-11 send_mode chooser
 - Optional: adversarial close of `inspectoria-pet-registry-ux-v2`
 
 ### Blockers/Concerns
 
 - Agent env sin Docker/Podman for live SQL/E2E
-- Shared line still enqueues pet `process_inbound` for all non-fromMe inbound. The inbox change leaves that behavior in place on purpose.
+- Shared line still enqueues pet `process_inbound` for all non-fromMe inbound. That stays on purpose.
 
 ### Process
 
 - 2026-11-06: `areas-operators-admin` archived; merge PR #5
 - 2026-11-06: `whatsapp-channel-core` adversarial PASS WITH GAPS, archived; merge PR #6
-- 2026-11-07: `mesa-entrada-inbox` proposal, specs, design, and tasks drafted
-- 2026-11-08: plan approved and applied. Not archived.
+- 2026-11-08: `mesa-entrada-inbox` adversarial PASS WITH GAPS, archived after human OK
 
 ## Session Continuity
 
 Last session: 2026-11-08
-Stopped at: Apply of `mesa-entrada-inbox` is in the branch. Verification reports record unit PASS and live DB/browser BLOCKED. Archive waits for adversarial review and human OK.
-Resume file: `openspec/changes/mesa-entrada-inbox/tasks.md`
+Stopped at: Inbox archived. Next is the Pobladores OpenSpec plan. No production code until that plan is approved.
+Resume file: `.planning/REQUIREMENTS.md` (POB-01..09)

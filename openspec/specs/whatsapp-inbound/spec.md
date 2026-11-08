@@ -1,7 +1,7 @@
 # whatsapp-inbound Specification
 
 ## Purpose
-TBD - created by archiving change whatsapp-channel-core. Update Purpose after archive.
+Inbound WhatsApp persistence, including reopen of a resolved thread. Updated by archiving `mesa-entrada-inbox` (2026-11-08).
 
 ## Requirements
 
@@ -65,3 +65,18 @@ A new phone SHALL create or link an unregistered citizen with phone and availabl
 #### Scenario: New phone creates unregistered citizen
 - **WHEN** an unknown normalized phone messages the line
 - **THEN** an unregistered citizen and citizen_phones row exist linked to the conversation
+
+### Requirement: Reopen resolved conversation on citizen inbound
+When an inbound citizen message is persisted for a conversation in `queue_column` `resolved`, the system SHALL reopen that conversation as specified in `conversation-ownership` (unowned, column `new`, `REOPENED` event) in the same persistence flow as the message. Duplicate external ids SHALL still persist only one message and SHALL NOT reopen twice. Group, broadcast, and newsletter ignores SHALL NOT reopen anything. The pet `process_inbound` job SHALL still be enqueued for a non-fromMe inbound on the shared line, whether or not the conversation was reopened.
+
+#### Scenario: Citizen writes after resolve
+- **WHEN** a valid inbound text webhook arrives for a resolved conversation
+- **THEN** the message is stored once and the conversation is unowned in column `new` with a `REOPENED` event
+
+#### Scenario: Duplicate delivery does not reopen twice
+- **WHEN** the same external id is delivered again after a reopen
+- **THEN** there is still one message and one `REOPENED` event for that message
+
+#### Scenario: Pet job still enqueued
+- **WHEN** a non-fromMe inbound is accepted on the shared line
+- **THEN** a `process_inbound` job is still enqueued
