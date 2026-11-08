@@ -117,6 +117,13 @@ export type WorkerStore = {
     externalId?: string;
   }): Promise<void>;
   getLineInstance(lineId: string): Promise<{ instance: string; orgId: string } | null>;
+  getExternalTaskNotify(taskId: string): Promise<{
+    publicRef: string;
+    title: string;
+    externalPhone: string | null;
+    lineId: string | null;
+  } | null>;
+  abandonStaleTasks(): Promise<number>;
   saveMedia(params: {
     orgId: string;
     path: string;

@@ -25,6 +25,7 @@ describe('visibleNavItems', () => {
       '/settings/lines',
       '/settings/quick-replies',
       '/settings/hours',
+      '/settings/external-contacts',
       '/support/errors',
     ]);
   });

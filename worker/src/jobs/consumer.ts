@@ -19,14 +19,24 @@ export async function processOneJob(ctx: JobContext): Promise<boolean> {
   return true;
 }
 
-// runWorkerLoop - poll until stopped
+// runWorkerLoop - poll until stopped. Abandon stale tasks about once a day when idle.
 export async function runWorkerLoop(
   ctx: JobContext,
   options: { pollMs: number; signal?: AbortSignal },
 ): Promise<void> {
+  let lastAbandonAt = 0;
   while (!options.signal?.aborted) {
     const did = await processOneJob(ctx);
     if (!did) {
+      const now = Date.now();
+      if (now - lastAbandonAt > 24 * 60 * 60 * 1000) {
+        try {
+          await ctx.store.abandonStaleTasks();
+        } catch {
+          // Local/memory stores and missing SQL stay quiet; the report documents the gap.
+        }
+        lastAbandonAt = now;
+      }
       await new Promise((r) => setTimeout(r, options.pollMs));
     }
   }

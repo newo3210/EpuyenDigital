@@ -24,14 +24,26 @@ function rows(timeline: CitizenTimeline): TimelineRow[] {
     kind: copy.timeline.animal,
     text: `${item.name} · ${item.species} · ${item.municipalId}`,
   }));
-  return [...messages, ...events, ...animals].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const notes = (timeline.notes ?? []).map((item) => ({
+    id: `note-${item.id}`,
+    at: item.at,
+    kind: copy.timeline.note,
+    text: item.body?.trim() || item.kind || '',
+  }));
+  const tasks = (timeline.tasks ?? []).map((item) => ({
+    id: `task-${item.id}`,
+    at: item.at,
+    kind: copy.timeline.task,
+    text: `${item.title ?? ''} · ${item.status ?? ''}`.trim(),
+  }));
+  return [...messages, ...events, ...animals, ...notes, ...tasks].sort((a, b) => (a.at < b.at ? 1 : -1));
 }
 
 type CitizenTimelineViewProps = {
   timeline: CitizenTimeline;
 };
 
-// Timeline - newest first. This view does not read notes or tasks.
+// Timeline - newest first, including notes and tasks from the citizen RPC.
 export function CitizenTimelineView({ timeline }: CitizenTimelineViewProps) {
   const items = rows(timeline);
   return (

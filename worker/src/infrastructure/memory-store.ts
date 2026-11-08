@@ -334,6 +334,19 @@ export class MemoryWorkerStore implements WorkerStore {
     return { instance: this.line.instance, orgId: this.line.orgId };
   }
 
+  externalTasks = new Map<
+    string,
+    { publicRef: string; title: string; externalPhone: string | null; lineId: string | null }
+  >();
+
+  async getExternalTaskNotify(taskId: string) {
+    return this.externalTasks.get(taskId) ?? null;
+  }
+
+  async abandonStaleTasks() {
+    return 0;
+  }
+
   async saveMedia(params: {
     orgId: string;
     path: string;

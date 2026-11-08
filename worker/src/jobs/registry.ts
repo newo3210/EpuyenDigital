@@ -1,6 +1,7 @@
 import type { JobPayload } from "@epuyen/shared";
 import { handleAnalyzeTraits } from "./analyze-traits.js";
 import { handleDownloadMedia } from "./download-media.js";
+import { handleExternalNotify } from "./external-notify.js";
 import { handleProcessInbound } from "./process-inbound.js";
 import { handleSendOutbound } from "./send-outbound.js";
 import type { JobContext, JobHandler } from "./types.js";
@@ -12,6 +13,7 @@ export const jobHandlers: Record<JobPayload["type"], JobHandler> = {
   download_media: handleDownloadMedia,
   send_outbound: handleSendOutbound,
   analyze_traits: handleAnalyzeTraits,
+  external_notify: handleExternalNotify,
 };
 
 // dispatchJob - route payload to handler

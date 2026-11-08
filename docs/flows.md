@@ -122,7 +122,7 @@ Detalles:
 - **Responder = tomar/aceptar** (`ensure_owner_for_reply`): sin dueño → claim; delegación pendiente propia → accept; dueño otro → bloquea con "Esta conversación la tiene [nombre]".
 - Conflictos de concurrencia: `FOR UPDATE` + estado esperado → error `CLAIM_CONFLICT` legible.
 
-## 5. Ciclo de vida de una tarea
+## 5. Ciclo de vida de una tarea [implementado]
 
 ```mermaid
 stateDiagram-v2
@@ -145,7 +145,7 @@ stateDiagram-v2
 - **Aviso al vecino**: si `notify_citizen_on_close`, al cerrar con `resolved` se encola un mensaje al vecino por la conversación de origen.
 - Toda transición escribe `task_history` y actualiza `last_activity_at` en la misma transacción.
 
-## 6. Delegación a un contacto externo por WhatsApp
+## 6. Delegación a un contacto externo por WhatsApp [implementado]
 
 Para responsables de área que no usan el panel (ej. encargado de un corralón o delegado de un paraje).
 
@@ -169,7 +169,7 @@ sequenceDiagram
 Reglas:
 - Los mensajes del contacto externo llegan por la misma línea; el webhook detecta que el teléfono es un `external_contact` y los enruta al protocolo de tareas (no crean conversación de vecino ni disparan el bot).
 - Comandos reconocidos (insensibles a mayúsculas/acentos): `ACEPTO <ref>`, `RECHAZO <ref> <motivo>`, `LISTO <ref> <detalle>`, `NO SE PUEDE <ref> <motivo>` (→ `failed`). Si el mensaje no coincide, se responde con la ayuda de comandos.
-- Recordatorio automático si no hay respuesta en X horas; al vencer, vuelve a la bolsa del área con evento en el historial.
+- El abandono por inactividad usa `abandon_stale_tasks` (service role / worker diario). Un recordatorio intermedio por horas sigue **[pendiente]**.
 
 ## 7. Registro progresivo del poblador
 
