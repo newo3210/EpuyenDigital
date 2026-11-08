@@ -5,7 +5,7 @@
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
 **Last updated:** 2026-11-08  
-**Related OpenSpec change:** `openspec/changes/mesa-entrada-inbox/`
+**Related OpenSpec change:** `openspec/changes/pobladores-ficha/`
 
 ---
 
@@ -19,7 +19,8 @@
 - **Inspectoría pet registry** (main): Evolution webhook, worker jobs, registration state machine, animal tables.
 - **Areas + operators admin** (archived): `areas` / `area_members`, profile email/deactivation, admin UI.
 - **WhatsApp channel core** (archived): `conversations`, encrypted line secrets, inbound hardenings, delivery ACK persistence, admin `/settings/lines`, text composer with `send_mode` guard.
-- **Mesa de entrada inbox** (this change): claim/delegate/accept/reject/move/resolve/reopen, area-scoped reads, business-hours SLA, queue filters, ticks, OpenStreetMap links, quick replies.
+- **Mesa de entrada inbox**: claim/delegate/accept/reject/move/resolve/reopen, area-scoped reads, business-hours SLA, queue filters, ticks, OpenStreetMap links, quick replies.
+- **Pobladores ficha** (this change): org-wide citizen search, profile edit, register, merge, and a manual-source guard. Notes and tasks stay deferred.
 
 **Deferred follow-ups:**
 
@@ -31,10 +32,10 @@
 
 | Conceptual layer | Paths in this repo | Notes |
 |---|---|---|
-| Presentation / HTTP thin | `(panel)/inbox/**`, `(panel)/settings/{lines,quick-replies,hours}`, `presentation/inbox/**`, `presentation/whatsapp/**` | No Supabase imports in presentation. Support renders no mutating controls. |
-| Application / services | `features/inbox/**`, `features/outbound/**`, worker jobs | User-scoped RPCs. Composer calls `ensure_owner_for_reply` before persist or Evolution. |
-| Infrastructure / repositories | `infrastructure/repositories/inbox.ts`, `supabase-inbound-store.ts`, migrations | Service role for webhook reopen. SLA trigger in SQL. |
-| Contracts / schemas | `contracts/inbox.ts`, `packages/shared` (`business-minutes`, `inbox-side-effects`) | Zod at filter, delegate, move, and quick-reply boundaries. |
+| Presentation / HTTP thin | `(panel)/inbox/**`, `(panel)/citizens/**`, `(panel)/settings/{lines,quick-replies,hours}`, `presentation/inbox/**`, `presentation/citizens/**`, `presentation/whatsapp/**` | No Supabase imports in presentation. Support renders no mutating controls. |
+| Application / services | `features/inbox/**`, `features/citizens/**`, `features/outbound/**`, worker jobs | User-scoped RPCs. Composer calls `ensure_owner_for_reply` before persist or Evolution. |
+| Infrastructure / repositories | `infrastructure/repositories/{inbox,citizens}.ts`, `supabase-inbound-store.ts`, migrations | Service role for webhook reopen and the pet worker. The citizen guard trigger lives in SQL. |
+| Contracts / schemas | `contracts/inbox.ts`, `contracts/citizens.ts`, `packages/shared` (`business-minutes`, `inbox-side-effects`, `citizen-fields`) | Zod at filter, delegate, profile, and merge boundaries. |
 
 ## 3. Data & control flow
 
@@ -77,10 +78,12 @@ Admin → /settings/lines → create/update (RLS) + upsert ciphertext secrets (s
 |---|---|
 | `/login` | Email/password operator sign-in |
 | `/inbox` | Queue from `list_inbox_queue` (unowned FIFO, then owned by latest inbound). Filters. |
-| `/inbox/[conversationId]` | Thread, ticks, OSM links, events, claim/delegate/move/resolve, text composer |
+| `/inbox/[conversationId]` | Thread, ticks, OSM links, events, claim/delegate/move/resolve, text composer, link and edit of the citizen ficha |
 | `/settings/quick-replies` | Admin quick replies |
 | `/settings/hours` | Admin business hours and holidays |
-| `/citizens`, `/tasks` | Placeholders |
+| `/citizens` | Search by name, DNI (`document_id`), or phone. Empty query lists nothing. |
+| `/citizens/[id]` | Ficha, missing fields, register, timeline, merge into this record. A merged row redirects to the keeper. |
+| `/tasks` | Placeholder |
 | `/settings/profile` | Name + avatar |
 | `/settings/areas` | Admin areas |
 | `/settings/operators` | Admin operators |
@@ -106,7 +109,10 @@ Migration `20261107010000_whatsapp_channel_core.sql`:
 - Transitions are `SECURITY DEFINER`, `search_path = ''`, `auth.uid()` checks. Authenticated clients cannot write conversations, messages, or events directly
 - Reads: admin and support see the org; area roles see `area_id` or `pending_area_id` in `current_area_ids()`, or they are owner or delegator
 - `messages.conversation_id`, delivery timestamps; location stays on message
-- `citizens`: `registration_status`, `whatsapp_push_name` / avatar fields (POB-01 stub)
+- `citizens`: `registration_status`, `whatsapp_push_name` / avatar fields (POB-01 stub). Ficha migration adds `email`, `tags`, `observations`, `field_sources`, `merged_into_id`, `registered_at`, `registered_by`. DNI stays in `document_id`.
+- Citizen mutations are `update_citizen_profile`, `register_citizen`, `search_citizens`, and `merge_citizens` (`SECURITY DEFINER`, `search_path = ''`). Authenticated can SELECT the caller's organization and cannot UPDATE `citizens`. A BEFORE UPDATE trigger restores any column whose `field_sources` value is `manual` unless the session flag `app.citizen_field_write` is `operator`.
+- Search is the RPC (limit 20, skips merged rows). The page does not download the citizen table.
+- `list_citizen_timeline` is `SECURITY DEFINER` and returns that citizen's messages, events, and animals for any operator in the same organization. Inbox message policies stay area-scoped. The ficha does not read notes or tasks. Merge stores the note on `merge_note` and locks both rows before moving children.
 - Seed: Inspectoría line `default_area_id` → Mesa de Entrada
 - Bucket `whatsapp-media` (private)
 
@@ -131,7 +137,7 @@ Encryption: AES-256-GCM via `CREDENTIALS_ENCRYPTION_KEY` (no service-role fallba
 
 ## 9. Non-goals / out of scope (this change)
 
-Panel media upload (WA-08), `send_mode` settings screen (WA-11), Meta Cloud API, pet-area gating. Realtime refreshes the router; it does not patch the client cache in place.
+Panel media upload (WA-08), `send_mode` settings screen (WA-11), Meta Cloud API, pet-area gating, notes, tasks, and the bot questionnaire. Realtime refreshes the router; it does not patch the client cache in place. Home coordinates edited on the ficha are `citizens.latitude` / `longitude`. Message pins stay on `messages`.
 
 ## 10. Change log (architecture)
 
@@ -144,3 +150,4 @@ Panel media upload (WA-08), `send_mode` settings screen (WA-11), Meta Cloud API,
 | 2026-11-06 | Areas, operators admin, `current_area_ids()`, last-admin | `areas-operators-admin` |
 | 2026-11-06 | Conversations, line admin, inbound/outbound channel core | `whatsapp-channel-core` |
 | 2026-11-08 | Inbox triage, business-hours SLA, area reads, reopen | `mesa-entrada-inbox` |
+| 2026-11-08 | Citizen ficha, manual-source guard, search, merge | `pobladores-ficha` |

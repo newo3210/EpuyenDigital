@@ -135,7 +135,9 @@ describe("ingestInboundEvent", () => {
       { ...baseEvent, externalId: "pn-1", pushName: "Juan" },
       "secret",
     );
-    expect([...store.citizens.values()][0]?.pushName).toBe("Juan");
+    const citizen = [...store.citizens.values()][0];
+    expect(citizen?.pushName).toBe("Juan");
+    expect(citizen).not.toHaveProperty("fullName");
   });
 });
 

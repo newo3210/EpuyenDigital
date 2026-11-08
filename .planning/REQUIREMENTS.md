@@ -53,15 +53,15 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 
 ### Pobladores (POB)
 
-- [ ] **POB-01**: Todo contacto nuevo de WhatsApp crea automáticamente un poblador en estado "no registrado" con teléfono, pushName y foto
-- [ ] **POB-02**: Operador puede ver y editar la ficha del poblador (nombre, DNI, domicilio, barrio/paraje, email, etiquetas, observaciones) desde el chat
-- [ ] **POB-03**: Operador puede marcar a un poblador como "registrado" cuando tiene los datos mínimos (nombre + DNI + teléfono)
-- [ ] **POB-04**: Cada dato de la ficha guarda su origen (manual, bot, importación) y lo cargado manualmente no se pisa automáticamente
-- [ ] **POB-05**: La ficha muestra qué datos faltan para completar el registro (registro progresivo)
-- [ ] **POB-06**: Operador puede buscar pobladores por nombre, DNI o teléfono con resultados instantáneos
-- [ ] **POB-07**: La ficha muestra el timeline del poblador: mensajes, eventos de conversación, notas y tareas
-- [ ] **POB-08**: Operador puede unificar dos pobladores duplicados (mismo vecino con dos números), conservando historial
-- [ ] **POB-09**: Operador puede distinguir persona / organización (comercio, cooperativa, asociación)
+- [x] **POB-01**: Todo contacto nuevo de WhatsApp crea automáticamente un poblador en estado "no registrado" con teléfono, pushName y foto
+- [x] **POB-02**: Operador puede ver y editar la ficha del poblador (nombre, DNI, domicilio, barrio/paraje, email, etiquetas, observaciones) desde el chat
+- [x] **POB-03**: Operador puede marcar a un poblador como "registrado" cuando tiene los datos mínimos (nombre + DNI + teléfono)
+- [x] **POB-04**: Cada dato de la ficha guarda su origen (manual, bot, importación) y lo cargado manualmente no se pisa automáticamente
+- [x] **POB-05**: La ficha muestra qué datos faltan para completar el registro (registro progresivo)
+- [x] **POB-06**: Operador puede buscar pobladores por nombre, DNI o teléfono con resultados instantáneos
+- [x] **POB-07**: La ficha muestra el timeline del poblador: mensajes, eventos de conversación, notas y tareas
+- [x] **POB-08**: Operador puede unificar dos pobladores duplicados (mismo vecino con dos números), conservando historial
+- [x] **POB-09**: Operador puede distinguir persona / organización (comercio, cooperativa, asociación)
 
 ### Tareas y notas (TSK)
 
@@ -163,7 +163,7 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 | WA-01..12 | Phase 2 | Channel core archived; WA-08 panel media and WA-11 chooser still open |
 | INSP-PET-01..08 | Phase 2.1 (INSERTED) | Done — archived `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot` |
 | INB-01..15 | Phase 3 | Done — archived `openspec/changes/archive/2026-11-08-mesa-entrada-inbox` (live DB gap) |
-| POB-01..09 | Phase 4 | Pending |
+| POB-01..09 | Phase 4 | Done — archived `openspec/changes/archive/2026-11-08-pobladores-ficha` (live DB gap; timeline notes/tasks deferred to Phase 5) |
 | TSK-01..12 | Phase 5 | Pending |
 | AUD-01..04 | Phase 5 | Pending |
 | BOT-01..13 | Phase 6 | Pending |
@@ -176,4 +176,4 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-11-08 — `mesa-entrada-inbox` archived (INB-01..15)*
+*Last updated: 2026-11-08 — `pobladores-ficha` archived (POB-01..09)*

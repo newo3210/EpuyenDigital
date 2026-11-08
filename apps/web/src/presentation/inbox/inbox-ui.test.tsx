@@ -118,6 +118,7 @@ describe('ThreadView', () => {
     expect(screen.getByRole('img', { name: 'image' })).toHaveAttribute('src', 'https://example.test/a.jpg');
     expect(screen.getByText(/Leído/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tomar' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Abrir ficha' })).toHaveAttribute('href', `/citizens/${other}`);
   });
 
   it('hides mutating controls for support', () => {

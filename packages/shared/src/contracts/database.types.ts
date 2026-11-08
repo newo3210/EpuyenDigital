@@ -175,13 +175,13 @@ isOneToOne: false
                   Relationships: []
                 },"citizens": {
                   Row: {
-                    "id": string,"org_id": string,"full_name": string | null,"document_id": string | null,"address_line": string | null,"neighborhood": string | null,"latitude": number | null,"longitude": number | null,"privacy_consent_at": string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null
+                    "id": string,"org_id": string,"full_name": string | null,"document_id": string | null,"address_line": string | null,"neighborhood": string | null,"email": string | null,"tags": string[],"observations": string | null,"field_sources": Json,"latitude": number | null,"longitude": number | null,"privacy_consent_at": string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id": string | null,"merge_note": string | null,"registered_at": string | null,"registered_by": string | null
                   }
                   Insert: {
-                    "id"?: string,"org_id": string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null
+                    "id"?: string,"org_id": string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"email"?: string | null,"tags"?: string[],"observations"?: string | null,"field_sources"?: Json,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id"?: string | null,"merge_note"?: string | null,"registered_at"?: string | null,"registered_by"?: string | null
                   }
                   Update: {
-                    "id"?: string,"org_id"?: string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null
+                    "id"?: string,"org_id"?: string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"email"?: string | null,"tags"?: string[],"observations"?: string | null,"field_sources"?: Json,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id"?: string | null,"merge_note"?: string | null,"registered_at"?: string | null,"registered_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -192,6 +192,17 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"citizen_phones": {
+                  Row: {
+                    "id": string,"org_id": string,"citizen_id": string,"phone_normalized": string,"created_at"?: string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"citizen_id": string,"phone_normalized": string,"created_at"?: string
+                  }
+                  Update: {
+                    "citizen_id"?: string,"phone_normalized"?: string
+                  }
+                  Relationships: []
                 },"conversations": {
                   Row: {
                     "id": string,"org_id": string,"line_id": string,"citizen_id": string | null,"phone_normalized": string,"area_id": string,"bot_state": string,"queue_column": string,"owner_user_id": string | null,"delegated_from_user_id": string | null,"pending_area_id": string | null,"awaiting_acceptance": boolean,"entered_queue_at": string,"resolved_at": string | null,"resolved_by": string | null,"last_message_at": string | null,"last_inbound_at": string | null,"last_outbound_at": string | null,"last_message_preview": string | null,"last_message_kind": string | null,"has_attachments": boolean,"needs_response": boolean,"sla_due_at": string | null,"created_at"?: string,"updated_at"?: string
@@ -238,7 +249,7 @@ isOneToOne: false
                   Relationships: []
                 },"animals": {
                   Row: {
-                    "id": string,"org_id": string,"citizen_id": string,"name": string,"species": string,"municipal_id": string,"status": string,"traits_status": string,"distinctive_traits": Json | null
+                    "id": string,"org_id": string,"citizen_id": string,"name": string,"species": string,"municipal_id": string,"status": string,"traits_status": string,"distinctive_traits": Json | null,"created_at"?: string
                   }
                   Insert: {
                     "id"?: string,"org_id": string,"citizen_id": string,"name": string,"species": string,"municipal_id": string,"status"?: string,"traits_status"?: string,"distinctive_traits"?: Json | null
@@ -358,6 +369,21 @@ isOneToOne: false
 { Args: { "p_citizen_id": string,"p_payload": Json,"p_photos"?: Json,"p_session_id": string }; Returns: { "animal_id": string,"already_done": boolean,"municipal_id": string }[]
                            },"mark_session_completion":
 { Args: { "p_animal_id": string,"p_municipal_id": string,"p_payload"?: Json | null,"p_session_id": string }; Returns: { "animal_id": string,"already_done": boolean,"municipal_id": string }[]
+                           },
+"update_citizen_profile":
+{ Args: { "p_id": string,"p_full_name": string | null,"p_document_id": string | null,"p_address_line": string | null,"p_neighborhood": string | null,"p_email": string | null,"p_tags": string[] | null,"p_observations": string | null,"p_party_kind": string,"p_latitude": number | null,"p_longitude": number | null }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"register_citizen":
+{ Args: { "p_id": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"search_citizens":
+{ Args: { "p_query": string }; Returns: { "result_id": string,"result_full_name": string | null,"result_document_id": string | null,"result_phone": string | null,"result_registration_status": string | null,"result_party_kind": string | null,"result_push_name": string | null }[]
+                           },
+"merge_citizens":
+{ Args: { "p_keep": string,"p_drop": string,"p_note": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"list_citizen_timeline":
+{ Args: { "p_id": string }; Returns: { "result_kind": string,"result_id": string,"result_at": string,"result_label": string | null,"result_detail": string | null }[]
                            }
           }
           Enums: {
