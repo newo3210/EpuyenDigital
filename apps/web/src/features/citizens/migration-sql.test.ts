@@ -39,12 +39,12 @@ describe('pobladores ficha migration SQL', () => {
 });
 
 describe('ficha reads', () => {
-  it('does not query notes or tasks', () => {
+  it('reads the timeline through the definer RPC and never selects notes/tasks tables directly', () => {
     expect(repository).not.toContain("from('notes')");
     expect(repository).not.toContain("from('tasks')");
     expect(repository).toContain("rpc('list_citizen_timeline'");
-    expect(sql).toContain('from public.messages');
-    expect(sql).toContain('from public.animals');
+    expect(repository).toContain("result_kind === 'note'");
+    expect(repository).toContain("result_kind === 'task'");
   });
 });
 

@@ -37,11 +37,18 @@ export const analyzeTraitsJobSchema = z.object({
   orgId: z.string().uuid(),
 });
 
+export const externalNotifyJobSchema = z.object({
+  type: z.literal("external_notify"),
+  taskId: z.string().uuid(),
+  orgId: z.string().uuid(),
+});
+
 export const jobPayloadSchema = z.discriminatedUnion("type", [
   processInboundJobSchema,
   downloadMediaJobSchema,
   sendOutboundJobSchema,
   analyzeTraitsJobSchema,
+  externalNotifyJobSchema,
 ]);
 
 export type JobPayload = z.infer<typeof jobPayloadSchema>;

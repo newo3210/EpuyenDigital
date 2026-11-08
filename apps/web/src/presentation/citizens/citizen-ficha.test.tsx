@@ -31,6 +31,8 @@ const timeline = {
   messages: [{ id: 'm1', at: '2026-11-08T12:00:00.000Z', direction: 'inbound', body: 'hola' }],
   events: [],
   animals: [{ id: 'a1', at: '2026-11-08T11:00:00.000Z', name: 'Lola', species: 'dog', municipalId: 'EP-1' }],
+  notes: [],
+  tasks: [],
 };
 
 describe('CitizenFicha', () => {

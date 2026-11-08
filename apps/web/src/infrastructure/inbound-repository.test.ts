@@ -139,6 +139,35 @@ describe("ingestInboundEvent", () => {
     expect(citizen?.pushName).toBe("Juan");
     expect(citizen).not.toHaveProperty("fullName");
   });
+
+  it("routes external contacts without creating a citizen or process_inbound job", async () => {
+    const store = new MemoryInboundStore();
+    store.lines.set("inspectoria", { ...line });
+    store.externalContacts.set(`${line.orgId}:5492999112233`, {
+      id: "ext-1",
+      orgId: line.orgId,
+      phone: "5492999112233",
+    });
+
+    const result = await ingestInboundEvent(
+      store,
+      {
+        ...baseEvent,
+        externalId: "ext-msg-1",
+        phoneNormalized: "5492999112233",
+        phoneRaw: "5492999112233",
+        text: "ACEPTO T-0001",
+      },
+      "secret",
+    );
+
+    expect(result.httpStatus).toBe(200);
+    expect(result.body.external).toBe(true);
+    expect(store.citizens.size).toBe(0);
+    expect(store.conversations.size).toBe(0);
+    expect(store.jobs.filter((job) => job.type === "process_inbound")).toHaveLength(0);
+    expect(store.jobs.filter((job) => job.type === "send_outbound")).toHaveLength(1);
+  });
 });
 
 describe("ingestDeliveryAck", () => {

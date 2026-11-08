@@ -7,10 +7,15 @@ import { listAreas } from '@/infrastructure/repositories/areas';
 import { getCitizenProfile } from '@/infrastructure/repositories/citizens';
 import { getConversationThread } from '@/infrastructure/repositories/conversations';
 import { listConversationEvents, listOperatorOptions, listQuickReplies, markConversationRead } from '@/infrastructure/repositories/inbox';
+import { listNotes } from '@/infrastructure/repositories/notes';
+import { listExternalContacts } from '@/infrastructure/repositories/tasks';
 import { createAdminSupabase } from '@/infrastructure/supabase/admin';
 import { createServerSupabase } from '@/infrastructure/supabase/server';
 import { CitizenFicha } from '@/presentation/citizens/citizen-ficha';
 import { ThreadView } from '@/presentation/inbox/thread-view';
+import { NotesPanel } from '@/presentation/notes/notes-panel';
+import { CreateTaskForm } from '@/presentation/tasks/create-task-form';
+import { ExportCaseButton } from '@/presentation/tasks/export-case-button';
 
 type PageProps = {
   params: Promise<{ conversationId: string }>;
@@ -28,12 +33,16 @@ export default async function InboxThreadPage({ params }: PageProps) {
 
   await markConversationRead(supabase, conversationId).catch(() => undefined);
 
-  const [events, replies, operators, areas] = await Promise.all([
+  const [events, replies, operators, areas, notes, externalContacts] = await Promise.all([
     listConversationEvents(supabase, conversationId),
     listQuickReplies(supabase, thread.conversation.areaId),
     listOperatorOptions(supabase),
     listAreas(supabase),
+    listNotes(supabase, { conversationId }),
+    listExternalContacts(supabase),
   ]);
+  const canMutate = operator.role !== 'support';
+  const areaOptions = areas.map((area) => ({ id: area.id, label: area.name }));
 
   const admin = createAdminSupabase();
   const messages = await Promise.all(
@@ -47,16 +56,34 @@ export default async function InboxThreadPage({ params }: PageProps) {
   const profile = thread.conversation.citizenId
     ? await getCitizenProfile(supabase, thread.conversation.citizenId)
     : null;
-  const editor =
-    profile && !profile.mergedIntoId ? (
-      <CitizenFicha
-        profile={profile}
-        timeline={{ messages: [], events: [], animals: [] }}
-        canMutate={operator.role !== 'support'}
-        showTimeline={false}
-        showMerge={false}
+  const editor = (
+    <div className="flex flex-col gap-4">
+      {profile && !profile.mergedIntoId ? (
+        <CitizenFicha
+          profile={profile}
+          timeline={{ messages: [], events: [], animals: [], notes: [], tasks: [] }}
+          canMutate={canMutate}
+          showTimeline={false}
+          showMerge={false}
+        />
+      ) : null}
+      {canMutate ? (
+        <CreateTaskForm
+          conversationId={conversationId}
+          areas={areaOptions}
+          operators={operators}
+          externalContacts={externalContacts}
+        />
+      ) : null}
+      <NotesPanel
+        notes={notes}
+        canMutate={canMutate}
+        conversationId={conversationId}
+        citizenId={thread.conversation.citizenId ?? undefined}
       />
-    ) : null;
+      <ExportCaseButton conversationId={conversationId} />
+    </div>
+  );
 
   let ownerName: string | null = null;
   if (thread.conversation.ownerUserId) {
@@ -78,8 +105,8 @@ export default async function InboxThreadPage({ params }: PageProps) {
         events={events}
         quickReplies={replies}
         operators={operators}
-        areas={areas.map((area) => ({ id: area.id, label: area.name }))}
-        canMutate={operator.role !== 'support'}
+        areas={areaOptions}
+        canMutate={canMutate}
         ownerName={ownerName}
         editor={editor}
       />

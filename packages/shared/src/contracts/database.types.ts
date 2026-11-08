@@ -203,6 +203,50 @@ isOneToOne: false
                     "citizen_id"?: string,"phone_normalized"?: string
                   }
                   Relationships: []
+                },"tasks": {
+                  Row: {
+                    "id": string,"org_id": string,"conversation_id": string | null,"citizen_id": string | null,"title": string,"body": string | null,"kind": string,"priority": number,"status": string,"outcome": string | null,"audience": string,"area_id": string | null,"assigned_user_id": string | null,"external_contact_id": string | null,"awaiting_acceptance": boolean,"delegated_from_user_id": string | null,"created_by": string,"due_at": string | null,"public_ref": string,"notify_citizen_on_close": boolean,"last_activity_at": string,"created_at"?: string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"conversation_id"?: string | null,"citizen_id"?: string | null,"title": string,"body"?: string | null,"kind"?: string,"priority"?: number,"status"?: string,"audience": string,"area_id"?: string | null,"assigned_user_id"?: string | null,"external_contact_id"?: string | null,"created_by": string,"due_at"?: string | null,"public_ref": string,"notify_citizen_on_close"?: boolean
+                  }
+                  Update: {
+                    "title"?: string,"status"?: string,"assigned_user_id"?: string | null,"outcome"?: string | null
+                  }
+                  Relationships: []
+                },"task_history": {
+                  Row: {
+                    "id": string,"org_id": string,"task_id": string,"event": string,"actor_kind": string,"actor_user_id": string | null,"note": string | null,"created_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"task_id": string,"event": string,"actor_kind": string,"actor_user_id"?: string | null,"note"?: string | null
+                  }
+                  Update: {
+                    "note"?: string | null
+                  }
+                  Relationships: []
+                },"notes": {
+                  Row: {
+                    "id": string,"org_id": string,"body": string,"kind": string,"author_user_id": string | null,"conversation_id": string | null,"citizen_id": string | null,"task_id": string | null,"parent_note_id": string | null,"sealed_at": string | null,"created_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"body": string,"kind"?: string,"author_user_id"?: string | null,"conversation_id"?: string | null,"citizen_id"?: string | null,"task_id"?: string | null,"parent_note_id"?: string | null
+                  }
+                  Update: {
+                    "body"?: string
+                  }
+                  Relationships: []
+                },"external_contacts": {
+                  Row: {
+                    "id": string,"org_id": string,"area_id": string,"full_name": string,"phone_normalized": string,"is_active": boolean
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"area_id": string,"full_name": string,"phone_normalized": string,"is_active"?: boolean
+                  }
+                  Update: {
+                    "full_name"?: string,"phone_normalized"?: string,"is_active"?: boolean,"area_id"?: string
+                  }
+                  Relationships: []
                 },"conversations": {
                   Row: {
                     "id": string,"org_id": string,"line_id": string,"citizen_id": string | null,"phone_normalized": string,"area_id": string,"bot_state": string,"queue_column": string,"owner_user_id": string | null,"delegated_from_user_id": string | null,"pending_area_id": string | null,"awaiting_acceptance": boolean,"entered_queue_at": string,"resolved_at": string | null,"resolved_by": string | null,"last_message_at": string | null,"last_inbound_at": string | null,"last_outbound_at": string | null,"last_message_preview": string | null,"last_message_kind": string | null,"has_attachments": boolean,"needs_response": boolean,"sla_due_at": string | null,"created_at"?: string,"updated_at"?: string
@@ -381,6 +425,55 @@ isOneToOne: false
                            },
 "merge_citizens":
 { Args: { "p_keep": string,"p_drop": string,"p_note": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+
+"create_task":
+{ Args: { "p_conversation_id": string,"p_title": string,"p_body": string | null,"p_kind": string,"p_priority": number,"p_audience": string,"p_area_id": string | null,"p_assigned_user_id": string | null,"p_external_contact_id": string | null,"p_due_at": string | null,"p_notify_citizen_on_close": boolean,"p_source_note_id"?: string | null }; Returns: { "result_id": string,"result_public_ref": string,"result_hint": string }[]
+                           },
+"claim_task":
+{ Args: { "p_task_id": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"accept_task":
+{ Args: { "p_task_id": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"reject_task":
+{ Args: { "p_task_id": string,"p_note": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"start_task":
+{ Args: { "p_task_id": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"delegate_task":
+{ Args: { "p_task_id": string,"p_audience": string,"p_area_id": string | null,"p_assigned_user_id": string | null,"p_external_contact_id": string | null,"p_note": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"complete_task":
+{ Args: { "p_task_id": string,"p_outcome": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"cancel_task":
+{ Args: { "p_task_id": string,"p_reason": string,"p_reason_text": string | null }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"reopen_task":
+{ Args: { "p_task_id": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"abandon_stale_tasks":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"create_note":
+{ Args: { "p_body": string,"p_conversation_id": string | null,"p_citizen_id": string | null,"p_task_id": string | null,"p_parent_note_id": string | null,"p_kind"?: string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"convert_note_to_task":
+{ Args: { "p_note_id": string,"p_title": string | null,"p_kind": string | null,"p_priority": number | null,"p_audience": string | null,"p_area_id": string | null }; Returns: { "result_id": string,"result_public_ref": string,"result_hint": string }[]
+                           },
+"list_tasks":
+{ Args: { "p_status"?: string | null,"p_area_id"?: string | null }; Returns: { "result_id": string,"result_public_ref": string,"result_title": string,"result_status": string,"result_kind": string,"result_priority": number,"result_area_id": string | null,"result_assigned_user_id": string | null,"result_due_at": string | null,"result_overdue": boolean,"result_conversation_id": string | null,"result_citizen_id": string | null,"result_awaiting_acceptance": boolean }[]
+                           },
+"export_case":
+{ Args: { "p_conversation_id": string }; Returns: Json
+                           },
+"upsert_external_contact":
+{ Args: { "p_id": string | null,"p_area_id": string,"p_full_name": string,"p_phone": string,"p_is_active": boolean }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"apply_external_task_command":
+{ Args: { "p_org_id": string,"p_phone": string,"p_text": string }; Returns: { "result_hint": string,"result_reply": string | null }[]
                            },
 "list_citizen_timeline":
 { Args: { "p_id": string }; Returns: { "result_kind": string,"result_id": string,"result_at": string,"result_label": string | null,"result_detail": string | null }[]

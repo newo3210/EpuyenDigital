@@ -488,6 +488,57 @@ class SupabaseWorkerStore implements WorkerStore {
     return { instance: data.evolution_instance as string, orgId: data.org_id as string };
   }
 
+  async getExternalTaskNotify(taskId: string) {
+    const { data: task } = await this.client
+      .from("tasks")
+      .select("public_ref, title, org_id, conversation_id, external_contact_id")
+      .eq("id", taskId)
+      .maybeSingle();
+    if (!task) return null;
+
+    let externalPhone: string | null = null;
+    if (task.external_contact_id) {
+      const { data: contact } = await this.client
+        .from("external_contacts")
+        .select("phone_normalized")
+        .eq("id", task.external_contact_id)
+        .maybeSingle();
+      externalPhone = (contact?.phone_normalized as string | undefined) ?? null;
+    }
+
+    let lineId: string | null = null;
+    if (task.conversation_id) {
+      const { data: conversation } = await this.client
+        .from("conversations")
+        .select("line_id")
+        .eq("id", task.conversation_id)
+        .maybeSingle();
+      lineId = (conversation?.line_id as string | undefined) ?? null;
+    }
+    if (!lineId) {
+      const { data: line } = await this.client
+        .from("whatsapp_lines")
+        .select("id")
+        .eq("org_id", task.org_id)
+        .limit(1)
+        .maybeSingle();
+      lineId = (line?.id as string | undefined) ?? null;
+    }
+
+    return {
+      publicRef: task.public_ref as string,
+      title: task.title as string,
+      externalPhone,
+      lineId,
+    };
+  }
+
+  async abandonStaleTasks() {
+    const { data, error } = await this.client.rpc("abandon_stale_tasks");
+    if (error) throw error;
+    return Number(data ?? 0);
+  }
+
   async saveMedia(params: {
     orgId: string;
     path: string;

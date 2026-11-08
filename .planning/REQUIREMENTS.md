@@ -65,25 +65,25 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 
 ### Tareas y notas (TSK)
 
-- [ ] **TSK-01**: Operador puede crear una tarea desde una conversación en un clic (queda vinculada a la conversación y al poblador)
+- [x] **TSK-01**: Operador puede crear una tarea desde una conversación en un clic (queda vinculada a la conversación y al poblador)
 - [ ] **TSK-02**: La tarea tiene tipo (consulta, reclamo, trámite, documentación, derivación, otro), prioridad, vencimiento y adjuntos
-- [ ] **TSK-03**: La tarea puede quedar para mí, en la bolsa de un área (cualquiera del área la toma) o delegada a una persona con aceptación
-- [ ] **TSK-04**: Una tarea puede delegarse a un número WhatsApp externo registrado como contacto de área; el externo recibe la tarea por WhatsApp y puede aceptar, rechazar o cerrar respondiendo
-- [ ] **TSK-05**: La tarea sigue el ciclo pendiente → en curso → terminada / cancelada / fallida, con reapertura
-- [ ] **TSK-06**: Al cerrar se registra el resultado (resuelta, abandonada, derivada fuera del municipio, sin respuesta del vecino) y quién la resolvió
-- [ ] **TSK-07**: Cancelar exige motivo del catálogo municipal (o texto libre si es "otro")
-- [ ] **TSK-08**: Las tareas sin actividad por N días (configurable) se marcan automáticamente como abandonadas
+- [x] **TSK-03**: La tarea puede quedar para mí, en la bolsa de un área (cualquiera del área la toma) o delegada a una persona con aceptación
+- [x] **TSK-04**: Una tarea puede delegarse a un número WhatsApp externo registrado como contacto de área; el externo recibe la tarea por WhatsApp y puede aceptar, rechazar o cerrar respondiendo
+- [x] **TSK-05**: La tarea sigue el ciclo pendiente → en curso → terminada / cancelada / fallida, con reapertura
+- [x] **TSK-06**: Al cerrar se registra el resultado (resuelta, abandonada, derivada fuera del municipio, sin respuesta del vecino) y quién la resolvió
+- [x] **TSK-07**: Cancelar exige motivo del catálogo municipal (o texto libre si es "otro")
+- [x] **TSK-08**: Las tareas sin actividad por N días (configurable) se marcan automáticamente como abandonadas
 - [ ] **TSK-09**: Operador puede crear notas internas en una conversación, poblador o tarea, con menciones (@usuario, poblador, tarea) y respuestas de un nivel
-- [ ] **TSK-10**: Operador puede convertir una nota en tarea
-- [ ] **TSK-11**: Operador ve un tablero de tareas por estado y por área, con vencidas marcadas
-- [ ] **TSK-12**: El vecino recibe (opcionalmente) un aviso por WhatsApp cuando su tarea se resuelve
+- [x] **TSK-10**: Operador puede convertir una nota en tarea
+- [x] **TSK-11**: Operador ve un tablero de tareas por estado y por área, con vencidas marcadas
+- [x] **TSK-12**: El vecino recibe (opcionalmente) un aviso por WhatsApp cuando su tarea se resuelve
 
 ### Trazabilidad (AUD)
 
-- [ ] **AUD-01**: Toda transición de conversación y de tarea se ejecuta en una función de base de datos atómica (estado esperado + bloqueo de fila + historial en la misma transacción)
-- [ ] **AUD-02**: El historial de tareas, eventos de conversación y registro de actividad son append-only (sin update ni delete desde el cliente)
-- [ ] **AUD-03**: Los cierres, cancelaciones y delegaciones externas generan una nota de auditoría sellada (hash) e idempotente por correlation-id
-- [ ] **AUD-04**: Operador puede exportar la trazabilidad completa de un caso (conversación + tareas + eventos) como informe
+- [x] **AUD-01**: Toda transición de conversación y de tarea se ejecuta en una función de base de datos atómica (estado esperado + bloqueo de fila + historial en la misma transacción)
+- [x] **AUD-02**: El historial de tareas, eventos de conversación y registro de actividad son append-only (sin update ni delete desde el cliente)
+- [x] **AUD-03**: Los cierres, cancelaciones y delegaciones externas generan una nota de auditoría sellada (hash) e idempotente por correlation-id
+- [x] **AUD-04**: Operador puede exportar la trazabilidad completa de un caso (conversación + tareas + eventos) como informe
 
 ### Chatbot LLM (BOT)
 
@@ -163,9 +163,9 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 | WA-01..12 | Phase 2 | Channel core archived; WA-08 panel media and WA-11 chooser still open |
 | INSP-PET-01..08 | Phase 2.1 (INSERTED) | Done — archived `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot` |
 | INB-01..15 | Phase 3 | Done — archived `openspec/changes/archive/2026-11-08-mesa-entrada-inbox` (live DB gap) |
-| POB-01..09 | Phase 4 | Done — archived `openspec/changes/archive/2026-11-08-pobladores-ficha` (live DB gap; timeline notes/tasks deferred to Phase 5) |
-| TSK-01..12 | Phase 5 | Pending |
-| AUD-01..04 | Phase 5 | Pending |
+| POB-01..09 | Phase 4 | Done — archived `openspec/changes/archive/2026-11-08-pobladores-ficha` |
+| TSK-01..12 | Phase 5 | Done — archived 2026-11-08 (TSK-02 attachments / TSK-09 mentions residual; live DB gap) |
+| AUD-01..04 | Phase 5 | Done — archived 2026-11-08 (live DB gap) |
 | BOT-01..13 | Phase 6 | Pending |
 | OPS-01..05 | Phase 7 | Pending |
 
@@ -176,4 +176,4 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-11-08 — `pobladores-ficha` archived (POB-01..09)*
+*Last updated: 2026-11-08 — `tareas-notas-trazabilidad` archived (TSK/AUD)*

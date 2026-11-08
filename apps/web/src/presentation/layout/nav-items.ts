@@ -33,6 +33,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/settings/lines', label: esAR.nav.lines, icon: Phone, roles: ['admin'] },
   { href: '/settings/quick-replies', label: esAR.nav.quickReplies, icon: MessageSquareText, roles: ['admin'] },
   { href: '/settings/hours', label: esAR.nav.hours, icon: Clock, roles: ['admin'] },
+  { href: '/settings/external-contacts', label: esAR.nav.externalContacts, icon: Phone, roles: ['admin'] },
   { href: '/support/errors', label: esAR.nav.support, icon: LifeBuoy, roles: ['admin', 'support'] },
 ];
 

@@ -16,8 +16,19 @@ export type PersistResult =
   | { status: "duplicate"; messageId: string; conversationId: string }
   | { status: "ignored" };
 
+export type ExternalCommandResult = {
+  hint: string;
+  reply: string | null;
+};
+
 export type InboundStore = {
   findLineByInstance(instance: string): Promise<LineContext | null>;
+  findExternalContact?(orgId: string, phoneNormalized: string): Promise<{ id: string } | null>;
+  applyExternalCommand?(params: {
+    orgId: string;
+    phoneNormalized: string;
+    text: string;
+  }): Promise<ExternalCommandResult>;
   persistInbound(params: {
     line: LineContext;
     event: EvolutionWebhook;
@@ -61,7 +72,27 @@ export class MemoryInboundStore implements InboundStore {
     string,
     { id: string; orgId: string; phone: string; pushName?: string; avatarUrl?: string }
   >();
+  externalContacts = new Map<string, { id: string; orgId: string; phone: string }>();
   jobs: JobPayload[] = [];
+  externalReplies: string[] = [];
+
+  async findExternalContact(orgId: string, phoneNormalized: string) {
+    const row = this.externalContacts.get(`${orgId}:${phoneNormalized}`);
+    return row ? { id: row.id } : null;
+  }
+
+  async applyExternalCommand(params: { orgId: string; phoneNormalized: string; text: string }) {
+    const contact = await this.findExternalContact(params.orgId, params.phoneNormalized);
+    if (!contact) return { hint: 'NOT_EXTERNAL', reply: null };
+    const help = 'Comandos: ACEPTO T-0001 | RECHAZO T-0001 motivo | LISTO T-0001 detalle | NO SE PUEDE T-0001 motivo';
+    const upper = params.text.trim().toUpperCase();
+    if (!/^ACEPTO|^RECHAZO|^LISTO|^NO SE PUEDE/.test(upper)) {
+      this.externalReplies.push(help);
+      return { hint: 'HELP', reply: help };
+    }
+    this.externalReplies.push('ok');
+    return { hint: 'ok', reply: 'ok' };
+  }
 
   async findLineByInstance(instance: string): Promise<LineContext | null> {
     return this.lines.get(instance) ?? null;
@@ -206,6 +237,30 @@ export async function ingestInboundEvent(
       httpStatus: secretCheck.status,
       body: { ok: false, code: secretCheck.code },
     };
+  }
+
+  // External municipal contacts never create a citizen stub or enqueue the pet bot.
+  if (!event.fromMe && store.findExternalContact && store.applyExternalCommand) {
+    const external = await store.findExternalContact(line.orgId, event.phoneNormalized);
+    if (external) {
+      const result = await store.applyExternalCommand({
+        orgId: line.orgId,
+        phoneNormalized: event.phoneNormalized,
+        text: event.text ?? '',
+      });
+      if (result.reply) {
+        await store.enqueueJob({
+          type: 'send_outbound',
+          lineId: line.lineId,
+          phone: event.phoneNormalized,
+          text: result.reply,
+        });
+      }
+      return {
+        httpStatus: 200,
+        body: { ok: true, external: true, hint: result.hint },
+      };
+    }
   }
 
   const persisted = await store.persistInbound({ line, event });

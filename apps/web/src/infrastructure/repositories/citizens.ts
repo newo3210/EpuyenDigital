@@ -58,12 +58,12 @@ export async function getCitizenProfile(client: DbClient, id: string): Promise<C
   };
 }
 
-// Timeline - org-wide definer read. Inbox message policies stay area-scoped. Notes and tasks are not queried.
+// Timeline - org-wide definer read. Inbox message policies stay area-scoped. Notes and tasks come from the same RPC.
 export async function getCitizenTimeline(client: DbClient, citizenId: string): Promise<CitizenTimeline> {
   const { data, error } = await client.rpc('list_citizen_timeline', { p_id: citizenId });
   if (error) throw new RepositoryError('citizens.timeline_failed', error.message);
 
-  const timeline: CitizenTimeline = { messages: [], events: [], animals: [] };
+  const timeline: CitizenTimeline = { messages: [], events: [], animals: [], notes: [], tasks: [] };
   for (const row of data ?? []) {
     const at = row.result_at ?? '';
     if (row.result_kind === 'message') {
@@ -88,6 +88,20 @@ export async function getCitizenTimeline(client: DbClient, citizenId: string): P
         name: row.result_label ?? '',
         species: species ?? '',
         municipalId: municipalId ?? '',
+      });
+    } else if (row.result_kind === 'note') {
+      timeline.notes.push({
+        id: row.result_id,
+        at,
+        body: row.result_detail,
+        kind: row.result_label,
+      });
+    } else if (row.result_kind === 'task') {
+      timeline.tasks.push({
+        id: row.result_id,
+        at,
+        title: row.result_label,
+        status: row.result_detail,
       });
     }
   }

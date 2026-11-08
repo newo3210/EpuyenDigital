@@ -5,7 +5,7 @@
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
 **Última actualización:** 2026-11-08  
-**Change relacionado:** `pobladores-ficha`
+**Change relacionado:** `tareas-notas-trazabilidad`
 
 ---
 
@@ -93,6 +93,8 @@ Admin → /settings/lines
 - 2026-11-08: `mesa-entrada-inbox` archivado en `openspec/changes/archive/2026-11-08-mesa-entrada-inbox`. Specs vivas en `openspec/specs/inbox-queue`, `conversation-ownership` e `inbox-thread`.
 - 2026-11-08: `pobladores-ficha` aplicado (POB-01..09). La ficha, la búsqueda y la unificación quedan en funciones de la base. Notas y tareas siguen para la fase siguiente.
 - 2026-11-08: `pobladores-ficha` archivado en `openspec/changes/archive/2026-11-08-pobladores-ficha`. Specs vivas en `openspec/specs/citizen-profile`, `citizen-search` y `citizen-merge`.
+- 2026-11-08: `tareas-notas-trazabilidad` aplicado (TSK + AUD). Tareas, notas selladas, contactos externos y exportación de caso.
+- 2026-11-08: `tareas-notas-trazabilidad` archivado en `openspec/changes/archive/2026-11-08-tareas-notas-trazabilidad`. Specs vivas: `task-lifecycle`, `task-external`, `notes`, `case-export` (+ merge/timeline/inbound). Residual: menciones, `task_files`, live DB.
 
 ## 7. Mesa de entrada — por qué las funciones son definer
 
@@ -125,3 +127,11 @@ El DNI no tiene una columna nueva. El registro de mascotas ya guarda el document
 La guardia es un trigger `BEFORE UPDATE`. Si `field_sources` dice `manual` para una columna, cualquier escritor que no sea `update_citizen_profile` recupera el valor anterior. El worker de mascotas sigue mandando `full_name` y `document_id` con service role: si el campo está vacío, el trigger lo deja pasar; si un operador ya lo escribió, el valor manual queda. `whatsapp_push_name` no se copia a `full_name`.
 
 Unificar no borra la fila. `merge_citizens` mueve teléfonos, conversaciones y mascotas a la ficha que se conserva, y deja `merged_into_id` en la otra. Borrar la fila rompería el historial y el índice de teléfonos. Una segunda unificación del mismo registro se rechaza. Soporte puede leer y buscar, y no puede guardar, registrar ni unificar.
+
+## 11. Tareas y notas — por qué definer, externo y sello
+
+Las transiciones de tarea repiten la lección del inbox: si `authenticated` puede hacer UPDATE, cualquiera que ve la fila se la puede asignar. Por eso `create_task`, `claim_task`, `delegate_task`, `complete_task` y el resto son `SECURITY DEFINER` con `search_path = ''` y `auth.uid()`. El historial es solo append.
+
+Un teléfono de `external_contacts` no es un vecino. Si el webhook creara stub + conversación + `process_inbound`, el bot de mascotas le hablaría a un encargado municipal. Por eso se corta antes: comando de tarea, respuesta de ayuda o ack, y listo.
+
+Las notas de auditoría se sellan (`sealed_at`, hash, método). Después de eso no hay UPDATE ni DELETE desde ningún rol de cliente: la prueba de lo que pasó tiene que sobrevivir a un operador curioso.

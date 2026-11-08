@@ -84,4 +84,6 @@ export type CitizenTimeline = {
   messages: { id: string; at: string; direction: string; body: string | null }[];
   events: { id: string; at: string; eventType: string; note: string | null }[];
   animals: { id: string; at: string; name: string; species: string; municipalId: string }[];
+  notes: { id: string; at: string; body: string | null; kind: string | null }[];
+  tasks: { id: string; at: string; title: string | null; status: string | null }[];
 };

@@ -61,6 +61,36 @@ const ACK_RANK: Record<string, number> = {
 export class SupabaseInboundStore implements InboundStore {
   constructor(private readonly client: SupabaseClient) {}
 
+  async findExternalContact(orgId: string, phoneNormalized: string): Promise<{ id: string } | null> {
+    const { data, error } = await this.client
+      .from("external_contacts")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("phone_normalized", phoneNormalized)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.id ? { id: data.id as string } : null;
+  }
+
+  async applyExternalCommand(params: {
+    orgId: string;
+    phoneNormalized: string;
+    text: string;
+  }): Promise<{ hint: string; reply: string | null }> {
+    const { data, error } = await this.client.rpc("apply_external_task_command", {
+      p_org_id: params.orgId,
+      p_phone: params.phoneNormalized,
+      p_text: params.text,
+    });
+    if (error) throw error;
+    const row = data?.[0];
+    return {
+      hint: (row?.result_hint as string | undefined) ?? "ok",
+      reply: (row?.result_reply as string | null | undefined) ?? null,
+    };
+  }
+
   async findLineByInstance(instance: string): Promise<LineContext | null> {
     const { data: line, error } = await this.client
       .from("whatsapp_lines")

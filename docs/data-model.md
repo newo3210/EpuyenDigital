@@ -52,14 +52,14 @@ Público para lectura por URL, máximo 2 MB, JPEG/PNG/WebP. Ruta `{org_id}/{user
 ### `area_members` [implementado]
 `area_id`, `user_id`, `is_lead bool`. PK `(area_id, user_id)`. Guard same-org; altas/bajas admin-only (RLS).
 
-### `external_contacts`
+### `external_contacts` [implementado]
 Responsables que reciben tareas por WhatsApp sin usar el panel.
 `area_id`, `full_name`, `phone_normalized`, `is_active`. Único `(org_id, phone_normalized)`.
 
 ### `org_settings` [parcial]
 `org_id pk`, `send_mode send_mode default 'allowlist'`, `allowlist_phones text[]`, `bot_paused bool default false`.
 - `business_hours jsonb` y `holidays date[]` **[implementado]**: seed lunes a viernes 08:00–14:00, sin feriados. Solo un admin lee la fila y solo `set_business_calendar` escribe esas dos columnas.
-- `task_abandon_days`, `privacy_notice`, `out_of_hours_message` siguen **[pendiente]**.
+- `task_abandon_days` **[implementado]** (default 14). `privacy_notice`, `out_of_hours_message` siguen **[pendiente]**.
 
 ## 3. Canal WhatsApp
 
@@ -135,7 +135,9 @@ Una por `(org_id, line_id, phone_normalized)`.
 ### `conversation_reads` [implementado]
 `conversation_id`, `user_id`, `last_read_at`, `last_read_message_id`. PK `(conversation_id, user_id)`. Cada operador actualiza solo su fila.
 
-## 6. Tareas y notas
+## 6. Tareas y notas [implementado — SECURITY DEFINER]
+
+Las transiciones (`create_task`, `claim_task`, `delegate_task`, `accept_task`, `reject_task`, `start_task`, `complete_task`, `cancel_task`, `reopen_task`, `abandon_stale_tasks`, `create_note`, `convert_note_to_task`, `seal_audit_note`, `export_case`) son `SECURITY DEFINER` con `search_path = ''`. `authenticated` no escribe `tasks`, `task_history` ni `notes`.
 
 ### `tasks`
 | Columna | Notas |
