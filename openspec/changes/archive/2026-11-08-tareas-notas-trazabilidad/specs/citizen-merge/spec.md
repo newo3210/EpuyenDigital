@@ -10,3 +10,11 @@ An operator, area lead, or admin SHALL merge two citizens of the same organizati
 #### Scenario: Task and note move
 - **WHEN** citizen B has a task and a note and an operator merges B into A
 - **THEN** those rows reference A after the merge
+
+#### Scenario: Empty note rejected
+- **WHEN** an operator merges with an empty note
+- **THEN** both rows are unchanged
+
+#### Scenario: Support cannot merge
+- **WHEN** a support user calls merge
+- **THEN** the database rejects the call and both rows are unchanged

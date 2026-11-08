@@ -15,7 +15,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
 - [x] **Phase 2.1: Registro de mascotas Inspectoría (INSERTED)** - MVP suelto WhatsApp: ciudadano + animal geolocalizado, fotos, ID municipal; integra después a Mesa de Entrada
 - [x] **Phase 3: Panel de mensajería** - Cola de triage FIFO, claim, delegación con aceptación, eventos, tiempo real, flags
 - [x] **Phase 4: Pobladores** - Registro automático, ficha editable, registro progresivo, timeline, duplicados
-- [ ] **Phase 5: Tareas, notas y trazabilidad** - Tareas delegables a áreas y números externos, resultado de cierre, auditoría atómica
+- [x] **Phase 5: Tareas, notas y trazabilidad** - Tareas delegables a áreas y números externos, resultado de cierre, auditoría atómica
 - [ ] **Phase 6: Chatbot LLM** - RAG sobre documentación oficial, derivación, pausa por conversación, lectura de documentos y audios
 - [ ] **Phase 7: Operación y métricas** - Panel de métricas, CI, runbooks de despliegue y backups
 
@@ -95,7 +95,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
   3. Al cerrar una tarea queda registrado el resultado y quién la resolvió; cancelar sin motivo no es posible
   4. Una tarea sin actividad por N días pasa sola a "abandonada"
   5. Intentar borrar o editar historial desde el cliente falla; el informe exportado de un caso muestra la cadena completa
-**Plans**: OpenSpec `tareas-notas-trazabilidad` — plan on `cursor/tareas-notas-3654` (apply waits for approval)
+**Plans**: OpenSpec `tareas-notas-trazabilidad` — **archived** `openspec/changes/archive/2026-11-08-tareas-notas-trazabilidad` (mentions/task_files + live DB residual)
 **UI hint**: yes
 
 ### Phase 6: Chatbot LLM

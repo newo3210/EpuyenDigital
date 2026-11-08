@@ -10,3 +10,7 @@ The ficha SHALL list, newest first, messages of the citizen's conversations, `co
 #### Scenario: Note and task appear
 - **WHEN** a citizen has one note and one task
 - **THEN** the timeline shows both records
+
+#### Scenario: No notes table
+- **WHEN** the operator opens any ficha
+- **THEN** the page reads notes and tasks only through `list_citizen_timeline` and does not select those tables directly from the client

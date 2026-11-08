@@ -93,7 +93,8 @@ Admin → /settings/lines
 - 2026-11-08: `mesa-entrada-inbox` archivado en `openspec/changes/archive/2026-11-08-mesa-entrada-inbox`. Specs vivas en `openspec/specs/inbox-queue`, `conversation-ownership` e `inbox-thread`.
 - 2026-11-08: `pobladores-ficha` aplicado (POB-01..09). La ficha, la búsqueda y la unificación quedan en funciones de la base. Notas y tareas siguen para la fase siguiente.
 - 2026-11-08: `pobladores-ficha` archivado en `openspec/changes/archive/2026-11-08-pobladores-ficha`. Specs vivas en `openspec/specs/citizen-profile`, `citizen-search` y `citizen-merge`.
-- 2026-11-08: `tareas-notas-trazabilidad` aplicado (TSK + AUD). Tareas, notas selladas, contactos externos y exportación de caso. Archivo pendiente de OK humano.
+- 2026-11-08: `tareas-notas-trazabilidad` aplicado (TSK + AUD). Tareas, notas selladas, contactos externos y exportación de caso.
+- 2026-11-08: `tareas-notas-trazabilidad` archivado en `openspec/changes/archive/2026-11-08-tareas-notas-trazabilidad`. Specs vivas: `task-lifecycle`, `task-external`, `notes`, `case-export` (+ merge/timeline/inbound). Residual: menciones, `task_files`, live DB.
 
 ## 7. Mesa de entrada — por qué las funciones son definer
 

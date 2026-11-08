@@ -21,8 +21,8 @@ Ver `.planning/REQUIREMENTS.md` para el detalle con IDs. Resumen:
 - [ ] Canal WhatsApp con Evolution API: entrada segura (texto + adjuntos), salida (texto, imagen, documento, audio), modo de envío seguro
 - [ ] Panel de mensajería: cola sin-dueño-primero FIFO, claim, delegación con aceptación, soft handoff, eventos, tiempo real
 - [x] Base de pobladores: registrado / no registrado, ficha editable, registro progresivo, timeline
-- [ ] Tareas y notas desde conversaciones, delegables a áreas o números WhatsApp externos, con resultado de cierre
-- [ ] Trazabilidad inmutable de cada movimiento (quién, qué, cuándo)
+- [x] Tareas y notas desde conversaciones, delegables a áreas o números WhatsApp externos, con resultado de cierre
+- [x] Trazabilidad inmutable de cada movimiento (quién, qué, cuándo)
 - [ ] Chatbot LLM con RAG sobre documentación oficial; deriva a humano cuando no sabe; se pausa cuando un humano toma el chat
 - [ ] Operadores con roles y áreas; visibilidad por área
 - [ ] Métricas operativas y del bot

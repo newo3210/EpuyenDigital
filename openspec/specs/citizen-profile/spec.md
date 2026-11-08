@@ -57,12 +57,16 @@ The operator SHALL set `party_kind` to `person` or `organization`. The default f
 - **THEN** `party_kind` is `organization` and `field_sources.party_kind` is `manual`
 
 ### Requirement: Timeline of existing history
-The ficha SHALL list, newest first, messages of the citizen's conversations, `conversation_events` of those conversations, and animals linked to the citizen. It SHALL NOT query notes or tasks. A citizen with no messages SHALL show an empty timeline, not an error.
+The ficha SHALL list, newest first, messages of the citizen's conversations, `conversation_events` of those conversations, animals linked to the citizen, notes linked to the citizen, and tasks linked to the citizen. A citizen with no history SHALL show an empty timeline, not an error.
 
 #### Scenario: Message and animal both appear
 - **WHEN** a citizen has one conversation message and one animal
 - **THEN** the timeline shows both records
 
+#### Scenario: Note and task appear
+- **WHEN** a citizen has one note and one task
+- **THEN** the timeline shows both records
+
 #### Scenario: No notes table
 - **WHEN** the operator opens any ficha
-- **THEN** the page does not read or write a notes or tasks table
+- **THEN** the page reads notes and tasks only through `list_citizen_timeline` and does not select those tables directly from the client
