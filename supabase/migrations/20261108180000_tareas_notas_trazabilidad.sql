@@ -2,6 +2,60 @@
 -- Conversation transitions stay as they are. Task transitions are SECURITY DEFINER.
 
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Inherited fixes required by task/note authz and hint codes
+-- ---------------------------------------------------------------------------
+create or replace function public.inbox_raise(p_code text, p_detail text default null)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if p_detail is null then
+    raise exception '%', p_code using errcode = 'P0001', hint = p_code;
+  end if;
+  raise exception '%', p_code using errcode = 'P0001', hint = p_code, detail = p_detail;
+end;
+$$;
+
+create or replace function public.conversation_visible_to_caller(conv public.conversations)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+  role public.user_role;
+begin
+  if uid is null then
+    return false;
+  end if;
+  if conv.org_id is distinct from public.current_org_id() then
+    return false;
+  end if;
+  role := public.current_user_role();
+  if role in ('admin', 'support') then
+    return true;
+  end if;
+  if role is null then
+    return false;
+  end if;
+  -- Avoid NULL from "x IN (set)" when x is null; that used to make "not visible" pass.
+  return (
+      conv.area_id is not null
+      and conv.area_id in (select public.current_area_ids())
+    )
+    or (
+      conv.pending_area_id is not null
+      and conv.pending_area_id in (select public.current_area_ids())
+    )
+    or (conv.owner_user_id is not null and conv.owner_user_id = uid)
+    or (conv.delegated_from_user_id is not null and conv.delegated_from_user_id = uid);
+end;
+$$;
+
 -- Enums
 -- ---------------------------------------------------------------------------
 do $$ begin
@@ -133,9 +187,9 @@ create table if not exists public.notes (
   body text not null,
   kind public.note_kind not null default 'observation',
   author_user_id uuid references public.profiles (id) on delete set null,
-  conversation_id uuid references public.conversations (id) on delete cascade,
-  citizen_id uuid references public.citizens (id) on delete cascade,
-  task_id uuid references public.tasks (id) on delete cascade,
+  conversation_id uuid references public.conversations (id) on delete set null,
+  citizen_id uuid references public.citizens (id) on delete set null,
+  task_id uuid references public.tasks (id) on delete set null,
   parent_note_id uuid references public.notes (id) on delete cascade,
   correlation_id text,
   sealed_at timestamptz,
@@ -218,9 +272,10 @@ begin
   if role in ('admin', 'support') then
     return true;
   end if;
-  return t.created_by = uid
-    or t.assigned_user_id = uid
-    or t.delegated_from_user_id = uid
+  -- Same NULL trap as conversations: `x = uid` is NULL when x is null.
+  return (t.created_by is not null and t.created_by = uid)
+    or (t.assigned_user_id is not null and t.assigned_user_id = uid)
+    or (t.delegated_from_user_id is not null and t.delegated_from_user_id = uid)
     or (t.area_id is not null and t.area_id in (select public.current_area_ids()));
 end;
 $$;
@@ -648,16 +703,22 @@ as $$
 declare
   uid uuid := public.task_assert_editor();
   t public.tasks;
-  outcome public.task_outcome;
+  chosen public.task_outcome;
 begin
   begin
-    outcome := p_outcome::public.task_outcome;
+    chosen := p_outcome::public.task_outcome;
   exception when others then
     perform public.inbox_raise('INVALID_OUTCOME');
   end;
+  if chosen = 'abandoned' then
+    perform public.inbox_raise('INVALID_OUTCOME');
+  end if;
   select * into t from public.tasks where id = p_task_id for update;
   if not found or t.org_id is distinct from public.current_org_id() then
     perform public.inbox_raise('NOT_FOUND');
+  end if;
+  if not public.task_visible(t) then
+    perform public.inbox_raise('FORBIDDEN');
   end if;
   if t.assigned_user_id is distinct from uid and public.current_user_role() <> 'admin' then
     perform public.inbox_raise('NOT_ASSIGNEE');
@@ -666,13 +727,37 @@ begin
     perform public.inbox_raise('INVALID_STATUS');
   end if;
   update public.tasks set
-    status = 'done', outcome = outcome, completed_at = now(), completed_by = uid, last_activity_at = now()
+    status = 'done',
+    outcome = chosen,
+    completed_at = now(),
+    completed_by = uid,
+    last_activity_at = now()
   where id = t.id;
   perform public.task_write_history(
     t.id, t.org_id, 'COMPLETED', 'operator', uid, null, t.status, 'done', null,
-    jsonb_build_object('outcome', outcome::text)
+    jsonb_build_object('outcome', chosen::text)
   );
-  -- Citizen WhatsApp notify is enqueued by the application after complete when notify_citizen_on_close is set.
+  perform public.seal_audit_note(
+    t.org_id,
+    'Task completed: ' || chosen::text,
+    t.conversation_id,
+    t.citizen_id,
+    t.id,
+    'task-complete-' || t.id::text
+  );
+  if t.notify_citizen_on_close and chosen = 'resolved' and t.conversation_id is not null then
+    insert into public.jobs (org_id, job_type, payload, status)
+    select conv.org_id, 'send_outbound',
+      jsonb_build_object(
+        'type', 'send_outbound',
+        'lineId', conv.line_id,
+        'phone', conv.phone_normalized,
+        'text', 'Tu gestión ' || t.public_ref || ' quedó resuelta. Si necesitás algo más, escribinos por este mismo chat.'
+      ),
+      'pending'
+    from public.conversations conv
+    where conv.id = t.conversation_id;
+  end if;
   result_id := t.id;
   result_hint := 'ok';
   return next;
@@ -722,6 +807,14 @@ begin
     t.id, t.org_id, 'CANCELLED', 'operator', uid, null, t.status, 'cancelled', extra,
     jsonb_build_object('reason', reason::text)
   );
+  perform public.seal_audit_note(
+    t.org_id,
+    'Task cancelled: ' || reason::text || coalesce(' ' || extra, ''),
+    t.conversation_id,
+    t.citizen_id,
+    t.id,
+    'task-cancel-' || t.id::text
+  );
   result_id := t.id;
   result_hint := 'ok';
   return next;
@@ -741,6 +834,14 @@ begin
   select * into t from public.tasks where id = p_task_id for update;
   if not found or t.org_id is distinct from public.current_org_id() then
     perform public.inbox_raise('NOT_FOUND');
+  end if;
+  if not public.task_visible(t) then
+    perform public.inbox_raise('FORBIDDEN');
+  end if;
+  if public.current_user_role() <> 'admin'
+     and t.assigned_user_id is distinct from uid
+     and t.created_by is distinct from uid then
+    perform public.inbox_raise('FORBIDDEN');
   end if;
   if t.status not in ('done', 'cancelled', 'failed') then
     perform public.inbox_raise('INVALID_STATUS');
@@ -776,11 +877,11 @@ declare
   days integer;
 begin
   for r in
-    select t.*, s.task_abandon_days as days
+    select t.*, coalesce(s.task_abandon_days, 14) as days
     from public.tasks t
-    join public.org_settings s on s.org_id = t.org_id
+    left join public.org_settings s on s.org_id = t.org_id
     where t.status in ('pending', 'in_progress')
-      and t.last_activity_at < now() - make_interval(days => s.task_abandon_days)
+      and t.last_activity_at < now() - make_interval(days => coalesce(s.task_abandon_days, 14))
     for update of t
   loop
     update public.tasks set
@@ -791,6 +892,14 @@ begin
     where id = r.id;
     perform public.task_write_history(
       r.id, r.org_id, 'ABANDONED', 'system', null, null, r.status, 'cancelled', null, '{}'::jsonb
+    );
+    perform public.seal_audit_note(
+      r.org_id,
+      'Task abandoned after inactivity',
+      r.conversation_id,
+      r.citizen_id,
+      r.id,
+      'task-abandon-' || r.id::text
     );
     n := n + 1;
   end loop;
@@ -832,6 +941,9 @@ begin
   exception when others then
     perform public.inbox_raise('INVALID_FIELD');
   end;
+  if kind in ('audit', 'system', 'bot_summary') then
+    perform public.inbox_raise('INVALID_FIELD');
+  end if;
   if p_conversation_id is null and p_citizen_id is null and p_task_id is null then
     perform public.inbox_raise('INVALID_FIELD');
   end if;
@@ -963,6 +1075,20 @@ begin
     return old;
   end if;
   if old.sealed_at is not null then
+    -- Allow FK remaps (merge citizen_id, ON DELETE SET NULL on conversation/task).
+    -- Body, kind, seal fields and authorship stay frozen.
+    if new.body is not distinct from old.body
+       and new.kind is not distinct from old.kind
+       and new.author_user_id is not distinct from old.author_user_id
+       and new.parent_note_id is not distinct from old.parent_note_id
+       and new.correlation_id is not distinct from old.correlation_id
+       and new.sealed_at is not distinct from old.sealed_at
+       and new.content_hash is not distinct from old.content_hash
+       and new.seal_method is not distinct from old.seal_method
+       and new.org_id is not distinct from old.org_id
+    then
+      return new;
+    end if;
     raise exception 'SEALED' using errcode = 'P0001';
   end if;
   return new;
@@ -1013,15 +1139,15 @@ begin
   elsif upper_text ~ '^RECHAZO[[:space:]]+T-[0-9]+' then
     cmd := 'RECHAZO';
     ref := substring(upper_text from 'T-[0-9]+');
-    detail := regexp_replace(raw, '^(?i)rechazo[[:space:]]+T-[0-9]+[[:space:]]*', '');
+    detail := regexp_replace(raw, '^rechazo[[:space:]]+[Tt]-[0-9]+[[:space:]]*', '', 'i');
   elsif upper_text ~ '^LISTO[[:space:]]+T-[0-9]+' then
     cmd := 'LISTO';
     ref := substring(upper_text from 'T-[0-9]+');
-    detail := regexp_replace(raw, '^(?i)listo[[:space:]]+T-[0-9]+[[:space:]]*', '');
+    detail := regexp_replace(raw, '^listo[[:space:]]+[Tt]-[0-9]+[[:space:]]*', '', 'i');
   elsif upper_text ~ '^NO SE PUEDE[[:space:]]+T-[0-9]+' then
     cmd := 'NO_SE_PUEDE';
     ref := substring(upper_text from 'T-[0-9]+');
-    detail := regexp_replace(raw, '^(?i)no se puede[[:space:]]+T-[0-9]+[[:space:]]*', '');
+    detail := regexp_replace(raw, '^no se puede[[:space:]]+[Tt]-[0-9]+[[:space:]]*', '', 'i');
   else
     result_hint := 'HELP';
     result_reply := 'Comandos: ACEPTO T-0001 | RECHAZO T-0001 motivo | LISTO T-0001 detalle | NO SE PUEDE T-0001 motivo';
@@ -1035,6 +1161,12 @@ begin
   if not found then
     result_hint := 'NOT_FOUND';
     result_reply := 'No encontramos la tarea ' || ref;
+    return next;
+    return;
+  end if;
+  if t.status in ('done', 'cancelled', 'failed') then
+    result_hint := 'INVALID_STATUS';
+    result_reply := 'La tarea ' || ref || ' ya está cerrada.';
     return next;
     return;
   end if;
@@ -1218,13 +1350,16 @@ as $$
 declare
   uid uuid := auth.uid();
   name text := regexp_replace(coalesce(p_full_name, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g');
-  phone text := regexp_replace(coalesce(p_phone, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g');
+  phone text := regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g');
   new_id uuid;
 begin
   if uid is null or public.current_user_role() is distinct from 'admin' then
     perform public.inbox_raise('FORBIDDEN');
   end if;
   if name = '' or phone = '' or p_area_id is null then
+    perform public.inbox_raise('INVALID_FIELD');
+  end if;
+  if phone !~ '^549[0-9]+$' then
     perform public.inbox_raise('INVALID_FIELD');
   end if;
   if not exists (select 1 from public.areas a where a.id = p_area_id and a.org_id = public.current_org_id()) then
@@ -1425,7 +1560,35 @@ create policy task_files_select_visible on public.task_files
 drop policy if exists notes_select_org on public.notes;
 create policy notes_select_org on public.notes
   for select to authenticated
-  using (org_id = public.current_org_id());
+  using (
+    org_id = public.current_org_id()
+    and (
+      public.current_user_role() in ('admin', 'support')
+      or (
+        conversation_id is not null
+        and exists (
+          select 1 from public.conversations c
+          where c.id = notes.conversation_id and public.conversation_visible_to_caller(c)
+        )
+      )
+      or (
+        task_id is not null
+        and exists (
+          select 1 from public.tasks t
+          where t.id = notes.task_id and public.task_visible(t)
+        )
+      )
+      or (
+        conversation_id is null
+        and task_id is null
+        and citizen_id is not null
+        and exists (
+          select 1 from public.citizens c
+          where c.id = notes.citizen_id and c.org_id = public.current_org_id()
+        )
+      )
+    )
+  );
 
 drop policy if exists note_reads_own on public.note_reads;
 create policy note_reads_own on public.note_reads
@@ -1461,6 +1624,7 @@ revoke all on function public.task_write_history(uuid, uuid, public.task_event, 
 revoke all on function public.task_touch(uuid) from public, anon, authenticated;
 revoke all on function public.notes_guard_sealed() from public, anon, authenticated;
 revoke all on function public.seal_audit_note(uuid, text, uuid, uuid, uuid, text) from public, anon, authenticated;
+-- Other SECURITY DEFINER task functions (same owner) call this; service_role may call it directly.
 grant execute on function public.seal_audit_note(uuid, text, uuid, uuid, uuid, text) to service_role;
 
 revoke all on function public.create_task(uuid, text, text, text, integer, text, uuid, uuid, uuid, timestamptz, boolean, uuid) from public, anon;

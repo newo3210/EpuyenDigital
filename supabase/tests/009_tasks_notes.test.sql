@@ -9,34 +9,34 @@ insert into public.organizations (id, name, slug) values
   ('dddddddd-0000-4000-8000-0000000000aa', 'Org Tasks', 'org-tasks');
 
 insert into auth.users (id, email, aud, role) values
-  ('00000000-0000-4000-8000-0000000000t1', 'tasks.op@test.local', 'authenticated', 'authenticated'),
-  ('00000000-0000-4000-8000-0000000000t2', 'tasks.support@test.local', 'authenticated', 'authenticated');
+  ('00000000-0000-4000-8000-0000000000b1', 'tasks.op@test.local', 'authenticated', 'authenticated'),
+  ('00000000-0000-4000-8000-0000000000b2', 'tasks.support@test.local', 'authenticated', 'authenticated');
 
 insert into public.profiles (id, org_id, full_name, role, is_active) values
-  ('00000000-0000-4000-8000-0000000000t1', 'dddddddd-0000-4000-8000-0000000000aa', 'Operador T', 'operator', true),
-  ('00000000-0000-4000-8000-0000000000t2', 'dddddddd-0000-4000-8000-0000000000aa', 'Soporte T', 'support', true);
+  ('00000000-0000-4000-8000-0000000000b1', 'dddddddd-0000-4000-8000-0000000000aa', 'Operador T', 'operator', true),
+  ('00000000-0000-4000-8000-0000000000b2', 'dddddddd-0000-4000-8000-0000000000aa', 'Soporte T', 'support', true);
 
 insert into public.areas (id, org_id, name, is_default) values
   ('00000000-0000-4000-8000-0000000000a1', 'dddddddd-0000-4000-8000-0000000000aa', 'Mesa T', true);
 
 insert into public.area_members (area_id, user_id, is_lead) values
-  ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000t1', false);
+  ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000b1', false);
 
 insert into public.whatsapp_lines (id, org_id, name, display_phone, evolution_instance, status, default_area_id) values
-  ('00000000-0000-4000-8000-0000000000l1', 'dddddddd-0000-4000-8000-0000000000aa', 'Linea T', '+5491100000011', 'tasks-line', 'disconnected', '00000000-0000-4000-8000-0000000000a1');
+  ('00000000-0000-4000-8000-0000000000d1', 'dddddddd-0000-4000-8000-0000000000aa', 'Linea T', '+5491100000011', 'tasks-line', 'disconnected', '00000000-0000-4000-8000-0000000000a1');
 
 insert into public.citizens (id, org_id, full_name) values
   ('00000000-0000-4000-8000-0000000000c1', 'dddddddd-0000-4000-8000-0000000000aa', 'Vecino T');
 
 insert into public.conversations (id, org_id, line_id, citizen_id, phone_normalized, area_id) values
-  ('00000000-0000-4000-8000-0000000000v1', 'dddddddd-0000-4000-8000-0000000000aa', '00000000-0000-4000-8000-0000000000l1', '00000000-0000-4000-8000-0000000000c1', '5492944111000', '00000000-0000-4000-8000-0000000000a1');
+  ('00000000-0000-4000-8000-0000000000e1', 'dddddddd-0000-4000-8000-0000000000aa', '00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000c1', '5492944111000', '00000000-0000-4000-8000-0000000000a1');
 
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000t1","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000b1","role":"authenticated"}', true);
 set local role authenticated;
 
 select is(
   (select result_hint from public.create_task(
-    '00000000-0000-4000-8000-0000000000v1',
+    '00000000-0000-4000-8000-0000000000e1',
     'Luminaria',
     'en la esquina',
     'complaint',
@@ -67,11 +67,11 @@ select throws_ok(
 
 reset role;
 
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000t2","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000b2","role":"authenticated"}', true);
 set local role authenticated;
 select throws_ok(
   $$select * from public.create_task(
-    '00000000-0000-4000-8000-0000000000v1',
+    '00000000-0000-4000-8000-0000000000e1',
     'Hack',
     null,
     'other',
@@ -89,7 +89,7 @@ select lives_ok(
   $$select public.seal_audit_note(
     'dddddddd-0000-4000-8000-0000000000aa',
     'cierre',
-    '00000000-0000-4000-8000-0000000000v1',
+    '00000000-0000-4000-8000-0000000000e1',
     '00000000-0000-4000-8000-0000000000c1',
     null,
     'corr-1'
@@ -115,7 +115,7 @@ select throws_ok(
   'external phone is unique per org'
 );
 
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000t1","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000b1","role":"authenticated"}', true);
 set local role authenticated;
 select throws_ok(
   $$update public.tasks set title = 'hack' where true$$,

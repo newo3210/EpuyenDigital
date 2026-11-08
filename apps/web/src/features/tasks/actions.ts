@@ -13,7 +13,6 @@ import {
 } from '@/contracts/tasks';
 import { requirePageRole } from '@/features/auth/server';
 import { esAR } from '@/i18n/es-AR';
-import { getTaskDetail } from '@/infrastructure/repositories/tasks';
 import { createServerSupabase } from '@/infrastructure/supabase/server';
 import { mapTaskError } from './map-error';
 
@@ -48,33 +47,8 @@ async function run(
   return { status: 'ok', message: okMessage };
 }
 
-async function maybeNotifyCitizen(taskId: string, outcome: string) {
-  if (outcome !== 'resolved') return;
-  const supabase = await createServerSupabase();
-  const detail = await getTaskDetail(supabase, taskId);
-  if (!detail?.notifyCitizenOnClose || !detail.conversationId) return;
-
-  const { data: conversation } = await supabase
-    .from('conversations')
-    .select('id, line_id, phone_normalized')
-    .eq('id', detail.conversationId)
-    .maybeSingle();
-  if (!conversation) return;
-
-  await supabase.from('jobs').insert({
-    org_id: null,
-    job_type: 'send_outbound',
-    payload: {
-      type: 'send_outbound',
-      lineId: conversation.line_id,
-      phone: conversation.phone_normalized,
-      text: esAR.tasks.citizenResolvedNotify.replace('{ref}', detail.publicRef),
-    },
-    status: 'pending',
-  });
-}
-
 // Create - from a conversation thread. External audience enqueues notify inside SQL.
+// Citizen notify on resolved close is enqueued inside complete_task (definer).
 export async function createTaskAction(
   _previous: TaskActionState,
   formData: FormData,
@@ -207,13 +181,9 @@ export async function completeTaskAction(
   });
   if (!parsed.success) return { status: 'error', message: esAR.tasks.errors.invalidOutcome };
   const supabase = await createServerSupabase();
-  const result = await run(['/tasks', `/tasks/${parsed.data.taskId}`], () =>
+  return run(['/tasks', `/tasks/${parsed.data.taskId}`], () =>
     supabase.rpc('complete_task', { p_task_id: parsed.data.taskId, p_outcome: parsed.data.outcome }),
   );
-  if (result.status === 'ok') {
-    await maybeNotifyCitizen(parsed.data.taskId, parsed.data.outcome).catch(() => undefined);
-  }
-  return result;
 }
 
 export async function cancelTaskAction(

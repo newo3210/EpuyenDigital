@@ -35,4 +35,13 @@ describe('tareas-notas migration SQL', () => {
     expect(sql).toContain("'note'::text");
     expect(sql).toContain("'task'::text");
   });
+
+  it('fixes ambiguous complete, invalid external regex, and null visibility', () => {
+    expect(sql).toContain('chosen public.task_outcome');
+    expect(sql).not.toContain("regexp_replace(raw, '^(?i)");
+    expect(sql).toContain('if p_detail is null then');
+    expect(sql).toContain('conv.area_id is not null');
+    expect(sql).toContain('t.created_by is not null and t.created_by = uid');
+    expect(sql).toContain('task-complete-');
+  });
 });
