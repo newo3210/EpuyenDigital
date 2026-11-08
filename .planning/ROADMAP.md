@@ -108,7 +108,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
   3. Con la conversación tomada por un operador, el bot no responde ningún mensaje del vecino hasta que se resuelve
   4. Un audio del vecino se transcribe y un PDF se resume como nota en la conversación
   5. El bot pide confirmación antes de guardar el DNI extraído de la charla en la ficha
-**Plans**: TBD
+**Plans**: OpenSpec `chatbot-llm` — plan on `cursor/chatbot-llm-3654` (apply waits for approval)
 
 ### Phase 7: Operación y métricas
 **Goal**: El municipio puede medir la atención (humana y del bot) y operar el sistema con CI, despliegue documentado y backups.

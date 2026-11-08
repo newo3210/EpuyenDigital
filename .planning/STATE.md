@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 6 — Chatbot LLM (plan next)
+**Current focus:** Phase 6 — `chatbot-llm` (plan ready; apply waits for approval)
 
 ## Current Position
 
 Phase: 1–5 on branch `cursor/tareas-notas-3654` (awaiting merge to `main`)  
-Plan: `tareas-notas-trazabilidad` **archived** `openspec/changes/archive/2026-11-08-tareas-notas-trazabilidad`  
-Status: Phase 5 archived after human OK. Next is OpenSpec plan for Phase 6 (BOT-01..13).  
-Last activity: 2026-11-08 — archive Phase 5; start Phase 6 plan
+Plan: OpenSpec `chatbot-llm` drafted on `cursor/chatbot-llm-3654`  
+Status: Phase 5 archived. Phase 6 plan-only; no production code until human “adelante”.  
+Last activity: 2026-11-08 — Phase 6 OpenSpec plan
 
-Progress: [█████████░] ~Phase 5 done on PR branch; Phase 6 plan in progress
+Progress: [█████████░] Phase 5 archived on PR; Phase 6 plan in progress
 
 ## Performance Metrics
 
