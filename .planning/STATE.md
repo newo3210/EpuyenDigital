@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 3 — `mesa-entrada-inbox` (applied, waiting for adversarial review)
+**Current focus:** Phase 3 — `mesa-entrada-inbox` (adversarial PASS WITH GAPS, waiting for human OK to archive)
 
 ## Current Position
 
@@ -36,7 +36,7 @@ Progress: [██████░░░░] ~55% (foundation + areas/operators + 
 
 ### Pending Todos
 
-- Adversarial review of `mesa-entrada-inbox`, then human OK before archive
+- Human OK before archive of `mesa-entrada-inbox` (adversarial PASS WITH GAPS, 2026-11-08)
 - Live `supabase db reset` / curl / browser claim-delegate when containers are available
 - WA-08 media outbound and WA-11 send_mode chooser stay outside this inbox change
 - Optional: adversarial close of `inspectoria-pet-registry-ux-v2`
