@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   decryptSecret,
   looksLikeCiphertext,
+  shouldReopenConversation,
   type DeliveryAck,
   type EvolutionWebhook,
   type JobPayload,
@@ -120,6 +121,7 @@ export class SupabaseInboundStore implements InboundStore {
     if (error) {
       const existing = await this.findMessageId(params.line.lineId, params.event.externalId);
       if (existing) {
+        await this.maybeReopen(conversationId, existing, params.event.fromMe);
         return { status: "duplicate", messageId: existing, conversationId };
       }
       throw error;
@@ -130,10 +132,12 @@ export class SupabaseInboundStore implements InboundStore {
       if (!existing) {
         throw new Error("MESSAGE_UPSERT_FAILED");
       }
+      await this.maybeReopen(conversationId, existing, params.event.fromMe);
       return { status: "duplicate", messageId: existing, conversationId };
     }
 
-    await this.touchConversationTimestamps(conversationId, direction);
+    await this.maybeReopen(conversationId, data.id as string, params.event.fromMe);
+    await this.touchConversationTimestamps(conversationId, direction, params.event);
     return { status: "inserted", messageId: data.id as string, conversationId };
   }
 
@@ -340,17 +344,41 @@ export class SupabaseInboundStore implements InboundStore {
     return created.id as string;
   }
 
+  private async maybeReopen(conversationId: string, messageId: string, fromMe: boolean): Promise<void> {
+    if (fromMe) return;
+    const { data, error } = await this.client
+      .from("conversations")
+      .select("queue_column")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!shouldReopenConversation({ fromMe, queueColumn: data?.queue_column })) return;
+    const { error: reopenError } = await this.client.rpc("reopen_conversation", {
+      p_conversation_id: conversationId,
+      p_at: new Date().toISOString(),
+      p_message_id: messageId,
+    });
+    if (reopenError) throw reopenError;
+  }
+
   private async touchConversationTimestamps(
     conversationId: string,
     direction: "inbound" | "outbound",
+    event: EvolutionWebhook,
   ): Promise<void> {
     const now = new Date().toISOString();
+    const preview = (event.text ?? event.kind).slice(0, 140);
     const patch: Record<string, unknown> = {
       last_message_at: now,
+      last_message_preview: preview,
+      last_message_kind: event.kind,
       needs_response: direction === "inbound",
     };
     if (direction === "inbound") patch.last_inbound_at = now;
     if (direction === "outbound") patch.last_outbound_at = now;
+    if (["image", "audio", "video", "document", "sticker"].includes(event.kind)) {
+      patch.has_attachments = true;
+    }
     await this.client.from("conversations").update(patch).eq("id", conversationId);
   }
 }

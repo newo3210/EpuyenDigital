@@ -126,13 +126,13 @@ isOneToOne: false
                   ]
                 },"org_settings": {
                   Row: {
-                    "org_id": string,"send_mode": string,"allowlist_phones": string[],"registration_session_ttl_hours": number,"privacy_notice_version": string,"created_at": string,"updated_at": string
+                    "org_id": string,"send_mode": string,"allowlist_phones": string[],"registration_session_ttl_hours": number,"privacy_notice_version": string,"business_hours": Json,"holidays": string[],"created_at": string,"updated_at": string
                   }
                   Insert: {
-                    "org_id": string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"created_at"?: string,"updated_at"?: string
+                    "org_id": string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"business_hours"?: Json,"holidays"?: string[],"created_at"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "org_id"?: string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"created_at"?: string,"updated_at"?: string
+                    "org_id"?: string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"business_hours"?: Json,"holidays"?: string[],"created_at"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -194,13 +194,46 @@ isOneToOne: false
                   ]
                 },"conversations": {
                   Row: {
-                    "id": string,"org_id": string,"line_id": string,"citizen_id": string | null,"phone_normalized": string,"area_id": string,"bot_state": string,"queue_column": string,"owner_user_id": string | null,"last_message_at": string | null,"needs_response": boolean,"created_at"?: string,"updated_at"?: string
+                    "id": string,"org_id": string,"line_id": string,"citizen_id": string | null,"phone_normalized": string,"area_id": string,"bot_state": string,"queue_column": string,"owner_user_id": string | null,"delegated_from_user_id": string | null,"pending_area_id": string | null,"awaiting_acceptance": boolean,"entered_queue_at": string,"resolved_at": string | null,"resolved_by": string | null,"last_message_at": string | null,"last_inbound_at": string | null,"last_outbound_at": string | null,"last_message_preview": string | null,"last_message_kind": string | null,"has_attachments": boolean,"needs_response": boolean,"sla_due_at": string | null,"created_at"?: string,"updated_at"?: string
                   }
                   Insert: {
-                    "id"?: string,"org_id": string,"line_id": string,"citizen_id"?: string | null,"phone_normalized": string,"area_id": string,"bot_state"?: string,"queue_column"?: string,"owner_user_id"?: string | null,"last_message_at"?: string | null,"needs_response"?: boolean,"entered_queue_at"?: string,"last_inbound_at"?: string | null,"last_outbound_at"?: string | null
+                    "id"?: string,"org_id": string,"line_id": string,"citizen_id"?: string | null,"phone_normalized": string,"area_id": string,"bot_state"?: string,"queue_column"?: string,"owner_user_id"?: string | null,"delegated_from_user_id"?: string | null,"pending_area_id"?: string | null,"awaiting_acceptance"?: boolean,"entered_queue_at"?: string,"last_message_at"?: string | null,"last_inbound_at"?: string | null,"last_outbound_at"?: string | null,"last_message_preview"?: string | null,"last_message_kind"?: string | null,"has_attachments"?: boolean,"needs_response"?: boolean,"sla_due_at"?: string | null
                   }
                   Update: {
-                    "id"?: string,"org_id"?: string,"line_id"?: string,"citizen_id"?: string | null,"phone_normalized"?: string,"area_id"?: string,"bot_state"?: string,"queue_column"?: string,"owner_user_id"?: string | null,"last_message_at"?: string | null,"needs_response"?: boolean,"last_inbound_at"?: string | null,"last_outbound_at"?: string | null
+                    "id"?: string,"org_id"?: string,"line_id"?: string,"citizen_id"?: string | null,"phone_normalized"?: string,"area_id"?: string,"bot_state"?: string,"queue_column"?: string,"owner_user_id"?: string | null,"delegated_from_user_id"?: string | null,"pending_area_id"?: string | null,"awaiting_acceptance"?: boolean,"entered_queue_at"?: string,"resolved_at"?: string | null,"resolved_by"?: string | null,"last_message_at"?: string | null,"last_inbound_at"?: string | null,"last_outbound_at"?: string | null,"last_message_preview"?: string | null,"last_message_kind"?: string | null,"has_attachments"?: boolean,"needs_response"?: boolean,"sla_due_at"?: string | null
+                  }
+                  Relationships: []
+                },"conversation_events": {
+                  Row: {
+                    "id": string,"org_id": string,"conversation_id": string,"event_type": string,"actor_kind": string,"actor_user_id": string | null,"from_column": string | null,"to_column": string | null,"from_area_id": string | null,"to_area_id": string | null,"note": string | null,"metadata": Json,"created_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"conversation_id": string,"event_type": string,"actor_kind": string,"actor_user_id"?: string | null,"from_column"?: string | null,"to_column"?: string | null,"from_area_id"?: string | null,"to_area_id"?: string | null,"note"?: string | null,"metadata"?: Json,"created_at"?: string
+                  }
+                  Update: {
+                    "note"?: string | null
+                  }
+                  Relationships: []
+                },"conversation_reads": {
+                  Row: {
+                    "conversation_id": string,"user_id": string,"last_read_at": string,"last_read_message_id": string | null
+                  }
+                  Insert: {
+                    "conversation_id": string,"user_id": string,"last_read_at"?: string,"last_read_message_id"?: string | null
+                  }
+                  Update: {
+                    "last_read_at"?: string,"last_read_message_id"?: string | null
+                  }
+                  Relationships: []
+                },"quick_replies": {
+                  Row: {
+                    "id": string,"org_id": string,"area_id": string | null,"shortcut": string,"title": string,"body": string,"is_active": boolean,"created_at": string,"updated_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"org_id": string,"area_id"?: string | null,"shortcut": string,"title": string,"body": string,"is_active"?: boolean
+                  }
+                  Update: {
+                    "area_id"?: string | null,"shortcut"?: string,"title"?: string,"body"?: string,"is_active"?: boolean
                   }
                   Relationships: []
                 },"animals": {
@@ -261,6 +294,45 @@ isOneToOne: false
                            },
 "current_area_ids":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"list_inbox_queue":
+{ Args: { "p_area_id"?: string | null,"p_line_id"?: string | null,"p_owner"?: string | null,"p_awaiting_mine"?: boolean,"p_unanswered"?: boolean,"p_with_attachments"?: boolean }; Returns: { "id": string,"phone_normalized": string,"area_id": string,"area_name": string,"line_id": string,"owner_user_id": string | null,"owner_name": string | null,"queue_column": string,"bot_state": string,"needs_response": boolean,"awaiting_acceptance": boolean,"has_attachments": boolean,"last_message_at": string | null,"last_message_preview": string | null,"last_inbound_at": string | null,"entered_queue_at": string,"sla_level": string,"registration_status": string | null,"citizen_push_name": string | null,"unread": boolean }[]
+                           },
+"inbox_attention_count":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"ensure_owner_for_reply":
+{ Args: { "p_conversation_id": string }; Returns: { "result_conversation_id": string,"result_owner_user_id": string | null,"result_owner_name": string | null,"result_queue_column": string,"result_hint": string }[]
+                           },
+"claim_conversation":
+{ Args: { "p_conversation_id": string }; Returns: { "result_conversation_id": string,"result_owner_user_id": string | null,"result_owner_name": string | null,"result_queue_column": string,"result_hint": string }[]
+                           },
+"delegate_conversation":
+{ Args: { "p_conversation_id": string,"p_target_user": string | null,"p_target_area": string | null,"p_note": string }; Returns: { "result_hint": string }[]
+                           },
+"accept_conversation_delegation":
+{ Args: { "p_conversation_id": string }; Returns: { "result_hint": string }[]
+                           },
+"reject_conversation_delegation":
+{ Args: { "p_conversation_id": string,"p_note": string }; Returns: { "result_owner_name": string | null,"result_hint": string }[]
+                           },
+"move_conversation":
+{ Args: { "p_conversation_id": string,"p_column": string }; Returns: { "result_hint": string }[]
+                           },
+"resolve_conversation":
+{ Args: { "p_conversation_id": string }; Returns: { "result_hint": string }[]
+                           },
+"set_conversation_area":
+{ Args: { "p_conversation_id": string,"p_area_id": string }; Returns: { "result_hint": string }[]
+                           },
+"reopen_conversation":
+{ Args: { "p_conversation_id": string,"p_at": string,"p_message_id": string }; Returns: { "result_hint": string }[]
+                           },
+"mark_conversation_read":
+{ Args: { "p_conversation_id": string }; Returns: undefined
+                           },
+"set_business_calendar":
+{ Args: { "p_hours": Json,"p_holidays": string[] }; Returns: undefined
                            },
 "replace_area_memberships":
 { Args: { "p_user_id": string,"p_memberships": Json }; Returns: undefined

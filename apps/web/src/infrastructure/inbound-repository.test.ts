@@ -106,6 +106,27 @@ describe("ingestInboundEvent", () => {
     expect(store.jobs.filter((j) => j.type === "download_media")).toHaveLength(1);
   });
 
+  it("reopens a resolved conversation once and still enqueues process_inbound", async () => {
+    const store = new MemoryInboundStore();
+    store.lines.set("inspectoria", { ...line });
+    const key = `${line.orgId}:${line.lineId}:${baseEvent.phoneNormalized}`;
+    store.conversations.set(key, {
+      id: "conv-resolved",
+      orgId: line.orgId,
+      lineId: line.lineId,
+      phone: baseEvent.phoneNormalized,
+      areaId: line.defaultAreaId,
+      queueColumn: "resolved",
+    });
+
+    await ingestInboundEvent(store, baseEvent, "secret");
+    await ingestInboundEvent(store, baseEvent, "secret");
+
+    expect(store.reopenedMessageIds).toEqual(["wamid.1"]);
+    expect(store.conversations.get(key)?.queueColumn).toBe("new");
+    expect(store.jobs.filter((job) => job.type === "process_inbound")).toHaveLength(1);
+  });
+
   it("captures pushName on citizen stub", async () => {
     const store = new MemoryInboundStore();
     store.lines.set("inspectoria", { ...line });

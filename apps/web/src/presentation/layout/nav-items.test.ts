@@ -23,6 +23,8 @@ describe('visibleNavItems', () => {
       '/settings/areas',
       '/settings/operators',
       '/settings/lines',
+      '/settings/quick-replies',
+      '/settings/hours',
       '/support/errors',
     ]);
   });

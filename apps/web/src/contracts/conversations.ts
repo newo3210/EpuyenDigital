@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Conversation list row - minimal inbox channel view (no claim/SLA UI).
+// Conversation list row - identity fields shared by the thread header.
 export const conversationListItemSchema = z.object({
   id: z.string().uuid(),
   orgId: z.string().uuid(),
@@ -23,6 +23,10 @@ export const threadMessageSchema = z.object({
   createdAt: z.string(),
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
+  storagePath: z.string().nullable().optional(),
+  mediaHref: z.string().nullable().optional(),
+  deliveredAt: z.string().nullable().optional(),
+  readAt: z.string().nullable().optional(),
 });
 
 export type ThreadMessage = z.infer<typeof threadMessageSchema>;
@@ -30,7 +34,20 @@ export type ThreadMessage = z.infer<typeof threadMessageSchema>;
 export const conversationThreadSchema = z.object({
   conversation: conversationListItemSchema.extend({
     citizenId: z.string().uuid().nullable(),
+    queueColumn: z.string().optional(),
+    botState: z.string().optional(),
+    ownerUserId: z.string().uuid().nullable().optional(),
+    ownerName: z.string().nullable().optional(),
+    awaitingAcceptance: z.boolean().optional(),
   }),
+  citizen: z
+    .object({
+      latitude: z.number().nullable(),
+      longitude: z.number().nullable(),
+      registrationStatus: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
   messages: z.array(threadMessageSchema),
 });
 

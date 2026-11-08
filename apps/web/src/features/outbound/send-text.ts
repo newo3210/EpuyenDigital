@@ -5,6 +5,7 @@ const messages = esAR.inbox.composer.errors;
 
 export type SendTextDeps = {
   authorUserId: string;
+  ensureOwner: (conversationId: string) => Promise<{ ok: true } | { ok: false; message: string }>;
   loadConversation: (conversationId: string) => Promise<{
     id: string;
     orgId: string;
@@ -70,6 +71,11 @@ export async function sendOperatorText(
   const conversation = await deps.loadConversation(parsed.data.conversationId);
   if (!conversation) {
     return { status: 'failed', message: messages.conversationNotFound };
+  }
+
+  const ownership = await deps.ensureOwner(conversation.id);
+  if (!ownership.ok) {
+    return { status: 'failed', message: ownership.message };
   }
 
   let phone: string;

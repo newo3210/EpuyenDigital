@@ -11,6 +11,7 @@ const conversation = {
 function baseDeps(overrides: Record<string, unknown> = {}) {
   return {
     authorUserId: '00000000-0000-4000-8000-000000000099',
+    ensureOwner: async () => ({ ok: true as const }),
     loadConversation: async () => conversation,
     loadOrgSendMode: async () => ({ sendMode: 'production' as const, allowlistPhones: [] }),
     loadLineCredentials: async () => ({
@@ -109,6 +110,41 @@ describe('sendOperatorText', () => {
     expect(sendViaEvolution).toHaveBeenCalledWith(
       expect.objectContaining({ phone: '5492944216586', text: 'hola producción' }),
     );
+  });
+
+  it('claims via ensureOwner before persisting an unowned thread', async () => {
+    const order: string[] = [];
+    const ensureOwner = vi.fn(async () => {
+      order.push('ensure');
+      return { ok: true as const };
+    });
+    const persistOutbound = vi.fn(async () => {
+      order.push('persist');
+      return { messageId: 'm-claim' };
+    });
+    const result = await sendOperatorText(
+      { conversationId: conversation.id, text: 'tomo y respondo' },
+      baseDeps({ ensureOwner, persistOutbound }),
+    );
+    expect(result.status).toBe('ok');
+    expect(order[0]).toBe('ensure');
+    expect(persistOutbound).toHaveBeenCalled();
+  });
+
+  it('does not persist or call Evolution when another operator owns the thread', async () => {
+    const persistOutbound = vi.fn();
+    const sendViaEvolution = vi.fn();
+    const result = await sendOperatorText(
+      { conversationId: conversation.id, text: 'hola' },
+      baseDeps({
+        ensureOwner: async () => ({ ok: false, message: 'La tiene Ana' }),
+        persistOutbound,
+        sendViaEvolution,
+      }),
+    );
+    expect(result).toMatchObject({ status: 'failed', message: 'La tiene Ana' });
+    expect(persistOutbound).not.toHaveBeenCalled();
+    expect(sendViaEvolution).not.toHaveBeenCalled();
   });
 
   it('marks pending row failed when Evolution throws (row already persisted)', async () => {

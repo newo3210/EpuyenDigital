@@ -8,6 +8,7 @@ import { getConversationThread } from '@/infrastructure/repositories/conversatio
 import { loadDecryptedLineCredentials } from '@/infrastructure/repositories/whatsapp-lines';
 import { createAdminSupabase } from '@/infrastructure/supabase/admin';
 import { createServerSupabase } from '@/infrastructure/supabase/server';
+import { mapInboxError } from '@/features/inbox/map-error';
 import { sendOperatorText } from './send-text';
 
 export type ComposerState = {
@@ -28,7 +29,7 @@ export async function sendComposerTextAction(
   _previous: ComposerState,
   formData: FormData,
 ): Promise<ComposerState> {
-  const operator = await requirePageRole(['admin', 'area_lead', 'operator', 'support']);
+  const operator = await requirePageRole(['admin', 'area_lead', 'operator']);
   const supabase = await createServerSupabase();
   const admin = createAdminSupabase();
   const conversationId = readOptionalText(formData, 'conversationId');
@@ -40,6 +41,11 @@ export async function sendComposerTextAction(
     },
     {
       authorUserId: operator.id,
+      ensureOwner: async (id) => {
+        const { error } = await supabase.rpc('ensure_owner_for_reply', { p_conversation_id: id });
+        if (error) return { ok: false as const, message: mapInboxError(error) };
+        return { ok: true as const };
+      },
       loadConversation: async (id) => {
         const thread = await getConversationThread(supabase, id);
         if (!thread) return null;
@@ -88,13 +94,17 @@ export async function sendComposerTextAction(
           .update({
             last_message_at: new Date().toISOString(),
             last_outbound_at: new Date().toISOString(),
+            last_message_preview: params.text.slice(0, 140),
+            last_message_kind: 'text',
             needs_response: false,
           })
           .eq('id', params.conversationId);
         return { messageId: data.id as string };
       },
       updateOutbound: async ({ messageId, deliveryStatus, externalId }) => {
-        const patch: Record<string, unknown> = { delivery_status: deliveryStatus };
+        const patch: { delivery_status: 'sent' | 'failed'; external_id?: string } = {
+          delivery_status: deliveryStatus,
+        };
         if (externalId) patch.external_id = externalId;
         const { error } = await admin.from('messages').update(patch).eq('id', messageId);
         if (error) throw error;

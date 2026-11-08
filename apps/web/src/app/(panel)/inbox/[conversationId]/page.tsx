@@ -3,9 +3,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePageRole } from '@/features/auth/server';
 import { esAR } from '@/i18n/es-AR';
+import { listAreas } from '@/infrastructure/repositories/areas';
 import { getConversationThread } from '@/infrastructure/repositories/conversations';
+import { listConversationEvents, listOperatorOptions, listQuickReplies, markConversationRead } from '@/infrastructure/repositories/inbox';
+import { createAdminSupabase } from '@/infrastructure/supabase/admin';
 import { createServerSupabase } from '@/infrastructure/supabase/server';
-import { ConversationThreadView } from '@/presentation/whatsapp/conversation-thread';
+import { ThreadView } from '@/presentation/inbox/thread-view';
 
 type PageProps = {
   params: Promise<{ conversationId: string }>;
@@ -13,20 +16,56 @@ type PageProps = {
 
 export const metadata: Metadata = { title: esAR.inbox.threadTitle };
 
-// Inbox thread - message history + minimal text composer.
+// Inbox thread - timeline, media, coordinates, and ownership actions.
 export default async function InboxThreadPage({ params }: PageProps) {
-  await requirePageRole(['admin', 'area_lead', 'operator', 'support']);
+  const operator = await requirePageRole(['admin', 'area_lead', 'operator', 'support']);
   const { conversationId } = await params;
   const supabase = await createServerSupabase();
   const thread = await getConversationThread(supabase, conversationId);
   if (!thread) notFound();
+
+  await markConversationRead(supabase, conversationId).catch(() => undefined);
+
+  const [events, replies, operators, areas] = await Promise.all([
+    listConversationEvents(supabase, conversationId),
+    listQuickReplies(supabase, thread.conversation.areaId),
+    listOperatorOptions(supabase),
+    listAreas(supabase),
+  ]);
+
+  const admin = createAdminSupabase();
+  const messages = await Promise.all(
+    thread.messages.map(async (message) => {
+      if (!message.storagePath) return message;
+      const signed = await admin.storage.from('whatsapp-media').createSignedUrl(message.storagePath, 600);
+      return { ...message, mediaHref: signed.data?.signedUrl ?? null };
+    }),
+  );
+
+  let ownerName: string | null = null;
+  if (thread.conversation.ownerUserId) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', thread.conversation.ownerUserId)
+      .maybeSingle();
+    ownerName = data?.full_name ?? null;
+  }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
       <Link href="/inbox" className="text-sm text-brand-700 hover:underline">
         {esAR.inbox.backToList}
       </Link>
-      <ConversationThreadView thread={thread} />
+      <ThreadView
+        thread={{ ...thread, messages }}
+        events={events}
+        quickReplies={replies}
+        operators={operators}
+        areas={areas.map((area) => ({ id: area.id, label: area.name }))}
+        canMutate={operator.role !== 'support'}
+        ownerName={ownerName}
+      />
     </div>
   );
 }
