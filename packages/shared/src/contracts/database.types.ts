@@ -126,13 +126,13 @@ isOneToOne: false
                   ]
                 },"org_settings": {
                   Row: {
-                    "org_id": string,"send_mode": string,"allowlist_phones": string[],"registration_session_ttl_hours": number,"privacy_notice_version": string,"business_hours": Json,"holidays": string[],"created_at": string,"updated_at": string
+                    "org_id": string,"send_mode": string,"allowlist_phones": string[],"registration_session_ttl_hours": number,"privacy_notice_version": string,"business_hours": Json,"holidays": string[],"bot_paused"?: boolean,"mesa_bot_enabled"?: boolean,"bot_confidence_threshold"?: number,"privacy_notice_text"?: string,"out_of_hours_message"?: string,"created_at": string,"updated_at": string
                   }
                   Insert: {
-                    "org_id": string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"business_hours"?: Json,"holidays"?: string[],"created_at"?: string,"updated_at"?: string
+                    "org_id": string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"business_hours"?: Json,"holidays"?: string[],"bot_paused"?: boolean,"mesa_bot_enabled"?: boolean,"bot_confidence_threshold"?: number,"privacy_notice_text"?: string,"out_of_hours_message"?: string,"created_at"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "org_id"?: string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"business_hours"?: Json,"holidays"?: string[],"created_at"?: string,"updated_at"?: string
+                    "org_id"?: string,"send_mode"?: string,"allowlist_phones"?: string[],"registration_session_ttl_hours"?: number,"privacy_notice_version"?: string,"business_hours"?: Json,"holidays"?: string[],"bot_paused"?: boolean,"mesa_bot_enabled"?: boolean,"bot_confidence_threshold"?: number,"privacy_notice_text"?: string,"out_of_hours_message"?: string,"created_at"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -477,6 +477,33 @@ isOneToOne: false
                            },
 "list_citizen_timeline":
 { Args: { "p_id": string }; Returns: { "result_kind": string,"result_id": string,"result_at": string,"result_label": string | null,"result_detail": string | null }[]
+                           },
+"upsert_knowledge_document":
+{ Args: { "p_id": string | null,"p_title": string,"p_source_kind": string,"p_body_text": string | null,"p_storage_path": string | null,"p_area_id": string | null,"p_is_active": boolean,"p_valid_until": string | null }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"set_org_bot_paused":
+{ Args: { "p_paused": boolean }; Returns: { "result_hint": string }[]
+                           },
+"list_knowledge_documents":
+{ Args: Record<PropertyKey, never>; Returns: { "result_id": string,"result_title": string,"result_source_kind": string,"result_is_active": boolean,"result_index_status": string,"result_valid_until": string | null,"result_area_id": string | null,"result_updated_at": string }[]
+                           },
+"list_bot_runs":
+{ Args: { "p_conversation_id": string }; Returns: { "result_id": string,"result_decision": string,"result_answer": string | null,"result_confidence": number | null,"result_handoff_reason": string | null,"result_sources": Json,"result_topic": string | null,"result_urgency": string | null,"result_created_at": string }[]
+                           },
+"search_knowledge_chunks":
+{ Args: { "p_org_id": string,"p_query": string,"p_limit"?: number }; Returns: { "result_chunk_id": string,"result_document_id": string,"result_title": string,"result_content": string,"result_score": number }[]
+                           },
+"insert_bot_run":
+{ Args: { "p_org_id": string,"p_conversation_id": string,"p_trigger_message_id": string | null,"p_decision": string,"p_answer": string | null,"p_sources": Json,"p_confidence": number | null,"p_handoff_reason": string | null,"p_suggested_area_id": string | null,"p_topic": string | null,"p_urgency": string | null,"p_extracted_fields": Json,"p_model": string | null,"p_latency_ms": number | null,"p_tokens_in": number | null,"p_tokens_out": number | null }; Returns: string
+                           },
+"replace_knowledge_chunks":
+{ Args: { "p_document_id": string,"p_chunks": Json }; Returns: number
+                           },
+"set_knowledge_document_active":
+{ Args: { "p_id": string,"p_is_active": boolean }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"reindex_knowledge_document":
+{ Args: { "p_id": string }; Returns: { "result_id": string,"result_hint": string }[]
                            }
           }
           Enums: {

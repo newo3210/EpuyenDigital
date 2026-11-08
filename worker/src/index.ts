@@ -55,6 +55,8 @@ async function main() {
     defaultSendMode: env.SEND_MODE,
     defaultAllowlist: env.ALLOWLIST_PHONES,
     locationHelpImagePath: env.LOCATION_HELP_IMAGE_PATH ?? defaultLocationHelpPath,
+    mesaBotEnabled: env.MESA_BOT_ENABLED,
+    botKillSwitch: env.BOT_KILL_SWITCH,
   };
 
   const controller = new AbortController();

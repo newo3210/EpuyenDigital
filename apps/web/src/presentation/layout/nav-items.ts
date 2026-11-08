@@ -1,4 +1,5 @@
 import {
+  BookOpenText,
   Building2,
   Clock,
   LifeBuoy,
@@ -34,6 +35,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/settings/quick-replies', label: esAR.nav.quickReplies, icon: MessageSquareText, roles: ['admin'] },
   { href: '/settings/hours', label: esAR.nav.hours, icon: Clock, roles: ['admin'] },
   { href: '/settings/external-contacts', label: esAR.nav.externalContacts, icon: Phone, roles: ['admin'] },
+  { href: '/settings/knowledge', label: esAR.nav.knowledge, icon: BookOpenText, roles: ['admin'] },
   { href: '/support/errors', label: esAR.nav.support, icon: LifeBuoy, roles: ['admin', 'support'] },
 ];
 

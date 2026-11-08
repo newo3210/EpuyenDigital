@@ -171,13 +171,13 @@ Las transiciones (`create_task`, `claim_task`, `delegate_task`, `accept_task`, `
 
 ## 7. Bot y conocimiento
 
-### `knowledge_documents`
+### `knowledge_documents` [implementado — chatbot-llm]
 `title`, `source_kind (pdf|text|faq|url)`, `storage_path`, `area_id null`, `is_active`, `valid_until null`, `indexed_at`, `index_status`.
 
-### `knowledge_chunks`
-`document_id`, `chunk_index`, `content`, `embedding vector(N)`, `metadata jsonb` (página, sección). Índice HNSW.
+### `knowledge_chunks` [implementado — chatbot-llm]
+`document_id`, `chunk_index`, `content`, `embedding vector(1536)`, `metadata jsonb` (página, sección). Retrieval text/trgm fallback when cosine unavailable.
 
-### `bot_runs`
+### `bot_runs` [implementado — chatbot-llm]
 `conversation_id`, `trigger_message_id`, `decision bot_decision`, `answer`, `sources jsonb` (chunks citados), `confidence numeric`, `handoff_reason handoff_reason null`, `suggested_area_id`, `topic`, `urgency`, `extracted_fields jsonb`, `model`, `latency_ms`, `tokens_in`, `tokens_out`.
 
 ## 8. Operación

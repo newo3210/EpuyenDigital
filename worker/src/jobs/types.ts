@@ -13,6 +13,8 @@ export type JobContext = {
   defaultAllowlist: string[];
   /** Absolute path to location-help PNG (env LOCATION_HELP_IMAGE_PATH or default asset) */
   locationHelpImagePath?: string;
+  mesaBotEnabled?: boolean;
+  botKillSwitch?: boolean;
 };
 
 export type JobHandler = (payload: JobPayload, ctx: JobContext) => Promise<void>;

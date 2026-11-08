@@ -29,6 +29,7 @@ export const sendOutboundJobSchema = z.object({
     .optional(),
   /** Absolute or worker-relative path to an image file (e.g. location help) */
   mediaPath: z.string().min(1).optional(),
+  senderKind: z.enum(["bot", "operator", "system"]).optional(),
 });
 
 export const analyzeTraitsJobSchema = z.object({
@@ -43,12 +44,45 @@ export const externalNotifyJobSchema = z.object({
   orgId: z.string().uuid(),
 });
 
+export const botReplyJobSchema = z.object({
+  type: z.literal("bot_reply"),
+  messageId: z.string().uuid(),
+  conversationId: z.string().uuid(),
+  lineId: z.string().uuid(),
+  orgId: z.string().uuid(),
+});
+
+export const indexDocumentJobSchema = z.object({
+  type: z.literal("index_document"),
+  documentId: z.string().uuid(),
+  orgId: z.string().uuid(),
+});
+
+export const transcribeAudioJobSchema = z.object({
+  type: z.literal("transcribe_audio"),
+  messageId: z.string().uuid(),
+  orgId: z.string().uuid(),
+  conversationId: z.string().uuid(),
+  lineId: z.string().uuid(),
+});
+
+export const summarizeMediaJobSchema = z.object({
+  type: z.literal("summarize_media"),
+  messageId: z.string().uuid(),
+  orgId: z.string().uuid(),
+  conversationId: z.string().uuid(),
+});
+
 export const jobPayloadSchema = z.discriminatedUnion("type", [
   processInboundJobSchema,
   downloadMediaJobSchema,
   sendOutboundJobSchema,
   analyzeTraitsJobSchema,
   externalNotifyJobSchema,
+  botReplyJobSchema,
+  indexDocumentJobSchema,
+  transcribeAudioJobSchema,
+  summarizeMediaJobSchema,
 ]);
 
 export type JobPayload = z.infer<typeof jobPayloadSchema>;

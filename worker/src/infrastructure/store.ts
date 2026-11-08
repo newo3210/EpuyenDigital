@@ -48,6 +48,42 @@ export type OrgSettingsRow = {
   allowlistPhones: string[];
   ttlHours: number;
   privacyNoticeVersion: string;
+  botPaused?: boolean;
+  mesaBotEnabled?: boolean;
+  botConfidenceThreshold?: number;
+  privacyNoticeText?: string;
+  outOfHoursMessage?: string;
+  businessHours?: Record<string, [string, string][]>;
+  holidays?: string[];
+};
+
+export type BotConversationRow = {
+  id: string;
+  orgId: string;
+  lineId: string;
+  phoneNormalized: string;
+  ownerUserId: string | null;
+  botState: "active" | "paused" | "handoff";
+  privacyNoticeSentAt: string | null;
+  handoffAckSentAt: string | null;
+  botAwaitingClarification: boolean;
+};
+
+export type KnowledgeDocumentRow = {
+  id: string;
+  orgId: string;
+  title: string;
+  bodyText: string | null;
+  storagePath: string | null;
+  isActive: boolean;
+};
+
+export type KnowledgeHitRow = {
+  chunkId: string;
+  documentId: string;
+  title: string;
+  content: string;
+  score: number;
 };
 
 export type CompleteAnimalResult = {
@@ -115,6 +151,7 @@ export type WorkerStore = {
     text: string;
     deliveryStatus: "sent" | "blocked" | "simulated";
     externalId?: string;
+    senderKind?: "bot" | "operator" | "system" | "phone";
   }): Promise<void>;
   getLineInstance(lineId: string): Promise<{ instance: string; orgId: string } | null>;
   getExternalTaskNotify(taskId: string): Promise<{
@@ -146,4 +183,39 @@ export type WorkerStore = {
     status: "ready" | "pending_manual";
   }): Promise<void>;
   getPendingAnimalIdForSession(sessionId: string): Promise<string | null>;
+  getConversationForBot?(conversationId: string): Promise<BotConversationRow | null>;
+  hasOpenPetSession?(lineId: string, phone: string): Promise<boolean>;
+  searchKnowledge?(orgId: string, query: string, limit?: number): Promise<KnowledgeHitRow[]>;
+  insertBotRun?(params: {
+    orgId: string;
+    conversationId: string;
+    triggerMessageId: string | null;
+    decision: string;
+    answer: string | null;
+    sources: unknown;
+    confidence: number | null;
+    handoffReason: string | null;
+    topic?: string | null;
+    urgency?: string | null;
+    extractedFields?: unknown;
+    model?: string | null;
+    latencyMs?: number | null;
+  }): Promise<string>;
+  markPrivacyNoticeSent?(conversationId: string): Promise<void>;
+  markHandoff?(params: {
+    conversationId: string;
+    sendAck: boolean;
+  }): Promise<void>;
+  setBotAwaitingClarification?(conversationId: string, awaiting: boolean): Promise<void>;
+  getKnowledgeDocument?(documentId: string): Promise<KnowledgeDocumentRow | null>;
+  replaceKnowledgeChunks?(
+    documentId: string,
+    chunks: Array<{ chunkIndex: number; content: string; metadata?: Record<string, unknown> }>,
+  ): Promise<number>;
+  createBotSummaryNote?(params: {
+    orgId: string;
+    conversationId: string;
+    body: string;
+  }): Promise<void>;
+  updateMessageBody?(messageId: string, body: string): Promise<void>;
 };

@@ -14,6 +14,7 @@ export * from './registration/steps.js';
 export * from './registration/menus.js';
 export * from './registration/state-machine.js';
 export * from './domain/business-minutes.js';
+export * from './domain/bot-decision.js';
 export * from './domain/citizen-fields.js';
 export * from './domain/external-task-commands.js';
 export * from './domain/inbox-side-effects.js';

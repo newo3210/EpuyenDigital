@@ -300,6 +300,35 @@ export async function ingestInboundEvent(
         kind: "animal",
       });
     }
+
+    // Audio: wait for transcription before mesa bot_reply (avoids empty-body handoff).
+    if (event.kind === "audio") {
+      await store.enqueueJob({
+        type: "transcribe_audio",
+        messageId: persisted.messageId,
+        orgId: line.orgId,
+        conversationId: persisted.conversationId,
+        lineId: line.lineId,
+      });
+    } else {
+      // Mesa bot beside pet registration; bot_reply exits silent on open pet sessions.
+      await store.enqueueJob({
+        type: "bot_reply",
+        messageId: persisted.messageId,
+        conversationId: persisted.conversationId,
+        lineId: line.lineId,
+        orgId: line.orgId,
+      });
+    }
+
+    if (event.kind === "image" || event.kind === "document") {
+      await store.enqueueJob({
+        type: "summarize_media",
+        messageId: persisted.messageId,
+        orgId: line.orgId,
+        conversationId: persisted.conversationId,
+      });
+    }
   }
 
   return {

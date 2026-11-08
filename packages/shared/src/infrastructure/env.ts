@@ -36,6 +36,19 @@ const envSchema = z.object({
   LLM_VISION_BASE_URL: z.string().url().optional(),
   LLM_VISION_API_KEY: z.string().optional(),
   LLM_VISION_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  LLM_CHAT_PROVIDER: z.string().default("openai"),
+  LLM_CHAT_MODEL: z.string().default("gpt-4o-mini"),
+  LLM_CHAT_BASE_URL: z.string().url().optional(),
+  LLM_CHAT_API_KEY: z.string().optional(),
+  LLM_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  BOT_KILL_SWITCH: z
+    .string()
+    .optional()
+    .transform((v) => v === "1" || v === "true"),
+  MESA_BOT_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v !== "false" && v !== "0"),
   WORKER_POLL_MS: z.coerce.number().int().positive().default(1000),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
 });

@@ -7,11 +7,13 @@ import { listAreas } from '@/infrastructure/repositories/areas';
 import { getCitizenProfile } from '@/infrastructure/repositories/citizens';
 import { getConversationThread } from '@/infrastructure/repositories/conversations';
 import { listConversationEvents, listOperatorOptions, listQuickReplies, markConversationRead } from '@/infrastructure/repositories/inbox';
+import { listBotRuns } from '@/infrastructure/repositories/knowledge';
 import { listNotes } from '@/infrastructure/repositories/notes';
 import { listExternalContacts } from '@/infrastructure/repositories/tasks';
 import { createAdminSupabase } from '@/infrastructure/supabase/admin';
 import { createServerSupabase } from '@/infrastructure/supabase/server';
 import { CitizenFicha } from '@/presentation/citizens/citizen-ficha';
+import { BotRunsPanel } from '@/presentation/inbox/bot-runs-panel';
 import { ThreadView } from '@/presentation/inbox/thread-view';
 import { NotesPanel } from '@/presentation/notes/notes-panel';
 import { CreateTaskForm } from '@/presentation/tasks/create-task-form';
@@ -33,13 +35,14 @@ export default async function InboxThreadPage({ params }: PageProps) {
 
   await markConversationRead(supabase, conversationId).catch(() => undefined);
 
-  const [events, replies, operators, areas, notes, externalContacts] = await Promise.all([
+  const [events, replies, operators, areas, notes, externalContacts, botRuns] = await Promise.all([
     listConversationEvents(supabase, conversationId),
     listQuickReplies(supabase, thread.conversation.areaId),
     listOperatorOptions(supabase),
     listAreas(supabase),
     listNotes(supabase, { conversationId }),
     listExternalContacts(supabase),
+    listBotRuns(supabase, conversationId),
   ]);
   const canMutate = operator.role !== 'support';
   const areaOptions = areas.map((area) => ({ id: area.id, label: area.name }));
@@ -81,6 +84,7 @@ export default async function InboxThreadPage({ params }: PageProps) {
         conversationId={conversationId}
         citizenId={thread.conversation.citizenId ?? undefined}
       />
+      <BotRunsPanel runs={botRuns} />
       <ExportCaseButton conversationId={conversationId} />
     </div>
   );
