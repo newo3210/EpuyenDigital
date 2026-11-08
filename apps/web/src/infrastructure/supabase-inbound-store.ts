@@ -353,9 +353,15 @@ export class SupabaseInboundStore implements InboundStore {
       .maybeSingle();
     if (error) throw error;
     if (!shouldReopenConversation({ fromMe, queueColumn: data?.queue_column })) return;
+    const { data: message, error: messageError } = await this.client
+      .from("messages")
+      .select("created_at")
+      .eq("id", messageId)
+      .maybeSingle();
+    if (messageError) throw messageError;
     const { error: reopenError } = await this.client.rpc("reopen_conversation", {
       p_conversation_id: conversationId,
-      p_at: new Date().toISOString(),
+      p_at: (message?.created_at as string | undefined) ?? new Date().toISOString(),
       p_message_id: messageId,
     });
     if (reopenError) throw reopenError;

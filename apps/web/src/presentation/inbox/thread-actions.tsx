@@ -8,6 +8,7 @@ import {
   setConversationAreaAction,
 } from '@/features/inbox/actions';
 import { esAR } from '@/i18n/es-AR';
+import { ActionForm } from './action-form';
 import { DelegateForm } from './delegate-form';
 import { RejectForm } from './reject-form';
 
@@ -27,27 +28,27 @@ export function ThreadActions({ conversationId, canMutate, operators, areas }: T
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-3 text-sm">
       <div className="flex flex-wrap gap-2">
-        <form action={claimConversationAction}>
+        <ActionForm action={claimConversationAction}>
           <input type="hidden" name="conversationId" value={conversationId} />
           <button className="rounded border border-line px-3 py-1" type="submit">
             {copy.actions.claim}
           </button>
-        </form>
-        <form action={acceptDelegationAction}>
+        </ActionForm>
+        <ActionForm action={acceptDelegationAction}>
           <input type="hidden" name="conversationId" value={conversationId} />
           <button className="rounded border border-line px-3 py-1" type="submit">
             {copy.actions.accept}
           </button>
-        </form>
-        <form action={resolveConversationAction}>
+        </ActionForm>
+        <ActionForm action={resolveConversationAction}>
           <input type="hidden" name="conversationId" value={conversationId} />
           <button className="rounded border border-line px-3 py-1" type="submit">
             {copy.actions.resolve}
           </button>
-        </form>
+        </ActionForm>
       </div>
 
-      <form action={moveConversationAction} className="flex flex-wrap items-center gap-2">
+      <ActionForm action={moveConversationAction} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="conversationId" value={conversationId} />
         <label>
           {copy.actions.move}
@@ -60,9 +61,9 @@ export function ThreadActions({ conversationId, canMutate, operators, areas }: T
         <button className="rounded border border-line px-3 py-1" type="submit">
           {copy.saved}
         </button>
-      </form>
+      </ActionForm>
 
-      <form action={setConversationAreaAction} className="flex flex-wrap items-center gap-2">
+      <ActionForm action={setConversationAreaAction} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="conversationId" value={conversationId} />
         <label>
           {copy.actions.setArea}
@@ -77,7 +78,7 @@ export function ThreadActions({ conversationId, canMutate, operators, areas }: T
         <button className="rounded border border-line px-3 py-1" type="submit">
           {copy.saved}
         </button>
-      </form>
+      </ActionForm>
 
       <DelegateForm conversationId={conversationId} operators={operators} areas={areas} />
       <RejectForm conversationId={conversationId} />

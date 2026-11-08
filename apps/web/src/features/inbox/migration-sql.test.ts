@@ -43,4 +43,15 @@ describe('mesa-entrada-inbox migration SQL', () => {
     expect(sql).toContain("jwt_role is distinct from 'service_role'");
     expect(sql).toContain('grant execute on function public.reopen_conversation(uuid, timestamptz, uuid) to service_role');
   });
+
+  it('revokes internal definer helpers from authenticated callers', () => {
+    expect(sql).toContain(
+      'revoke all on function public.inbox_lock_conversation(uuid) from public, anon, authenticated',
+    );
+    expect(sql).toContain(
+      'revoke all on function public.inbox_event(public.conversations, text, uuid, text, text, uuid, uuid, text, jsonb) from public, anon, authenticated',
+    );
+    expect(sql).not.toContain('c.needs_response and not exists');
+    expect(sql).toContain("regexp_replace(coalesce(p_note, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g')");
+  });
 });

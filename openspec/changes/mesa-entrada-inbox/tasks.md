@@ -51,3 +51,9 @@ Respected during apply: no panel media upload and no send_mode chooser. `process
 
 - [ ] 6.1 Do not add panel media upload (WA-08) or a send_mode settings screen (WA-11).
 - [ ] 6.2 Do not skip `process_inbound` based on area.
+
+## 7. Adversarial fixes
+
+- [x] 7.1 Revoke `EXECUTE` on internal definer helpers (`inbox_lock_conversation`, `inbox_event`, and the other helpers) from `public`, `anon`, and `authenticated`.
+- [x] 7.2 Accept clears `delegated_from_user_id`. Delegate is owner-only. Whitespace-only notes fail. Claim of an area delegation accepts only for a member of the pending area; any other visible operator claims the unowned row.
+- [x] 7.3 Unread follows the read marker, not `needs_response`. Area and calendar edits refresh `sla_due_at`. A duplicate of a message older than `resolved_at` does not reopen. Claim, accept, move, resolve, and set-area show the SQL error.

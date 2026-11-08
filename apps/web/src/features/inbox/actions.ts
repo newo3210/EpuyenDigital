@@ -41,13 +41,15 @@ async function run(
   return { status: 'ok', message: esAR.inbox.saved };
 }
 
-// Claim - first operator wins; the database reports the current owner on conflict.
-export async function claimConversationAction(formData: FormData): Promise<void> {
+// Claim - first operator wins; the database names the current owner on conflict.
+export async function claimConversationAction(
+  _previous: InboxActionState,
+  formData: FormData,
+): Promise<InboxActionState> {
   await requirePageRole(MUTATE);
   const supabase = await createServerSupabase();
   const conversationId = readText(formData, 'conversationId') ?? '';
-  await supabase.rpc('claim_conversation', { p_conversation_id: conversationId });
-  refresh(conversationId);
+  return run(conversationId, () => supabase.rpc('claim_conversation', { p_conversation_id: conversationId }));
 }
 
 // Delegate - person or area, note required.
@@ -75,12 +77,16 @@ export async function delegateConversationAction(
 }
 
 // Accept a delegation addressed to this operator or their area.
-export async function acceptDelegationAction(formData: FormData): Promise<void> {
+export async function acceptDelegationAction(
+  _previous: InboxActionState,
+  formData: FormData,
+): Promise<InboxActionState> {
   await requirePageRole(MUTATE);
   const supabase = await createServerSupabase();
   const conversationId = readText(formData, 'conversationId') ?? '';
-  await supabase.rpc('accept_conversation_delegation', { p_conversation_id: conversationId });
-  refresh(conversationId);
+  return run(conversationId, () =>
+    supabase.rpc('accept_conversation_delegation', { p_conversation_id: conversationId }),
+  );
 }
 
 // Reject - note required, ownership returns to the delegator.
@@ -104,44 +110,54 @@ export async function rejectDelegationAction(
 }
 
 // Move column - claimed, in progress, or waiting. Resolve is separate.
-export async function moveConversationAction(formData: FormData): Promise<void> {
+export async function moveConversationAction(
+  _previous: InboxActionState,
+  formData: FormData,
+): Promise<InboxActionState> {
   await requirePageRole(MUTATE);
   const parsed = moveColumnSchema.safeParse({
     conversationId: readText(formData, 'conversationId'),
     column: readText(formData, 'column'),
   });
-  if (!parsed.success) return;
+  if (!parsed.success) return { status: 'error', message: esAR.inbox.errors.invalidColumn };
   const supabase = await createServerSupabase();
-  await supabase.rpc('move_conversation', {
-    p_conversation_id: parsed.data.conversationId,
-    p_column: parsed.data.column,
-  });
-  refresh(parsed.data.conversationId);
+  return run(parsed.data.conversationId, () =>
+    supabase.rpc('move_conversation', {
+      p_conversation_id: parsed.data.conversationId,
+      p_column: parsed.data.column,
+    }),
+  );
 }
 
 // Resolve - returns the bot flag to active and leaves the default queue.
-export async function resolveConversationAction(formData: FormData): Promise<void> {
+export async function resolveConversationAction(
+  _previous: InboxActionState,
+  formData: FormData,
+): Promise<InboxActionState> {
   await requirePageRole(MUTATE);
   const supabase = await createServerSupabase();
   const conversationId = readText(formData, 'conversationId') ?? '';
-  await supabase.rpc('resolve_conversation', { p_conversation_id: conversationId });
-  refresh(conversationId);
+  return run(conversationId, () => supabase.rpc('resolve_conversation', { p_conversation_id: conversationId }));
 }
 
 // Manual area - does not copy coordinates and does not stop the pet job.
-export async function setConversationAreaAction(formData: FormData): Promise<void> {
+export async function setConversationAreaAction(
+  _previous: InboxActionState,
+  formData: FormData,
+): Promise<InboxActionState> {
   await requirePageRole(MUTATE);
   const parsed = setAreaSchema.safeParse({
     conversationId: readText(formData, 'conversationId'),
     areaId: readText(formData, 'areaId'),
   });
-  if (!parsed.success) return;
+  if (!parsed.success) return { status: 'error', message: esAR.inbox.errors.invalidArea };
   const supabase = await createServerSupabase();
-  await supabase.rpc('set_conversation_area', {
-    p_conversation_id: parsed.data.conversationId,
-    p_area_id: parsed.data.areaId,
-  });
-  refresh(parsed.data.conversationId);
+  return run(parsed.data.conversationId, () =>
+    supabase.rpc('set_conversation_area', {
+      p_conversation_id: parsed.data.conversationId,
+      p_area_id: parsed.data.areaId,
+    }),
+  );
 }
 
 // Quick reply create - admin only.

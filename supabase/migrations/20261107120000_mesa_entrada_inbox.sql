@@ -322,6 +322,51 @@ create trigger conversations_sync_sla
   before insert or update on public.conversations
   for each row execute function public.conversations_sync_sla();
 
+-- Area or calendar edits recompute due times. A conversation update runs the SLA trigger.
+create or replace function public.areas_refresh_conversation_sla()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.sla_critical_minutes is distinct from old.sla_critical_minutes
+    or new.sla_warning_minutes is distinct from old.sla_warning_minutes then
+    update public.conversations c
+    set updated_at = now()
+    where c.area_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists areas_refresh_conversation_sla on public.areas;
+create trigger areas_refresh_conversation_sla
+  after update of sla_warning_minutes, sla_critical_minutes on public.areas
+  for each row execute function public.areas_refresh_conversation_sla();
+
+create or replace function public.org_settings_refresh_conversation_sla()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.business_hours is distinct from old.business_hours
+    or new.holidays is distinct from old.holidays then
+    update public.conversations c
+    set updated_at = now()
+    where c.org_id = new.org_id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists org_settings_refresh_conversation_sla on public.org_settings;
+create trigger org_settings_refresh_conversation_sla
+  after update of business_hours, holidays on public.org_settings
+  for each row execute function public.org_settings_refresh_conversation_sla();
+
 -- ---------------------------------------------------------------------------
 -- Transition helpers
 -- ---------------------------------------------------------------------------
@@ -488,6 +533,7 @@ begin
   set owner_user_id = uid,
       awaiting_acceptance = false,
       pending_area_id = null,
+      delegated_from_user_id = null,
       queue_column = 'claimed',
       bot_state = 'paused'
   where c.id = conv.id;
@@ -525,7 +571,9 @@ begin
   if conv.queue_column = 'resolved' then
     perform public.inbox_raise('CLAIM_CONFLICT', public.profile_display_name(conv.owner_user_id));
   end if;
-  if conv.awaiting_acceptance and conv.owner_user_id is null then
+  if conv.awaiting_acceptance
+    and conv.owner_user_id is null
+    and conv.pending_area_id in (select public.current_area_ids()) then
     return query select * from public.accept_conversation_delegation(p_conversation_id);
     return;
   end if;
@@ -623,11 +671,11 @@ as $$
 declare
   conv public.conversations;
   uid uuid;
-  note text := btrim(coalesce(p_note, ''));
+  note text := regexp_replace(coalesce(p_note, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g');
 begin
   conv := public.inbox_lock_conversation(p_conversation_id);
   uid := public.inbox_assert_operator(conv);
-  if conv.owner_user_id is distinct from uid and public.current_user_role() <> 'admin' then
+  if conv.owner_user_id is distinct from uid then
     perform public.inbox_raise('NOT_OWNER');
   end if;
   if note = '' then
@@ -694,7 +742,7 @@ as $$
 declare
   conv public.conversations;
   uid uuid;
-  note text := btrim(coalesce(p_note, ''));
+  note text := regexp_replace(coalesce(p_note, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g');
   allowed boolean := false;
 begin
   conv := public.inbox_lock_conversation(p_conversation_id);
@@ -884,6 +932,11 @@ begin
     where e.conversation_id = conv.id
       and e.event_type = 'REOPENED'
       and e.metadata ->> 'message_id' = p_message_id::text
+  ) or exists (
+    select 1 from public.messages m
+    where m.id = p_message_id
+      and conv.resolved_at is not null
+      and m.created_at < conv.resolved_at
   ) then
     result_conversation_id := conv.id;
     result_owner_user_id := conv.owner_user_id;
@@ -1047,7 +1100,7 @@ begin
     end,
     cit.registration_status,
     cit.whatsapp_push_name,
-    c.needs_response and not exists (
+    c.last_inbound_at is not null and not exists (
       select 1 from public.conversation_reads r
       where r.conversation_id = c.id
         and r.user_id = auth.uid()
@@ -1224,6 +1277,15 @@ grant select, insert, update on public.quick_replies to authenticated;
 grant select on public.org_settings to authenticated;
 
 -- Execute
+revoke all on function public.inbox_raise(text, text) from public, anon, authenticated;
+revoke all on function public.profile_display_name(uuid) from public, anon, authenticated;
+revoke all on function public.conversation_visible_to_caller(public.conversations) from public, anon, authenticated;
+revoke all on function public.inbox_lock_conversation(uuid) from public, anon, authenticated;
+revoke all on function public.inbox_assert_operator(public.conversations) from public, anon, authenticated;
+revoke all on function public.inbox_event(public.conversations, text, uuid, text, text, uuid, uuid, text, jsonb) from public, anon, authenticated;
+revoke all on function public.conversations_sync_sla() from public, anon, authenticated;
+revoke all on function public.areas_refresh_conversation_sla() from public, anon, authenticated;
+revoke all on function public.org_settings_refresh_conversation_sla() from public, anon, authenticated;
 revoke all on function public.add_business_minutes(timestamptz, integer, jsonb, date[], text) from public, anon;
 revoke all on function public.business_minutes_between(timestamptz, timestamptz, jsonb, date[], text) from public, anon;
 revoke all on function public.claim_conversation(uuid) from public, anon;
