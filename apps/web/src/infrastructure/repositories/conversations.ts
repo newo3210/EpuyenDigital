@@ -44,7 +44,9 @@ export async function getConversationThread(
 ): Promise<ConversationThread | null> {
   const { data: conv, error: convError } = await client
     .from('conversations')
-    .select('id, org_id, line_id, phone_normalized, area_id, last_message_at, needs_response, citizen_id')
+    .select(
+      'id, org_id, line_id, phone_normalized, area_id, last_message_at, needs_response, citizen_id, queue_column, bot_state, owner_user_id, awaiting_acceptance',
+    )
     .eq('id', conversationId)
     .maybeSingle();
   if (convError) throw new RepositoryError('conversations.read_failed', convError.message);
@@ -52,13 +54,16 @@ export async function getConversationThread(
 
   const { data: messages, error: msgError } = await client
     .from('messages')
-    .select('id, direction, kind, body, delivery_status, created_at, latitude, longitude')
+    .select(
+      'id, direction, kind, body, delivery_status, created_at, latitude, longitude, storage_path, delivered_at, read_at',
+    )
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
   if (msgError) throw new RepositoryError('messages.read_failed', msgError.message);
 
   const citizenId = conv.citizen_id as string | null;
   const pushNames = citizenId ? await loadPushNames(client, [citizenId]) : new Map<string, string | null>();
+  const citizen = citizenId ? await loadCitizenPlace(client, citizenId) : null;
 
   const threadMessages: ThreadMessage[] = (messages ?? []).map((m) => ({
     id: m.id as string,
@@ -69,6 +74,9 @@ export async function getConversationThread(
     createdAt: m.created_at as string,
     latitude: m.latitude == null ? null : Number(m.latitude),
     longitude: m.longitude == null ? null : Number(m.longitude),
+    storagePath: (m.storage_path as string | null) ?? null,
+    deliveredAt: (m.delivered_at as string | null) ?? null,
+    readAt: (m.read_at as string | null) ?? null,
   }));
 
   const parsed = conversationThreadSchema.safeParse({
@@ -82,11 +90,31 @@ export async function getConversationThread(
       needsResponse: conv.needs_response,
       citizenPushName: citizenId ? (pushNames.get(citizenId) ?? null) : null,
       citizenId,
+      queueColumn: conv.queue_column as string,
+      botState: conv.bot_state as string,
+      ownerUserId: (conv.owner_user_id as string | null) ?? null,
+      awaitingAcceptance: Boolean(conv.awaiting_acceptance),
     },
+    citizen,
     messages: threadMessages,
   });
   if (!parsed.success) throw new RepositoryError('conversations.invalid_row', parsed.error.message);
   return parsed.data;
+}
+
+async function loadCitizenPlace(client: DbClient, citizenId: string) {
+  const { data, error } = await client
+    .from('citizens')
+    .select('latitude, longitude, registration_status')
+    .eq('id', citizenId)
+    .maybeSingle();
+  if (error) throw new RepositoryError('citizens.read_failed', error.message);
+  if (!data) return null;
+  return {
+    latitude: data.latitude == null ? null : Number(data.latitude),
+    longitude: data.longitude == null ? null : Number(data.longitude),
+    registrationStatus: (data.registration_status as string | null) ?? null,
+  };
 }
 
 async function loadPushNames(

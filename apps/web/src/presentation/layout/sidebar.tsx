@@ -9,13 +9,14 @@ import { visibleNavItems } from './nav-items';
 // Sidebar props - role decides which sections are listed.
 type SidebarProps = {
   role: Role;
+  inboxBadge?: number;
 };
 
 // Active match - exact section path or any nested route below it.
 const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 // Sidebar - role-filtered panel navigation with the current section highlighted.
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, inboxBadge = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -43,6 +44,11 @@ export function Sidebar({ role }: SidebarProps) {
             >
               <Icon aria-hidden="true" className="size-5 shrink-0" />
               <span className="sr-only md:not-sr-only">{label}</span>
+              {href === '/inbox' && inboxBadge > 0 ? (
+                <span className="ml-auto rounded-full bg-brand-700 px-2 text-xs text-white" aria-label={esAR.inbox.badgeLabel}>
+                  {inboxBadge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

@@ -1,4 +1,4 @@
-import type { DeliveryAck, EvolutionWebhook, JobPayload } from "@epuyen/shared";
+import { shouldReopenConversation, type DeliveryAck, type EvolutionWebhook, type JobPayload } from "@epuyen/shared";
 import { verifyWebhookSecret } from "./webhook-secret";
 
 // Inbound repository - persist message idempotently, upsert conversation, enqueue jobs
@@ -46,8 +46,17 @@ export class MemoryInboundStore implements InboundStore {
   >();
   conversations = new Map<
     string,
-    { id: string; orgId: string; lineId: string; phone: string; areaId: string; citizenId?: string }
+    {
+      id: string;
+      orgId: string;
+      lineId: string;
+      phone: string;
+      areaId: string;
+      citizenId?: string;
+      queueColumn: string;
+    }
   >();
+  reopenedMessageIds: string[] = [];
   citizens = new Map<
     string,
     { id: string; orgId: string; phone: string; pushName?: string; avatarUrl?: string }
@@ -96,8 +105,20 @@ export class MemoryInboundStore implements InboundStore {
         phone: params.event.phoneNormalized,
         areaId: params.line.defaultAreaId ?? "00000000-0000-4000-8000-000000000010",
         citizenId: citizen.id,
+        queueColumn: "new",
       };
       this.conversations.set(convKey, conversation);
+    }
+
+    if (
+      shouldReopenConversation({
+        fromMe: params.event.fromMe,
+        queueColumn: conversation.queueColumn,
+      }) &&
+      !this.reopenedMessageIds.includes(params.event.externalId)
+    ) {
+      conversation.queueColumn = "new";
+      this.reopenedMessageIds.push(params.event.externalId);
     }
 
     const id = crypto.randomUUID();

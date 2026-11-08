@@ -1,7 +1,7 @@
 # municipal-areas Specification
 
 ## Purpose
-TBD - created by archiving change areas-operators-admin. Update Purpose after archive.
+Municipal areas, default area, and the business-hours SLA clock archived from `mesa-entrada-inbox` (2026-11-08).
 
 ## Requirements
 
@@ -31,12 +31,16 @@ The organization SHALL always have exactly one default area. Promoting an area t
 - **WHEN** an admin attempts to set `is_default = false` on the only default area without promoting another
 - **THEN** the update is rejected
 
-### Requirement: SLA minute columns without engine
-Areas SHALL store optional positive integer `sla_warning_minutes` and `sla_critical_minutes` for later inbox use. This change SHALL NOT compute `sla_due_at` or enforce business hours.
+### Requirement: SLA minutes drive the inbox clock
+Areas SHALL keep optional positive integers `sla_warning_minutes` and `sla_critical_minutes` with critical greater than or equal to warning when both are set. When a conversation `needs_response` and the area has `sla_critical_minutes`, the inbox SHALL set `sla_due_at` to `last_inbound_at` plus that many business minutes. When critical minutes are null, `sla_due_at` SHALL be null. Admins SHALL still edit the minute values on the existing area form. This requirement does not add a second SLA configuration screen.
 
-#### Scenario: Persist SLA minutes
-- **WHEN** an admin sets warning 30 and critical 120 on an area
-- **THEN** those integers are stored and returned on subsequent reads
+#### Scenario: Critical minutes set the due time
+- **WHEN** an area has `sla_critical_minutes` 120 and a conversation starts needing a response at Monday 08:00 inside business hours
+- **THEN** `sla_due_at` is 120 business minutes after that instant
+
+#### Scenario: Null critical leaves no due time
+- **WHEN** an area has null `sla_critical_minutes`
+- **THEN** conversations in that area have null `sla_due_at`
 
 ### Requirement: Admin-only area writes
 Only an active operator with role `admin` in the same organization SHALL create or update areas. `area_lead`, `operator`, and `support` SHALL read areas of their organization and SHALL NOT mutate them.

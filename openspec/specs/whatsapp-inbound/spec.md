@@ -1,7 +1,7 @@
 # whatsapp-inbound Specification
 
 ## Purpose
-TBD - created by archiving change whatsapp-channel-core. Update Purpose after archive.
+Inbound WhatsApp persistence, including reopen of a resolved thread and the citizen stub that respects manual field sources. Updated by archiving `mesa-entrada-inbox` and `pobladores-ficha` (2026-11-08).
 
 ## Requirements
 
@@ -60,8 +60,27 @@ Messages written from the line handset (`fromMe`) SHALL be persisted as outbound
 - **THEN** an outbound message appears on the conversation for that phone
 
 ### Requirement: Citizen stub on first contact
-A new phone SHALL create or link an unregistered citizen with phone and available WhatsApp profile fields (POB-01 subset needed for channel). Full poblador editing remains out of scope.
+A new phone SHALL create or link an unregistered citizen with phone and available WhatsApp profile fields (POB-01 subset needed for channel). The stub SHALL write `whatsapp_push_name` and SHALL NOT assign that value to `full_name`. A later inbound SHALL NOT change a profile column whose `field_sources` entry is `manual`. Full ficha editing is specified in `citizen-profile`.
 
 #### Scenario: New phone creates unregistered citizen
 - **WHEN** an unknown normalized phone messages the line
 - **THEN** an unregistered citizen and citizen_phones row exist linked to the conversation
+
+#### Scenario: Repeat inbound keeps a manual name
+- **WHEN** a known citizen with a manual `full_name` sends another message that includes a different pushName
+- **THEN** `whatsapp_push_name` may update and `full_name` is unchanged
+
+### Requirement: Reopen resolved conversation on citizen inbound
+When an inbound citizen message is persisted for a conversation in `queue_column` `resolved`, the system SHALL reopen that conversation as specified in `conversation-ownership` (unowned, column `new`, `REOPENED` event) in the same persistence flow as the message. Duplicate external ids SHALL still persist only one message and SHALL NOT reopen twice. Group, broadcast, and newsletter ignores SHALL NOT reopen anything. The pet `process_inbound` job SHALL still be enqueued for a non-fromMe inbound on the shared line, whether or not the conversation was reopened.
+
+#### Scenario: Citizen writes after resolve
+- **WHEN** a valid inbound text webhook arrives for a resolved conversation
+- **THEN** the message is stored once and the conversation is unowned in column `new` with a `REOPENED` event
+
+#### Scenario: Duplicate delivery does not reopen twice
+- **WHEN** the same external id is delivered again after a reopen
+- **THEN** there is still one message and one `REOPENED` event for that message
+
+#### Scenario: Pet job still enqueued
+- **WHEN** a non-fromMe inbound is accepted on the shared line
+- **THEN** a `process_inbound` job is still enqueued

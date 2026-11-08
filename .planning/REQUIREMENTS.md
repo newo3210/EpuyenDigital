@@ -14,7 +14,7 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 - [x] **FND-03**: Admin puede editar el rol de un operador y desactivarlo (sin borrar su historial) *(implementado en `areas-operators-admin`; last-admin en DB)*
 - [x] **FND-04**: Admin puede crear áreas municipales (nombre, descripción, color, activa/inactiva) *(implementado en `areas-operators-admin`; también default + SLA minutos)*
 - [x] **FND-05**: Admin puede asignar operadores a una o más áreas *(implementado en `areas-operators-admin`)*
-- [x] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador *(org RLS + `current_area_ids()` en `areas-operators-admin`; políticas de conversaciones/tareas pendientes en `mesa-entrada-inbox`)*
+- [x] **FND-06**: Toda tabla de negocio está aislada por organización (RLS) y el acceso a conversaciones/tareas respeta el área del operador *(conversaciones por área en `mesa-entrada-inbox`, archivado 2026-11-08; tareas siguen en Fase 5)*
 - [x] **FND-07**: Operador puede editar su nombre y avatar *(implementado en `foundation-workspace-auth`, pendiente de review/archive)*
 - [x] **FND-08**: Los errores de web, API y webhook se registran con trace-id, enmascarando DNI/CUIT/teléfono, y soporte puede verlos y marcarlos resueltos *(implementado en `foundation-workspace-auth`; el webhook de la fase 2 queda cubierto por `onRequestError` como route handler, `source = 'api'`)*
 
@@ -24,44 +24,44 @@ Referencias: modelo de datos en `docs/data-model.md`, flujos en `docs/flows.md`,
 - [x] **WA-02**: Admin puede probar la conexión de una línea y ver su estado (conectada / desconectada)
 - [x] **WA-03**: El webhook rechaza toda llamada sin secreto válido (nunca queda abierto)
 - [x] **WA-04**: Los mensajes entrantes de texto se guardan una sola vez (idempotencia por id externo), ignorando grupos, difusiones y newsletters
-- [~] **WA-05**: Los adjuntos entrantes (imagen, audio, video, documento, ubicación, sticker) se descargan, se guardan en Storage y se ven en el hilo con su texto al pie — **PARTIAL** (download + storage + ubicación en mensaje; UI rica de adjuntos en hilo → `mesa-entrada-inbox`)
+- [x] **WA-05**: Los adjuntos entrantes (imagen, audio, video, documento, ubicación, sticker) se descargan, se guardan en Storage y se ven en el hilo con su texto al pie *(hilo con imagen, audio, documento y mapa en `mesa-entrada-inbox`)*
 - [x] **WA-06**: El sistema resuelve el teléfono real también para JIDs `@lid`
 - [x] **WA-07**: El sistema captura el nombre de perfil de WhatsApp (pushName) y la foto de perfil del contacto
 - [ ] **WA-08**: Operador puede enviar texto, imagen, documento PDF y audio desde el panel _(texto listo en channel core; media panel → follow-up)_
 - [x] **WA-09**: Lo que se escribe desde el teléfono de la línea (fromMe) se refleja en el hilo como saliente
-- [x] **WA-10**: Los estados entregado / leído de los mensajes salientes se reflejan en el hilo _(persistidos; ticks UI polish → inbox)_
+- [x] **WA-10**: Los estados entregado / leído de los mensajes salientes se reflejan en el hilo *(ticks en `mesa-entrada-inbox`)*
 - [~] **WA-11**: Admin puede elegir el modo de envío (`dry_run`, `allowlist`, `production`) y todo envío saliente (bot y operador) respeta ese guard — **PARTIAL** (guard compartido en composer + worker; UI admin de cambio de modo → follow-up / seed `org_settings` hoy)
 - [x] **WA-12**: Los teléfonos se normalizan al formato argentino canónico `549…` al guardar y al enviar
 
 ### Panel de mensajería (INB)
 
-- [ ] **INB-01**: Operador ve una cola de conversaciones donde las que no tienen dueño aparecen primero en orden FIFO (la que más espera arriba)
-- [ ] **INB-02**: Operador puede tomar (claim) una conversación sin dueño; si otro la tomó antes, recibe un aviso de conflicto
-- [ ] **INB-03**: Responder una conversación sin dueño la toma automáticamente; responder una delegación pendiente propia la acepta
-- [ ] **INB-04**: Operador dueño puede delegar una conversación a otro operador o a un área, con nota
-- [ ] **INB-05**: El destinatario de una delegación puede aceptarla o rechazarla con motivo; al rechazar vuelve a quien la delegó
-- [ ] **INB-06**: Operador dueño puede mover la conversación entre columnas (tomada, en curso, esperando externo) y resolverla
-- [ ] **INB-07**: Si el vecino escribe sobre una conversación resuelta, vuelve a la cola como nueva
-- [ ] **INB-08**: Cada conversación muestra su línea de eventos (derivación del bot, tomada, movida, delegada, aceptada, rechazada, resuelta, reabierta) con actor y fecha/hora
-- [ ] **INB-09**: La cola y el hilo se actualizan en tiempo real sin recargar
-- [ ] **INB-10**: Cada tarjeta muestra flags: fecha/hora del último mensaje, registrado / no registrado, dueño, área, delegación pendiente, necesita respuesta, SLA (ok / aviso / crítico), bot activo / pausado, tiene adjuntos
-- [ ] **INB-11**: Operador puede filtrar la cola por área, línea, dueño, "esperando mi aceptación", "sin responder" y "con adjuntos"
-- [ ] **INB-12**: El sistema registra leído / no leído por conversación y por operador
-- [ ] **INB-13**: Operador puede usar respuestas rápidas (plantillas municipales) desde el composer
-- [ ] **INB-14**: Operador recibe aviso en el panel (badge + sonido opcional) cuando entra un mensaje nuevo o le delegan algo
-- [ ] **INB-15**: El SLA se configura por área y cuenta solo horario hábil
+- [x] **INB-01**: Operador ve una cola de conversaciones donde las que no tienen dueño aparecen primero en orden FIFO (la que más espera arriba)
+- [x] **INB-02**: Operador puede tomar (claim) una conversación sin dueño; si otro la tomó antes, recibe un aviso de conflicto
+- [x] **INB-03**: Responder una conversación sin dueño la toma automáticamente; responder una delegación pendiente propia la acepta
+- [x] **INB-04**: Operador dueño puede delegar una conversación a otro operador o a un área, con nota
+- [x] **INB-05**: El destinatario de una delegación puede aceptarla o rechazarla con motivo; al rechazar vuelve a quien la delegó
+- [x] **INB-06**: Operador dueño puede mover la conversación entre columnas (tomada, en curso, esperando externo) y resolverla
+- [x] **INB-07**: Si el vecino escribe sobre una conversación resuelta, vuelve a la cola como nueva
+- [x] **INB-08**: Cada conversación muestra su línea de eventos (derivación del bot, tomada, movida, delegada, aceptada, rechazada, resuelta, reabierta) con actor y fecha/hora
+- [x] **INB-09**: La cola y el hilo se actualizan en tiempo real sin recargar
+- [x] **INB-10**: Cada tarjeta muestra flags: fecha/hora del último mensaje, registrado / no registrado, dueño, área, delegación pendiente, necesita respuesta, SLA (ok / aviso / crítico), bot activo / pausado, tiene adjuntos
+- [x] **INB-11**: Operador puede filtrar la cola por área, línea, dueño, "esperando mi aceptación", "sin responder" y "con adjuntos"
+- [x] **INB-12**: El sistema registra leído / no leído por conversación y por operador
+- [x] **INB-13**: Operador puede usar respuestas rápidas (plantillas municipales) desde el composer
+- [x] **INB-14**: Operador recibe aviso en el panel (badge + sonido opcional) cuando entra un mensaje nuevo o le delegan algo
+- [x] **INB-15**: El SLA se configura por área y cuenta solo horario hábil
 
 ### Pobladores (POB)
 
-- [ ] **POB-01**: Todo contacto nuevo de WhatsApp crea automáticamente un poblador en estado "no registrado" con teléfono, pushName y foto
-- [ ] **POB-02**: Operador puede ver y editar la ficha del poblador (nombre, DNI, domicilio, barrio/paraje, email, etiquetas, observaciones) desde el chat
-- [ ] **POB-03**: Operador puede marcar a un poblador como "registrado" cuando tiene los datos mínimos (nombre + DNI + teléfono)
-- [ ] **POB-04**: Cada dato de la ficha guarda su origen (manual, bot, importación) y lo cargado manualmente no se pisa automáticamente
-- [ ] **POB-05**: La ficha muestra qué datos faltan para completar el registro (registro progresivo)
-- [ ] **POB-06**: Operador puede buscar pobladores por nombre, DNI o teléfono con resultados instantáneos
-- [ ] **POB-07**: La ficha muestra el timeline del poblador: mensajes, eventos de conversación, notas y tareas
-- [ ] **POB-08**: Operador puede unificar dos pobladores duplicados (mismo vecino con dos números), conservando historial
-- [ ] **POB-09**: Operador puede distinguir persona / organización (comercio, cooperativa, asociación)
+- [x] **POB-01**: Todo contacto nuevo de WhatsApp crea automáticamente un poblador en estado "no registrado" con teléfono, pushName y foto
+- [x] **POB-02**: Operador puede ver y editar la ficha del poblador (nombre, DNI, domicilio, barrio/paraje, email, etiquetas, observaciones) desde el chat
+- [x] **POB-03**: Operador puede marcar a un poblador como "registrado" cuando tiene los datos mínimos (nombre + DNI + teléfono)
+- [x] **POB-04**: Cada dato de la ficha guarda su origen (manual, bot, importación) y lo cargado manualmente no se pisa automáticamente
+- [x] **POB-05**: La ficha muestra qué datos faltan para completar el registro (registro progresivo)
+- [x] **POB-06**: Operador puede buscar pobladores por nombre, DNI o teléfono con resultados instantáneos
+- [x] **POB-07**: La ficha muestra el timeline del poblador: mensajes, eventos de conversación, notas y tareas
+- [x] **POB-08**: Operador puede unificar dos pobladores duplicados (mismo vecino con dos números), conservando historial
+- [x] **POB-09**: Operador puede distinguir persona / organización (comercio, cooperativa, asociación)
 
 ### Tareas y notas (TSK)
 
@@ -160,10 +160,10 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 | FND-01, FND-07, FND-08 | Phase 1 (`foundation-workspace-auth`) | Implemented — pending review/archive |
 | FND-06 | Phase 1 (`foundation-workspace-auth` org level; `areas-operators-admin` helper; inbox applies area RLS) | Partial (helper shipped) |
 | FND-02..05 | Phase 1 (`areas-operators-admin`) | Done (archived 2026-11-06) |
-| WA-01..12 | Phase 2 | Channel core applied (WA-08 media panel partial); close loop pending |
+| WA-01..12 | Phase 2 | Channel core archived; WA-08 panel media and WA-11 chooser still open |
 | INSP-PET-01..08 | Phase 2.1 (INSERTED) | Done — archived `openspec/changes/archive/2026-10-12-inspectoria-pet-registry-bot` |
-| INB-01..15 | Phase 3 | Pending |
-| POB-01..09 | Phase 4 | Pending |
+| INB-01..15 | Phase 3 | Done — archived `openspec/changes/archive/2026-11-08-mesa-entrada-inbox` (live DB gap) |
+| POB-01..09 | Phase 4 | Done — archived `openspec/changes/archive/2026-11-08-pobladores-ficha` (live DB gap; timeline notes/tasks deferred to Phase 5) |
 | TSK-01..12 | Phase 5 | Pending |
 | AUD-01..04 | Phase 5 | Pending |
 | BOT-01..13 | Phase 6 | Pending |
@@ -176,4 +176,4 @@ Diferidos. Se trackean pero no entran al roadmap actual.
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-11-04 — foundation reconcile onto main (INSP-PET + FND baseline)*
+*Last updated: 2026-11-08 — `pobladores-ficha` archived (POB-01..09)*

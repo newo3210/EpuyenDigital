@@ -13,8 +13,8 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
 - [ ] **Phase 1: Fundación** - Repo, Supabase, auth, roles, áreas, RLS por organización y área, registro de errores
 - [ ] **Phase 2: Canal WhatsApp** - Evolution API: webhook seguro, entrada con adjuntos, salida multimedia, modo de envío seguro
 - [x] **Phase 2.1: Registro de mascotas Inspectoría (INSERTED)** - MVP suelto WhatsApp: ciudadano + animal geolocalizado, fotos, ID municipal; integra después a Mesa de Entrada
-- [ ] **Phase 3: Panel de mensajería** - Cola de triage FIFO, claim, delegación con aceptación, eventos, tiempo real, flags
-- [ ] **Phase 4: Pobladores** - Registro automático, ficha editable, registro progresivo, timeline, duplicados
+- [x] **Phase 3: Panel de mensajería** - Cola de triage FIFO, claim, delegación con aceptación, eventos, tiempo real, flags
+- [x] **Phase 4: Pobladores** - Registro automático, ficha editable, registro progresivo, timeline, duplicados
 - [ ] **Phase 5: Tareas, notas y trazabilidad** - Tareas delegables a áreas y números externos, resultado de cierre, auditoría atómica
 - [ ] **Phase 6: Chatbot LLM** - RAG sobre documentación oficial, derivación, pausa por conversación, lectura de documentos y audios
 - [ ] **Phase 7: Operación y métricas** - Panel de métricas, CI, runbooks de despliegue y backups
@@ -69,7 +69,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
   3. Un operador delega a otra área con nota; el destinatario la rechaza y la conversación vuelve al emisor, todo visible en la línea de eventos
   4. Un vecino escribe sobre una conversación resuelta y reaparece en la cola sin recargar la página
   5. Las tarjetas muestran fecha/hora, registrado/no registrado, dueño, área, SLA y bot activo/pausado
-**Plans**: TBD
+**Plans**: OpenSpec `mesa-entrada-inbox` — **archived** `openspec/changes/archive/2026-11-08-mesa-entrada-inbox`
 **UI hint**: yes
 
 ### Phase 4: Pobladores
@@ -82,7 +82,7 @@ Se construye de abajo hacia arriba: primero la base (auth, roles, áreas, Supaba
   3. Un dato corregido a mano no se pisa cuando llega otro valor desde el bot
   4. La ficha muestra mensajes, eventos, notas y tareas en un solo timeline
   5. Dos pobladores duplicados se unifican y el historial de ambos queda en uno
-**Plans**: TBD
+**Plans**: OpenSpec `pobladores-ficha` — **archived** `openspec/changes/archive/2026-11-08-pobladores-ficha` (notes/tasks on the timeline wait for Phase 5)
 **UI hint**: yes
 
 ### Phase 5: Tareas, notas y trazabilidad
