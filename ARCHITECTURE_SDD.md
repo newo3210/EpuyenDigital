@@ -5,7 +5,7 @@
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
 **Last updated:** 2026-11-08  
-**Related OpenSpec change:** `openspec/changes/chatbot-llm/`
+**Related OpenSpec change:** `openspec/changes/archive/2026-11-08-chatbot-llm/`
 
 ---
 
@@ -22,7 +22,7 @@
 - **Mesa de entrada inbox**: claim/delegate/accept/reject/move/resolve/reopen, area-scoped reads, business-hours SLA, queue filters, ticks, OpenStreetMap links, quick replies.
 - **Pobladores ficha** (archived): org-wide citizen search, profile edit, register, merge, and a manual-source guard.
 - **Tasks, notes, and audit** (archived): task board and lifecycle, notes with seals, external WhatsApp contacts, case export, citizen timeline/merge extended for tasks and notes.
-- **Chatbot LLM** (this change): knowledge corpus + chunks, `bot_reply` beside `process_inbound`, `bot_runs` decision log, admin knowledge UI, claim/resolve already pause/resume `bot_state`.
+- **Chatbot LLM** (archived): knowledge corpus + chunks, `bot_reply` beside `process_inbound`, `bot_runs` decision log, admin knowledge UI, claim/resolve pause/resume `bot_state` (resolve respects org pause).
 
 **Deferred follow-ups:**
 
