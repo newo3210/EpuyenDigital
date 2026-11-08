@@ -4,10 +4,12 @@ import { notFound } from 'next/navigation';
 import { requirePageRole } from '@/features/auth/server';
 import { esAR } from '@/i18n/es-AR';
 import { listAreas } from '@/infrastructure/repositories/areas';
+import { getCitizenProfile } from '@/infrastructure/repositories/citizens';
 import { getConversationThread } from '@/infrastructure/repositories/conversations';
 import { listConversationEvents, listOperatorOptions, listQuickReplies, markConversationRead } from '@/infrastructure/repositories/inbox';
 import { createAdminSupabase } from '@/infrastructure/supabase/admin';
 import { createServerSupabase } from '@/infrastructure/supabase/server';
+import { CitizenFicha } from '@/presentation/citizens/citizen-ficha';
 import { ThreadView } from '@/presentation/inbox/thread-view';
 
 type PageProps = {
@@ -42,6 +44,20 @@ export default async function InboxThreadPage({ params }: PageProps) {
     }),
   );
 
+  const profile = thread.conversation.citizenId
+    ? await getCitizenProfile(supabase, thread.conversation.citizenId)
+    : null;
+  const editor =
+    profile && !profile.mergedIntoId ? (
+      <CitizenFicha
+        profile={profile}
+        timeline={{ messages: [], events: [], animals: [] }}
+        canMutate={operator.role !== 'support'}
+        showTimeline={false}
+        showMerge={false}
+      />
+    ) : null;
+
   let ownerName: string | null = null;
   if (thread.conversation.ownerUserId) {
     const { data } = await supabase
@@ -65,6 +81,7 @@ export default async function InboxThreadPage({ params }: PageProps) {
         areas={areas.map((area) => ({ id: area.id, label: area.name }))}
         canMutate={operator.role !== 'support'}
         ownerName={ownerName}
+        editor={editor}
       />
     </div>
   );

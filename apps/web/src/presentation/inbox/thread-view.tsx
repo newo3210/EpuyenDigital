@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+import Link from 'next/link';
 import type { ConversationThread } from '@/contracts/conversations';
 import type { InboxEvent, InboxOption, QuickReply } from '@/contracts/inbox';
 import { esAR } from '@/i18n/es-AR';
@@ -14,6 +16,7 @@ type ThreadViewProps = {
   areas: InboxOption[];
   canMutate: boolean;
   ownerName?: string | null;
+  editor?: ReactNode;
 };
 
 function tickLabel(status: string | null, deliveredAt?: string | null, readAt?: string | null): string | null {
@@ -37,6 +40,7 @@ export function ThreadView({
   areas,
   canMutate,
   ownerName,
+  editor,
 }: ThreadViewProps) {
   const title = thread.conversation.citizenPushName ?? thread.conversation.phoneNormalized;
   const home = thread.citizen;
@@ -51,7 +55,13 @@ export function ThreadView({
           {thread.conversation.phoneNormalized}
           {ownerName ? ` · ${ownerName}` : ''}
         </p>
+        {thread.conversation.citizenId ? (
+          <Link href={`/citizens/${thread.conversation.citizenId}`} className="text-sm text-brand-700 hover:underline">
+            {esAR.citizens.openProfile}
+          </Link>
+        ) : null}
       </header>
+      {editor}
 
       <ol className="flex max-h-[50vh] flex-col gap-3 overflow-y-auto">
         {thread.messages.length === 0 ? (

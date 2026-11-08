@@ -14,5 +14,6 @@ export * from './registration/steps.js';
 export * from './registration/menus.js';
 export * from './registration/state-machine.js';
 export * from './domain/business-minutes.js';
+export * from './domain/citizen-fields.js';
 export * from './domain/inbox-side-effects.js';
 export * from './i18n/es-AR/registration.js';

@@ -5,7 +5,7 @@
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
 **Última actualización:** 2026-11-08  
-**Change relacionado:** `mesa-entrada-inbox`
+**Change relacionado:** `pobladores-ficha`
 
 ---
 
@@ -91,6 +91,7 @@ Admin → /settings/lines
 - 2026-11-06: `areas-operators-admin` archivado.
 - 2026-11-06: `whatsapp-channel-core` archivado.
 - 2026-11-08: `mesa-entrada-inbox` archivado en `openspec/changes/archive/2026-11-08-mesa-entrada-inbox`. Specs vivas en `openspec/specs/inbox-queue`, `conversation-ownership` e `inbox-thread`.
+- 2026-11-08: `pobladores-ficha` aplicado (POB-01..09). La ficha, la búsqueda y la unificación quedan en funciones de la base. Notas y tareas siguen para la fase siguiente.
 
 ## 7. Mesa de entrada — por qué las funciones son definer
 
@@ -115,3 +116,11 @@ Operador → /inbox (orden SQL: sin dueño por entered_queue_at, después con du
   → responder: ensure_owner_for_reply antes de persistir o llamar a Evolution
 Soporte: lee toda la organización y no ve controles que mutan
 ```
+
+## 10. Pobladores — DNI, guardia y unificación
+
+El DNI no tiene una columna nueva. El registro de mascotas ya guarda el documento en `document_id`, y un segundo campo `dni` partiría el padrón en dos. En la pantalla la etiqueta es «DNI»; en la base sigue siendo `document_id`. El índice único es parcial: vale por organización cuando el documento no es null y la fila no fue unificada, así el registro que se descarta puede conservar el mismo número.
+
+La guardia es un trigger `BEFORE UPDATE`. Si `field_sources` dice `manual` para una columna, cualquier escritor que no sea `update_citizen_profile` recupera el valor anterior. El worker de mascotas sigue mandando `full_name` y `document_id` con service role: si el campo está vacío, el trigger lo deja pasar; si un operador ya lo escribió, el valor manual queda. `whatsapp_push_name` no se copia a `full_name`.
+
+Unificar no borra la fila. `merge_citizens` mueve teléfonos, conversaciones y mascotas a la ficha que se conserva, y deja `merged_into_id` en la otra. Borrar la fila rompería el historial y el índice de teléfonos. Una segunda unificación del mismo registro se rechaza. Soporte puede leer y buscar, y no puede guardar, registrar ni unificar.
