@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Ningún mensaje de un vecino queda sin respuesta ni sin dueño: bot con info oficial o cola visible con trazabilidad.
-**Current focus:** Phase 4 — Pobladores (plan next)
+**Current focus:** Phase 4 — `pobladores-ficha` (plan written, waiting for approval)
 
 ## Current Position
 
 Phase: 1 Fundación + Phase 2 WhatsApp channel core + Phase 2.1 Inspectoría pets + Phase 3 inbox archived  
 Plan: OpenSpec `mesa-entrada-inbox` **archived 2026-11-08** at `openspec/changes/archive/2026-11-08-mesa-entrada-inbox`  
 Status: Main specs updated (`inbox-queue`, `conversation-ownership`, `inbox-thread`, plus inbound, outbound, and municipal-areas). Live `supabase test db` remains a residual gap.  
-Last activity: 2026-11-08 — human OK to archive inbox and start Phase 4
+Last activity: 2026-11-08 — inbox archived; Pobladores plan drafted, apply not started
 
 Progress: [███████░░░] ~65% (foundation + areas/operators + WA channel + inbox archived)
 
@@ -36,7 +36,7 @@ Progress: [███████░░░] ~65% (foundation + areas/operators + 
 
 ### Pending Todos
 
-- Phase 4 Pobladores plan (POB-01..09), then human approval before apply
+- Human approval of `openspec/changes/pobladores-ficha/` before any apply
 - Live `supabase db reset` / curl / browser claim-delegate when containers are available
 - WA-08 media outbound and WA-11 send_mode chooser
 - Optional: adversarial close of `inspectoria-pet-registry-ux-v2`
@@ -55,5 +55,5 @@ Progress: [███████░░░] ~65% (foundation + areas/operators + 
 ## Session Continuity
 
 Last session: 2026-11-08
-Stopped at: Inbox archived. Next is the Pobladores OpenSpec plan. No production code until that plan is approved.
-Resume file: `.planning/REQUIREMENTS.md` (POB-01..09)
+Stopped at: OpenSpec plan for `pobladores-ficha` ready. Apply waits until the user says the plan is approved.
+Resume file: `openspec/changes/pobladores-ficha/proposal.md`
