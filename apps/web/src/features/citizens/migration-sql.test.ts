@@ -15,6 +15,9 @@ describe('pobladores ficha migration SQL', () => {
     expect(sql).toContain('function public.register_citizen');
     expect(sql).toContain('function public.search_citizens');
     expect(sql).toContain('function public.merge_citizens');
+    expect(sql).toContain('function public.list_citizen_timeline');
+    expect(sql).toContain('for update');
+    expect(sql).toContain('merge_note');
     expect(sql).toContain('MISSING_FIELDS');
     expect(sql).toContain('NOTE_REQUIRED');
     expect(sql).toContain('ALREADY_REGISTERED');
@@ -39,8 +42,9 @@ describe('ficha reads', () => {
   it('does not query notes or tasks', () => {
     expect(repository).not.toContain("from('notes')");
     expect(repository).not.toContain("from('tasks')");
-    expect(repository).toContain("from('messages')");
-    expect(repository).toContain("from('animals')");
+    expect(repository).toContain("rpc('list_citizen_timeline'");
+    expect(sql).toContain('from public.messages');
+    expect(sql).toContain('from public.animals');
   });
 });
 

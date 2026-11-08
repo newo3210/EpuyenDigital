@@ -16,6 +16,37 @@ type CitizenFichaProps = {
   showMerge?: boolean;
 };
 
+function display(value: string | null): string {
+  return value && value.trim() !== '' ? value : '—';
+}
+
+// Read-only fields - support sees the ficha and has no inputs.
+function CitizenProfileRead({ profile }: { profile: CitizenProfile }) {
+  const rows: [string, string][] = [
+    [copy.fields.fullName, display(profile.fullName)],
+    [copy.fields.documentId, display(profile.documentId)],
+    [copy.partyKind.label, copy.partyKind[profile.partyKind]],
+    [copy.fields.addressLine, display(profile.addressLine)],
+    [copy.fields.neighborhood, display(profile.neighborhood)],
+    [copy.fields.email, display(profile.email)],
+    [copy.fields.tags, profile.tags.length > 0 ? profile.tags.join(', ') : '—'],
+    [copy.fields.observations, display(profile.observations)],
+    [copy.fields.latitude, profile.latitude == null ? '—' : String(profile.latitude)],
+    [copy.fields.longitude, profile.longitude == null ? '—' : String(profile.longitude)],
+  ];
+
+  return (
+    <dl className="grid gap-2 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-muted">{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function homeLink(profile: CitizenProfile): string | null {
   if (profile.latitude == null || profile.longitude == null) return null;
   return `https://www.openstreetmap.org/?mlat=${profile.latitude}&mlon=${profile.longitude}#map=16/${profile.latitude}/${profile.longitude}`;
@@ -56,7 +87,7 @@ export function CitizenFicha({
 
       <CitizenMissingFields profile={profile} />
       {canMutate && profile.registrationStatus !== 'registered' ? <CitizenRegisterForm citizenId={profile.id} /> : null}
-      {canMutate ? <CitizenProfileForm profile={profile} /> : null}
+      {canMutate ? <CitizenProfileForm profile={profile} /> : <CitizenProfileRead profile={profile} />}
       {showTimeline ? <CitizenTimelineView timeline={timeline} /> : null}
       {canMutate && showMerge ? <CitizenMergeForm keepId={profile.id} /> : null}
     </div>

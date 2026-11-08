@@ -112,7 +112,7 @@ Migration `20261107010000_whatsapp_channel_core.sql`:
 - `citizens`: `registration_status`, `whatsapp_push_name` / avatar fields (POB-01 stub). Ficha migration adds `email`, `tags`, `observations`, `field_sources`, `merged_into_id`, `registered_at`, `registered_by`. DNI stays in `document_id`.
 - Citizen mutations are `update_citizen_profile`, `register_citizen`, `search_citizens`, and `merge_citizens` (`SECURITY DEFINER`, `search_path = ''`). Authenticated can SELECT the caller's organization and cannot UPDATE `citizens`. A BEFORE UPDATE trigger restores any column whose `field_sources` value is `manual` unless the session flag `app.citizen_field_write` is `operator`.
 - Search is the RPC (limit 20, skips merged rows). The page does not download the citizen table.
-- Timeline reads messages, `conversation_events`, and animals through the user client, so area message RLS still applies. It does not read notes or tasks.
+- `list_citizen_timeline` is `SECURITY DEFINER` and returns that citizen's messages, events, and animals for any operator in the same organization. Inbox message policies stay area-scoped. The ficha does not read notes or tasks. Merge stores the note on `merge_note` and locks both rows before moving children.
 - Seed: Inspectoría line `default_area_id` → Mesa de Entrada
 - Bucket `whatsapp-media` (private)
 

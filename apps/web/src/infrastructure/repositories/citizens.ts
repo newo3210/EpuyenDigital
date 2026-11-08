@@ -58,60 +58,38 @@ export async function getCitizenProfile(client: DbClient, id: string): Promise<C
   };
 }
 
-// Timeline - messages, events, and animals already stored. Notes and tasks are not queried.
+// Timeline - org-wide definer read. Inbox message policies stay area-scoped. Notes and tasks are not queried.
 export async function getCitizenTimeline(client: DbClient, citizenId: string): Promise<CitizenTimeline> {
-  const conversations = await client.from('conversations').select('id').eq('citizen_id', citizenId);
-  if (conversations.error) throw new RepositoryError('citizens.conversations_failed', conversations.error.message);
-  const conversationIds = (conversations.data ?? []).map((row) => row.id);
+  const { data, error } = await client.rpc('list_citizen_timeline', { p_id: citizenId });
+  if (error) throw new RepositoryError('citizens.timeline_failed', error.message);
 
-  const messages =
-    conversationIds.length === 0
-      ? { data: [], error: null }
-      : await client
-          .from('messages')
-          .select('id, direction, body, created_at')
-          .in('conversation_id', conversationIds)
-          .order('created_at', { ascending: false })
-          .limit(50);
-  if (messages.error) throw new RepositoryError('citizens.messages_failed', messages.error.message);
-
-  const events =
-    conversationIds.length === 0
-      ? { data: [], error: null }
-      : await client
-          .from('conversation_events')
-          .select('id, event_type, note, created_at')
-          .in('conversation_id', conversationIds)
-          .order('created_at', { ascending: false })
-          .limit(50);
-  if (events.error) throw new RepositoryError('citizens.events_failed', events.error.message);
-
-  const animals = await client
-    .from('animals')
-    .select('id, name, species, municipal_id, created_at')
-    .eq('citizen_id', citizenId)
-    .order('created_at', { ascending: false });
-  if (animals.error) throw new RepositoryError('citizens.animals_failed', animals.error.message);
-
-  return {
-    messages: (messages.data ?? []).map((row) => ({
-      id: row.id,
-      at: row.created_at ?? '',
-      direction: row.direction,
-      body: row.body,
-    })),
-    events: (events.data ?? []).map((row) => ({
-      id: row.id,
-      at: row.created_at,
-      eventType: row.event_type,
-      note: row.note,
-    })),
-    animals: (animals.data ?? []).map((row) => ({
-      id: row.id,
-      at: row.created_at ?? '',
-      name: row.name,
-      species: row.species,
-      municipalId: row.municipal_id,
-    })),
-  };
+  const timeline: CitizenTimeline = { messages: [], events: [], animals: [] };
+  for (const row of data ?? []) {
+    const at = row.result_at ?? '';
+    if (row.result_kind === 'message') {
+      timeline.messages.push({
+        id: row.result_id,
+        at,
+        direction: row.result_label ?? '',
+        body: row.result_detail,
+      });
+    } else if (row.result_kind === 'event') {
+      timeline.events.push({
+        id: row.result_id,
+        at,
+        eventType: row.result_label ?? '',
+        note: row.result_detail,
+      });
+    } else if (row.result_kind === 'animal') {
+      const [species, municipalId] = (row.result_detail ?? '').split(' · ');
+      timeline.animals.push({
+        id: row.result_id,
+        at,
+        name: row.result_label ?? '',
+        species: species ?? '',
+        municipalId: municipalId ?? '',
+      });
+    }
+  }
+  return timeline;
 }

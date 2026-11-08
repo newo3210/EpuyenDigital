@@ -54,6 +54,7 @@ describe('CitizenFicha', () => {
     expect(screen.queryByRole('button', { name: 'Guardar ficha' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Registrar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Unificar en esta ficha' })).not.toBeInTheDocument();
+    expect(screen.getByText('Observaciones')).toBeInTheDocument();
     expect(screen.getByText('hola')).toBeInTheDocument();
   });
 });

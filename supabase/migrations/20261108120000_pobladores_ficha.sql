@@ -10,6 +10,7 @@ alter table public.citizens
   add column if not exists observations text,
   add column if not exists field_sources jsonb not null default '{}'::jsonb,
   add column if not exists merged_into_id uuid references public.citizens (id),
+  add column if not exists merge_note text,
   add column if not exists registered_at timestamptz,
   add column if not exists registered_by uuid references public.profiles (id);
 
@@ -333,6 +334,16 @@ begin
   end if;
   keep_row := public.citizen_visible(p_keep);
   drop_row := public.citizen_visible(p_drop);
+
+  -- Lock in id order, then re-check, so two merges of the same drop cannot split history from the pointer.
+  perform c.id
+  from public.citizens c
+  where c.id in (keep_row.id, drop_row.id)
+  order by c.id
+  for update;
+
+  select * into keep_row from public.citizens where id = keep_row.id;
+  select * into drop_row from public.citizens where id = drop_row.id;
   if keep_row.merged_into_id is not null or drop_row.merged_into_id is not null then
     perform public.inbox_raise('NOT_FOUND');
   end if;
@@ -348,15 +359,74 @@ begin
   update public.conversations set citizen_id = keep_row.id where citizen_id = drop_row.id;
   update public.animals set citizen_id = keep_row.id where citizen_id = drop_row.id;
 
-  perform set_config('app.citizen_field_write', 'operator', true);
   update public.citizens
   set merged_into_id = keep_row.id,
-      observations = concat_ws(E'\n', observations, note)
+      merge_note = note
   where id = drop_row.id;
 
   result_id := keep_row.id;
   result_hint := 'ok';
   return next;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Timeline - org-wide, so a neighbor is not private to one area.
+-- Inbox message policies stay area-scoped.
+-- ---------------------------------------------------------------------------
+create or replace function public.list_citizen_timeline(p_id uuid)
+returns table (
+  result_kind text,
+  result_id uuid,
+  result_at timestamptz,
+  result_label text,
+  result_detail text
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  row public.citizens;
+begin
+  if auth.uid() is null or public.current_org_id() is null then
+    perform public.inbox_raise('FORBIDDEN');
+  end if;
+  select * into row from public.citizens where id = p_id;
+  if not found or row.org_id is distinct from public.current_org_id() then
+    perform public.inbox_raise('NOT_FOUND');
+  end if;
+
+  return query
+  select items.result_kind, items.result_id, items.result_at, items.result_label, items.result_detail
+  from (
+    (
+      select 'message'::text as result_kind, m.id as result_id, m.created_at as result_at,
+             m.direction as result_label, m.body as result_detail
+      from public.messages m
+      join public.conversations c on c.id = m.conversation_id
+      where c.citizen_id = row.id and c.org_id = row.org_id
+      order by m.created_at desc
+      limit 50
+    )
+    union all
+    (
+      select 'event'::text, e.id, e.created_at, e.event_type, e.note
+      from public.conversation_events e
+      join public.conversations c on c.id = e.conversation_id
+      where c.citizen_id = row.id and c.org_id = row.org_id
+      order by e.created_at desc
+      limit 50
+    )
+    union all
+    (
+      select 'animal'::text, a.id, a.created_at, a.name, (a.species || ' · ' || a.municipal_id)
+      from public.animals a
+      where a.citizen_id = row.id and a.org_id = row.org_id
+      order by a.created_at desc
+    )
+  ) items;
 end;
 $$;
 
@@ -393,8 +463,10 @@ revoke all on function public.update_citizen_profile(uuid, text, text, text, tex
 revoke all on function public.register_citizen(uuid) from public, anon;
 revoke all on function public.search_citizens(text) from public, anon;
 revoke all on function public.merge_citizens(uuid, uuid, text) from public, anon;
+revoke all on function public.list_citizen_timeline(uuid) from public, anon;
 
 grant execute on function public.update_citizen_profile(uuid, text, text, text, text, text, text[], text, text, numeric, numeric) to authenticated, service_role;
 grant execute on function public.register_citizen(uuid) to authenticated, service_role;
 grant execute on function public.search_citizens(text) to authenticated, service_role;
 grant execute on function public.merge_citizens(uuid, uuid, text) to authenticated, service_role;
+grant execute on function public.list_citizen_timeline(uuid) to authenticated, service_role;

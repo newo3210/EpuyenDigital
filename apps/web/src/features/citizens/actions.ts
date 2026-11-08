@@ -123,9 +123,11 @@ export async function mergeCitizensAction(
     note: readText(formData, 'note'),
   });
   if (!parsed.success) {
-    const issue = parsed.error.issues[0]?.message;
-    if (issue === 'MERGE_SELF') return { status: 'error', message: esAR.citizens.errors.mergeSelf };
-    return { status: 'error', message: esAR.citizens.errors.noteRequired };
+    const messages = parsed.error.issues.map((issue) => issue.message);
+    const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
+    if (messages.includes('MERGE_SELF')) return { status: 'error', message: esAR.citizens.errors.mergeSelf };
+    if (paths.includes('note')) return { status: 'error', message: esAR.citizens.errors.noteRequired };
+    return { status: 'error', message: esAR.citizens.errors.invalidTarget };
   }
   const supabase = await createServerSupabase();
   return run(parsed.data.keepId, () =>

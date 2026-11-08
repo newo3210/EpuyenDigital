@@ -175,13 +175,13 @@ isOneToOne: false
                   Relationships: []
                 },"citizens": {
                   Row: {
-                    "id": string,"org_id": string,"full_name": string | null,"document_id": string | null,"address_line": string | null,"neighborhood": string | null,"email": string | null,"tags": string[],"observations": string | null,"field_sources": Json,"latitude": number | null,"longitude": number | null,"privacy_consent_at": string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id": string | null,"registered_at": string | null,"registered_by": string | null
+                    "id": string,"org_id": string,"full_name": string | null,"document_id": string | null,"address_line": string | null,"neighborhood": string | null,"email": string | null,"tags": string[],"observations": string | null,"field_sources": Json,"latitude": number | null,"longitude": number | null,"privacy_consent_at": string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id": string | null,"merge_note": string | null,"registered_at": string | null,"registered_by": string | null
                   }
                   Insert: {
-                    "id"?: string,"org_id": string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"email"?: string | null,"tags"?: string[],"observations"?: string | null,"field_sources"?: Json,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id"?: string | null,"registered_at"?: string | null,"registered_by"?: string | null
+                    "id"?: string,"org_id": string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"email"?: string | null,"tags"?: string[],"observations"?: string | null,"field_sources"?: Json,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"privacy_notice_version"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id"?: string | null,"merge_note"?: string | null,"registered_at"?: string | null,"registered_by"?: string | null
                   }
                   Update: {
-                    "id"?: string,"org_id"?: string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"email"?: string | null,"tags"?: string[],"observations"?: string | null,"field_sources"?: Json,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id"?: string | null,"registered_at"?: string | null,"registered_by"?: string | null
+                    "id"?: string,"org_id"?: string,"full_name"?: string | null,"document_id"?: string | null,"address_line"?: string | null,"neighborhood"?: string | null,"email"?: string | null,"tags"?: string[],"observations"?: string | null,"field_sources"?: Json,"latitude"?: number | null,"longitude"?: number | null,"privacy_consent_at"?: string | null,"registration_status"?: string,"party_kind"?: string,"whatsapp_push_name"?: string | null,"whatsapp_avatar_url"?: string | null,"whatsapp_avatar_fetched_at"?: string | null,"merged_into_id"?: string | null,"merge_note"?: string | null,"registered_at"?: string | null,"registered_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -381,6 +381,9 @@ isOneToOne: false
                            },
 "merge_citizens":
 { Args: { "p_keep": string,"p_drop": string,"p_note": string }; Returns: { "result_id": string,"result_hint": string }[]
+                           },
+"list_citizen_timeline":
+{ Args: { "p_id": string }; Returns: { "result_kind": string,"result_id": string,"result_at": string,"result_label": string | null,"result_detail": string | null }[]
                            }
           }
           Enums: {

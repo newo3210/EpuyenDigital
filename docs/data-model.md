@@ -86,7 +86,7 @@ Responsables que reciben tareas por WhatsApp sin usar el panel.
 | `tags text[]`, `observations text` | **[implementado ficha]** |
 | `field_sources jsonb` | claves `full_name`, `document_id`, `address_line`, `neighborhood`, `email`, `latitude`, `longitude`, `tags`, `observations`, `party_kind`. Valor `manual` no lo pisa otro escritor **[implementado ficha]** |
 | `registered_at`, `registered_by` | los setea `register_citizen` **[implementado ficha]** |
-| `merged_into_id uuid null` | la fila unificada se conserva y apunta a la que queda **[implementado ficha]** |
+| `merged_into_id uuid null`, `merge_note text` | la fila unificada se conserva, apunta a la que queda, y guarda el motivo **[implementado ficha]** |
 | `last_contact_at` | **[pendiente]** |
 
 Índices trigram (`pg_trgm`) sobre `full_name` y `document_id`. Lectura de la organización para `authenticated`. Sin UPDATE/DELETE de `authenticated` sobre `citizens`.
@@ -248,5 +248,5 @@ Todas `security invoker` (salvo sellado), filtran por `current_org_id()`, toman 
 
 - Conversaciones: `claim_conversation`, `delegate_conversation(target_user | target_area, note)`, `accept_conversation_delegation`, `reject_conversation_delegation(note)`, `ensure_owner_for_reply`, `move_conversation(column)`, `resolve_conversation`, `reopen_conversation` (usada por el webhook), `set_conversation_area`.
 - Tareas: `create_task`, `claim_task`, `delegate_task`, `accept_task`, `reject_task`, `start_task`, `complete_task(outcome)`, `cancel_task(reason, text)`, `reopen_task`, `abandon_stale_tasks()` (pg_cron).
-- Pobladores (`SECURITY DEFINER`): `update_citizen_profile`, `register_citizen`, `search_citizens`, `merge_citizens(keep, drop, note)`. El trigger `citizens_guard_manual_fields` restaura una columna `manual` salvo cuando la sesión trae `app.citizen_field_write = operator`.
+- Pobladores (`SECURITY DEFINER`): `update_citizen_profile`, `register_citizen`, `search_citizens`, `merge_citizens(keep, drop, note)`, `list_citizen_timeline`. El trigger `citizens_guard_manual_fields` restaura una columna `manual` salvo cuando la sesión trae `app.citizen_field_write = operator`. La unificación no usa esa bandera: el motivo queda en `merge_note`.
 - Auditoría: `seal_audit_note(correlation_id, ...)` (security definer, solo service role).

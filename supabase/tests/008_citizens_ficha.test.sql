@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(13);
 
 insert into public.organizations (id, name, slug) values
   ('cccccccc-0000-4000-8000-0000000000aa', 'Org A', 'org-a-citizens'),
@@ -57,6 +57,26 @@ reset role;
 
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000c1","role":"authenticated"}', true);
 set local role authenticated;
+select throws_ok(
+  $$select * from public.merge_citizens(
+    '00000000-0000-4000-8000-0000000000d1',
+    '00000000-0000-4000-8000-0000000000d2',
+    '   '
+  )$$,
+  'P0001',
+  'NOTE_REQUIRED',
+  'a whitespace note does not merge'
+);
+select throws_ok(
+  $$select * from public.merge_citizens(
+    '00000000-0000-4000-8000-0000000000d1',
+    '00000000-0000-4000-8000-0000000000d3',
+    'otra org'
+  )$$,
+  'P0001',
+  'NOT_FOUND',
+  'cross-org merge is rejected'
+);
 select is(
   (select result_hint from public.merge_citizens(
     '00000000-0000-4000-8000-0000000000d1',
@@ -85,6 +105,40 @@ select throws_ok(
   'P0001',
   'NOT_FOUND',
   'second merge of the same drop fails'
+);
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000c3","role":"authenticated"}', true);
+set local role authenticated;
+select throws_ok(
+  $$select * from public.merge_citizens(
+    '00000000-0000-4000-8000-0000000000d1',
+    '00000000-0000-4000-8000-0000000000d2',
+    'soporte'
+  )$$,
+  'P0001',
+  'FORBIDDEN',
+  'support cannot merge'
+);
+select throws_ok(
+  $$update public.citizens set full_name = 'Hack' where id = '00000000-0000-4000-8000-0000000000d1'$$,
+  '42501',
+  null,
+  'authenticated cannot update citizens'
+);
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select is(
+  (select result_hint from public.register_citizen('00000000-0000-4000-8000-0000000000d1')),
+  'ok',
+  'register returns ok when name, DNI, and phone exist'
+);
+select is(
+  (select registration_status from public.citizens where id = '00000000-0000-4000-8000-0000000000d1'),
+  'registered',
+  'register sets the status'
 );
 reset role;
 

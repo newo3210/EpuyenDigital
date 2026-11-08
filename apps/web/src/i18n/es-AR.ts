@@ -307,6 +307,7 @@ export const esAR = {
       alreadyRegistered: 'Este poblador ya está registrado.',
       noteRequired: 'Escribí el motivo de la unificación.',
       mergeSelf: 'Elegí otro registro. No se puede unificar una ficha consigo misma.',
+      invalidTarget: 'Elegí un poblador válido para unificar.',
       forbidden: 'No encontramos ese poblador o no podés modificarlo.',
       failed: 'No pudimos guardar la ficha. Probá de nuevo.',
     },
