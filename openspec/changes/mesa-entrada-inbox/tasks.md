@@ -57,3 +57,4 @@ Respected during apply: no panel media upload and no send_mode chooser. `process
 - [x] 7.1 Revoke `EXECUTE` on internal definer helpers (`inbox_lock_conversation`, `inbox_event`, and the other helpers) from `public`, `anon`, and `authenticated`.
 - [x] 7.2 Accept clears `delegated_from_user_id`. Delegate is owner-only. Whitespace-only notes fail. Claim of an area delegation accepts only for a member of the pending area; any other visible operator claims the unowned row.
 - [x] 7.3 Unread follows the read marker, not `needs_response`. Area and calendar edits refresh `sla_due_at`. A duplicate of a message older than `resolved_at` does not reopen. Claim, accept, move, resolve, and set-area show the SQL error.
+- [x] 7.4 `conversation_visible_to_caller` stays executable by `authenticated` because row policies run as the caller. Claim and resolve clear `delegated_from_user_id`. A reply on an unowned area delegation claims or accepts through `claim_conversation`.

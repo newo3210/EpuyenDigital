@@ -586,7 +586,8 @@ begin
       queue_column = 'claimed',
       bot_state = 'paused',
       awaiting_acceptance = false,
-      pending_area_id = null
+      pending_area_id = null,
+      delegated_from_user_id = null
   where c.id = conv.id;
 
   perform public.inbox_event(conv, 'CLAIMED', uid, conv.queue_column, 'claimed', null, null, null, '{}');
@@ -628,7 +629,7 @@ begin
     return;
   end if;
 
-  if conv.owner_user_id is null and not conv.awaiting_acceptance and conv.queue_column <> 'resolved' then
+  if conv.owner_user_id is null and conv.queue_column <> 'resolved' then
     return query select * from public.claim_conversation(p_conversation_id);
     return;
   end if;
@@ -847,7 +848,8 @@ begin
       resolved_by = uid,
       bot_state = 'active',
       awaiting_acceptance = false,
-      pending_area_id = null
+      pending_area_id = null,
+      delegated_from_user_id = null
   where c.id = conv.id;
 
   perform public.inbox_event(conv, 'RESOLVED', uid, conv.queue_column, 'resolved', null, null, null, '{}');
@@ -1279,7 +1281,8 @@ grant select on public.org_settings to authenticated;
 -- Execute
 revoke all on function public.inbox_raise(text, text) from public, anon, authenticated;
 revoke all on function public.profile_display_name(uuid) from public, anon, authenticated;
-revoke all on function public.conversation_visible_to_caller(public.conversations) from public, anon, authenticated;
+revoke all on function public.conversation_visible_to_caller(public.conversations) from public, anon;
+grant execute on function public.conversation_visible_to_caller(public.conversations) to authenticated;
 revoke all on function public.inbox_lock_conversation(uuid) from public, anon, authenticated;
 revoke all on function public.inbox_assert_operator(public.conversations) from public, anon, authenticated;
 revoke all on function public.inbox_event(public.conversations, text, uuid, text, text, uuid, uuid, text, jsonb) from public, anon, authenticated;

@@ -53,5 +53,8 @@ describe('mesa-entrada-inbox migration SQL', () => {
     );
     expect(sql).not.toContain('c.needs_response and not exists');
     expect(sql).toContain("regexp_replace(coalesce(p_note, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g')");
+    expect(sql).toContain(
+      'grant execute on function public.conversation_visible_to_caller(public.conversations) to authenticated',
+    );
   });
 });
