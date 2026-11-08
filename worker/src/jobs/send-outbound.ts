@@ -37,6 +37,7 @@ export async function handleSendOutbound(
         ? `[media:${payload.mediaPath}] ${payload.text}`
         : payload.text,
       deliveryStatus: decision.reason === "dry_run" ? "simulated" : "blocked",
+      senderKind: payload.senderKind,
     });
     return;
   }
@@ -69,5 +70,6 @@ export async function handleSendOutbound(
       : payload.text,
     deliveryStatus: "sent",
     externalId,
+    senderKind: payload.senderKind,
   });
 }

@@ -132,6 +132,22 @@ export function addBusinessMinutes(
   throw new Error('business_minutes_overflow');
 }
 
+// Open now - true when the instant falls inside a business window and not a holiday.
+export function isWithinBusinessHours(
+  at: Date,
+  hours: BusinessHours = DEFAULT_BUSINESS_HOURS,
+  holidays: readonly string[] = [],
+  timeZone = 'America/Argentina/Buenos_Aires',
+): boolean {
+  const civil = toCivil(at, timeZone);
+  const windows = windowsFor(hours, civil, holidays);
+  return windows.some((range) => {
+    const openMin = parseHm(range[0]);
+    const closeMin = parseHm(range[1]);
+    return civil.minutes >= openMin && civil.minutes < closeMin;
+  });
+}
+
 // Elapsed business minutes - closed interval start, open at end.
 export function businessMinutesBetween(
   start: Date,

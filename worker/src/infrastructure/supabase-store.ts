@@ -7,7 +7,10 @@ import {
   type SessionPayload,
 } from "@epuyen/shared";
 import type {
+  BotConversationRow,
   CitizenRow,
+  KnowledgeDocumentRow,
+  KnowledgeHitRow,
   MessageRow,
   OrgSettingsRow,
   SessionRow,
@@ -120,6 +123,13 @@ class SupabaseWorkerStore implements WorkerStore {
       allowlistPhones: (data?.allowlist_phones as string[]) ?? [],
       ttlHours: (data?.registration_session_ttl_hours as number) ?? 24,
       privacyNoticeVersion: (data?.privacy_notice_version as string) ?? "v1",
+      botPaused: Boolean(data?.bot_paused),
+      mesaBotEnabled: data?.mesa_bot_enabled !== false,
+      botConfidenceThreshold: Number(data?.bot_confidence_threshold ?? 0.55),
+      privacyNoticeText: (data?.privacy_notice_text as string | undefined) ?? undefined,
+      outOfHoursMessage: (data?.out_of_hours_message as string | undefined) ?? undefined,
+      businessHours: (data?.business_hours as Record<string, [string, string][]> | undefined) ?? undefined,
+      holidays: (data?.holidays as string[] | undefined) ?? [],
     };
   }
 
@@ -465,12 +475,14 @@ class SupabaseWorkerStore implements WorkerStore {
     text: string;
     deliveryStatus: "sent" | "blocked" | "simulated";
     externalId?: string;
+    senderKind?: "bot" | "operator" | "system" | "phone";
   }) {
     await this.client.from("messages").insert({
       org_id: params.orgId,
       line_id: params.lineId,
       external_id: params.externalId ?? `local-out-${Date.now()}-${Math.random()}`,
       direction: "outbound",
+      sender_kind: params.senderKind ?? null,
       phone_normalized: params.phone,
       kind: "text",
       body: params.text,
@@ -613,6 +625,185 @@ class SupabaseWorkerStore implements WorkerStore {
       .maybeSingle();
     const payload = (data?.payload ?? {}) as SessionPayload;
     return payload.completedAnimalId ?? null;
+  }
+
+  async getConversationForBot(conversationId: string): Promise<BotConversationRow | null> {
+    const { data } = await this.client
+      .from("conversations")
+      .select(
+        "id, org_id, line_id, phone_normalized, owner_user_id, bot_state, privacy_notice_sent_at, handoff_ack_sent_at, bot_awaiting_clarification",
+      )
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      orgId: data.org_id as string,
+      lineId: data.line_id as string,
+      phoneNormalized: data.phone_normalized as string,
+      ownerUserId: (data.owner_user_id as string | null) ?? null,
+      botState: (data.bot_state as BotConversationRow["botState"]) ?? "active",
+      privacyNoticeSentAt: (data.privacy_notice_sent_at as string | null) ?? null,
+      handoffAckSentAt: (data.handoff_ack_sent_at as string | null) ?? null,
+      botAwaitingClarification: Boolean(data.bot_awaiting_clarification),
+    };
+  }
+
+  async hasOpenPetSession(lineId: string, phone: string): Promise<boolean> {
+    const { data } = await this.client
+      .from("registration_sessions")
+      .select("id, step")
+      .eq("line_id", lineId)
+      .eq("phone_normalized", phone)
+      .neq("step", "done")
+      .gt("expires_at", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    return Boolean(data);
+  }
+
+  async searchKnowledge(orgId: string, query: string, limit = 5): Promise<KnowledgeHitRow[]> {
+    const { data, error } = await this.client.rpc("search_knowledge_chunks", {
+      p_org_id: orgId,
+      p_query: query,
+      p_limit: limit,
+    });
+    if (error || !data) return [];
+    return (data as Array<Record<string, unknown>>).map((row) => ({
+      chunkId: row.result_chunk_id as string,
+      documentId: row.result_document_id as string,
+      title: row.result_title as string,
+      content: row.result_content as string,
+      score: Number(row.result_score ?? 0),
+    }));
+  }
+
+  async insertBotRun(params: {
+    orgId: string;
+    conversationId: string;
+    triggerMessageId: string | null;
+    decision: string;
+    answer: string | null;
+    sources: unknown;
+    confidence: number | null;
+    handoffReason: string | null;
+    topic?: string | null;
+    urgency?: string | null;
+    extractedFields?: unknown;
+    model?: string | null;
+    latencyMs?: number | null;
+  }): Promise<string> {
+    const { data, error } = await this.client.rpc("insert_bot_run", {
+      p_org_id: params.orgId,
+      p_conversation_id: params.conversationId,
+      p_trigger_message_id: params.triggerMessageId,
+      p_decision: params.decision,
+      p_answer: params.answer,
+      p_sources: params.sources ?? [],
+      p_confidence: params.confidence,
+      p_handoff_reason: params.handoffReason,
+      p_suggested_area_id: null,
+      p_topic: params.topic ?? null,
+      p_urgency: params.urgency ?? null,
+      p_extracted_fields: params.extractedFields ?? {},
+      p_model: params.model ?? null,
+      p_latency_ms: params.latencyMs ?? null,
+      p_tokens_in: null,
+      p_tokens_out: null,
+    });
+    if (error) throw error;
+    return data as string;
+  }
+
+  async markPrivacyNoticeSent(conversationId: string): Promise<void> {
+    await this.client
+      .from("conversations")
+      .update({ privacy_notice_sent_at: new Date().toISOString() })
+      .eq("id", conversationId);
+  }
+
+  async markHandoff(params: { conversationId: string; sendAck: boolean }): Promise<void> {
+    const { data: conv } = await this.client
+      .from("conversations")
+      .select("id, org_id, queue_column")
+      .eq("id", params.conversationId)
+      .maybeSingle();
+    const patch: Record<string, unknown> = {
+      bot_state: "handoff",
+      queue_column: "new",
+      owner_user_id: null,
+    };
+    if (params.sendAck) patch.handoff_ack_sent_at = new Date().toISOString();
+    await this.client.from("conversations").update(patch).eq("id", params.conversationId);
+    if (conv) {
+      await this.client.from("conversation_events").insert({
+        org_id: conv.org_id,
+        conversation_id: conv.id,
+        event_type: "BOT_PAUSED",
+        actor_kind: "bot",
+        from_column: conv.queue_column,
+        to_column: "new",
+        metadata: { reason: "handoff" },
+      });
+    }
+  }
+
+  async setBotAwaitingClarification(conversationId: string, awaiting: boolean): Promise<void> {
+    await this.client
+      .from("conversations")
+      .update({ bot_awaiting_clarification: awaiting })
+      .eq("id", conversationId);
+  }
+
+  async getKnowledgeDocument(documentId: string): Promise<KnowledgeDocumentRow | null> {
+    const { data } = await this.client
+      .from("knowledge_documents")
+      .select("id, org_id, title, body_text, storage_path, is_active")
+      .eq("id", documentId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      orgId: data.org_id as string,
+      title: data.title as string,
+      bodyText: (data.body_text as string | null) ?? null,
+      storagePath: (data.storage_path as string | null) ?? null,
+      isActive: Boolean(data.is_active),
+    };
+  }
+
+  async replaceKnowledgeChunks(
+    documentId: string,
+    chunks: Array<{ chunkIndex: number; content: string; metadata?: Record<string, unknown> }>,
+  ): Promise<number> {
+    const { data, error } = await this.client.rpc("replace_knowledge_chunks", {
+      p_document_id: documentId,
+      p_chunks: chunks.map((chunk) => ({
+        chunkIndex: chunk.chunkIndex,
+        content: chunk.content,
+        metadata: chunk.metadata ?? {},
+      })),
+    });
+    if (error) throw error;
+    return Number(data ?? 0);
+  }
+
+  async createBotSummaryNote(params: {
+    orgId: string;
+    conversationId: string;
+    body: string;
+  }): Promise<void> {
+    await this.client.from("notes").insert({
+      org_id: params.orgId,
+      conversation_id: params.conversationId,
+      kind: "bot_summary",
+      body: params.body,
+      sealed_at: new Date().toISOString(),
+    });
+  }
+
+  async updateMessageBody(messageId: string, body: string): Promise<void> {
+    await this.client.from("messages").update({ body }).eq("id", messageId);
   }
 }
 

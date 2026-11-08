@@ -40,6 +40,7 @@ describe("ingestInboundEvent", () => {
     expect(store.conversations.size).toBe(1);
     expect(store.citizens.size).toBe(1);
     expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
+    expect(store.jobs.filter((j) => j.type === "bot_reply")).toHaveLength(1);
     expect(second.body.duplicate).toBe(true);
     expect(first.body.conversationId).toBeTruthy();
   });
@@ -106,6 +107,25 @@ describe("ingestInboundEvent", () => {
     expect(store.jobs.filter((j) => j.type === "download_media")).toHaveLength(1);
   });
 
+  it("enqueues transcribe_audio without immediate bot_reply for audio", async () => {
+    const store = new MemoryInboundStore();
+    store.lines.set("inspectoria", { ...line });
+    await ingestInboundEvent(
+      store,
+      {
+        ...baseEvent,
+        externalId: "aud-1",
+        kind: "audio",
+        mediaUrl: "https://cdn.example.com/a.ogg",
+        mediaMime: "audio/ogg",
+      },
+      "secret",
+    );
+    expect(store.jobs.filter((j) => j.type === "transcribe_audio")).toHaveLength(1);
+    expect(store.jobs.filter((j) => j.type === "bot_reply")).toHaveLength(0);
+    expect(store.jobs.filter((j) => j.type === "process_inbound")).toHaveLength(1);
+  });
+
   it("reopens a resolved conversation once and still enqueues process_inbound", async () => {
     const store = new MemoryInboundStore();
     store.lines.set("inspectoria", { ...line });
@@ -166,6 +186,7 @@ describe("ingestInboundEvent", () => {
     expect(store.citizens.size).toBe(0);
     expect(store.conversations.size).toBe(0);
     expect(store.jobs.filter((job) => job.type === "process_inbound")).toHaveLength(0);
+    expect(store.jobs.filter((job) => job.type === "bot_reply")).toHaveLength(0);
     expect(store.jobs.filter((job) => job.type === "send_outbound")).toHaveLength(1);
   });
 });

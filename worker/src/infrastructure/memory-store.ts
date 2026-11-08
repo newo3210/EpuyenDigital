@@ -7,8 +7,11 @@ import {
   type SessionPayload,
 } from "@epuyen/shared";
 import type {
+  BotConversationRow,
   CitizenRow,
   CompleteAnimalResult,
+  KnowledgeDocumentRow,
+  KnowledgeHitRow,
   MessageRow,
   OrgSettingsRow,
   SessionRow,
@@ -64,12 +67,32 @@ export class MemoryWorkerStore implements WorkerStore {
     allowlistPhones: ["5492944216586"],
     ttlHours: 24,
     privacyNoticeVersion: "v1",
+    botPaused: false,
+    mesaBotEnabled: true,
+    botConfidenceThreshold: 0.55,
+    privacyNoticeText: "Aviso de privacidad municipal.",
+    outOfHoursMessage: "Fuera de horario.",
+    businessHours: {
+      mon: [["00:00", "23:59"]],
+      tue: [["00:00", "23:59"]],
+      wed: [["00:00", "23:59"]],
+      thu: [["00:00", "23:59"]],
+      fri: [["00:00", "23:59"]],
+      sat: [["00:00", "23:59"]],
+      sun: [["00:00", "23:59"]],
+    },
+    holidays: [],
   };
   line = {
     id: "00000000-0000-4000-8000-000000000002",
     orgId: "00000000-0000-4000-8000-000000000001",
     instance: "inspectoria",
   };
+  conversations = new Map<string, BotConversationRow>();
+  knowledgeDocs = new Map<string, KnowledgeDocumentRow>();
+  knowledgeHits: KnowledgeHitRow[] = [];
+  botRuns: Array<{ id: string; decision: string; conversationId: string }> = [];
+  botNotes: Array<{ conversationId: string; body: string }> = [];
 
   /** Per-phone async mutex chain for concurrent process_inbound */
   private lockChains = new Map<string, Promise<unknown>>();
@@ -408,9 +431,93 @@ export class MemoryWorkerStore implements WorkerStore {
     return session?.payload.completedAnimalId ?? null;
   }
 
+  async getConversationForBot(conversationId: string) {
+    return this.conversations.get(conversationId) ?? null;
+  }
+
+  async hasOpenPetSession(lineId: string, phone: string) {
+    const session = this.sessions.get(`${lineId}:${phone}`);
+    return Boolean(session && session.step !== "done");
+  }
+
+  async searchKnowledge(_orgId: string, query: string, limit = 5) {
+    const needle = query.toLowerCase();
+    return this.knowledgeHits
+      .filter((hit) => hit.content.toLowerCase().includes(needle) || hit.title.toLowerCase().includes(needle))
+      .slice(0, limit);
+  }
+
+  async insertBotRun(params: {
+    orgId: string;
+    conversationId: string;
+    triggerMessageId: string | null;
+    decision: string;
+    answer: string | null;
+    sources: unknown;
+    confidence: number | null;
+    handoffReason: string | null;
+  }) {
+    const id = crypto.randomUUID();
+    this.botRuns.push({ id, decision: params.decision, conversationId: params.conversationId });
+    return id;
+  }
+
+  async markPrivacyNoticeSent(conversationId: string) {
+    const conv = this.conversations.get(conversationId);
+    if (conv) conv.privacyNoticeSentAt = new Date().toISOString();
+  }
+
+  async markHandoff(params: { conversationId: string; sendAck: boolean }) {
+    const conv = this.conversations.get(params.conversationId);
+    if (!conv) return;
+    conv.botState = "handoff";
+    if (params.sendAck) conv.handoffAckSentAt = new Date().toISOString();
+  }
+
+  async setBotAwaitingClarification(conversationId: string, awaiting: boolean) {
+    const conv = this.conversations.get(conversationId);
+    if (conv) conv.botAwaitingClarification = awaiting;
+  }
+
+  async getKnowledgeDocument(documentId: string) {
+    return this.knowledgeDocs.get(documentId) ?? null;
+  }
+
+  async replaceKnowledgeChunks(
+    documentId: string,
+    chunks: Array<{ chunkIndex: number; content: string; metadata?: Record<string, unknown> }>,
+  ) {
+    const doc = this.knowledgeDocs.get(documentId);
+    if (!doc) return 0;
+    this.knowledgeHits = this.knowledgeHits.filter((hit) => hit.documentId !== documentId);
+    for (const chunk of chunks) {
+      this.knowledgeHits.push({
+        chunkId: crypto.randomUUID(),
+        documentId,
+        title: doc.title,
+        content: chunk.content,
+        score: 0.9,
+      });
+    }
+    return chunks.length;
+  }
+
+  async createBotSummaryNote(params: { orgId: string; conversationId: string; body: string }) {
+    this.botNotes.push({ conversationId: params.conversationId, body: params.body });
+  }
+
+  async updateMessageBody(messageId: string, body: string) {
+    const message = this.messages.get(messageId);
+    if (message) message.body = body;
+  }
+
   // helpers for tests
   seedMessage(row: MessageRow) {
     this.messages.set(row.id, row);
+  }
+
+  seedConversation(row: BotConversationRow) {
+    this.conversations.set(row.id, row);
   }
 
   seedSession(partial: {

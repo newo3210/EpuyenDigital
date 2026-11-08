@@ -5,7 +5,7 @@
 > Se actualiza cada vez que se cierra un módulo o un cambio de OpenSpec.
 
 **Última actualización:** 2026-11-08  
-**Change relacionado:** `tareas-notas-trazabilidad`
+**Change relacionado:** `chatbot-llm`
 
 ---
 
@@ -95,6 +95,7 @@ Admin → /settings/lines
 - 2026-11-08: `pobladores-ficha` archivado en `openspec/changes/archive/2026-11-08-pobladores-ficha`. Specs vivas en `openspec/specs/citizen-profile`, `citizen-search` y `citizen-merge`.
 - 2026-11-08: `tareas-notas-trazabilidad` aplicado (TSK + AUD). Tareas, notas selladas, contactos externos y exportación de caso.
 - 2026-11-08: `tareas-notas-trazabilidad` archivado en `openspec/changes/archive/2026-11-08-tareas-notas-trazabilidad`. Specs vivas: `task-lifecycle`, `task-external`, `notes`, `case-export` (+ merge/timeline/inbound). Residual: menciones, `task_files`, live DB.
+- 2026-11-08: `chatbot-llm` en apply. Dos jobs en la misma línea (`process_inbound` + `bot_reply`) para no romper Inspectoría. Confirmación antes de escribir campos del bot. Handoff ack una sola vez por episodio. Corpus admin + `bot_runs` visibles en el hilo.
 
 ## 7. Mesa de entrada — por qué las funciones son definer
 

@@ -5,7 +5,7 @@
 > Updated on every OpenSpec change that alters flow, schemas, routes, or models.
 
 **Last updated:** 2026-11-08  
-**Related OpenSpec change:** `openspec/changes/pobladores-ficha/`
+**Related OpenSpec change:** `openspec/changes/chatbot-llm/`
 
 ---
 
@@ -21,12 +21,13 @@
 - **WhatsApp channel core** (archived): `conversations`, encrypted line secrets, inbound hardenings, delivery ACK persistence, admin `/settings/lines`, text composer with `send_mode` guard.
 - **Mesa de entrada inbox**: claim/delegate/accept/reject/move/resolve/reopen, area-scoped reads, business-hours SLA, queue filters, ticks, OpenStreetMap links, quick replies.
 - **Pobladores ficha** (archived): org-wide citizen search, profile edit, register, merge, and a manual-source guard.
-- **Tasks, notes, and audit** (this change): task board and lifecycle, notes with seals, external WhatsApp contacts, case export, citizen timeline/merge extended for tasks and notes.
+- **Tasks, notes, and audit** (archived): task board and lifecycle, notes with seals, external WhatsApp contacts, case export, citizen timeline/merge extended for tasks and notes.
+- **Chatbot LLM** (this change): knowledge corpus + chunks, `bot_reply` beside `process_inbound`, `bot_runs` decision log, admin knowledge UI, claim/resolve already pause/resume `bot_state`.
 
 **Deferred follow-ups:**
 
 - Panel media send (WA-08) and a `send_mode` admin chooser (WA-11).
-- Bot-authored tasks / RAG summaries and OPS metrics dashboards.
+- OPS metrics dashboards.
 - Do **not** overload `citizens.latitude/longitude` (pet registration GPS) with mesa inquiry pins (inquiry coords live on `messages`).
 - Do **not** gate `process_inbound` on the conversation area.
 
@@ -34,10 +35,10 @@
 
 | Conceptual layer | Paths in this repo | Notes |
 |---|---|---|
-| Presentation / HTTP thin | `(panel)/inbox/**`, `(panel)/citizens/**`, `(panel)/tasks/**`, `(panel)/settings/{lines,quick-replies,hours,external-contacts}`, `presentation/{inbox,citizens,tasks,notes,whatsapp}/**` | No Supabase imports in presentation. Support renders no mutating controls. |
-| Application / services | `features/{inbox,citizens,tasks,notes,outbound}/**`, worker jobs | User-scoped RPCs. Composer calls `ensure_owner_for_reply` before persist or Evolution. |
-| Infrastructure / repositories | `infrastructure/repositories/{inbox,citizens,tasks,notes}.ts`, `supabase-inbound-store.ts`, migrations | Service role for webhook reopen, external commands, seals, and the pet worker. |
-| Contracts / schemas | `contracts/{inbox,citizens,tasks,notes}.ts`, `packages/shared` (`business-minutes`, `inbox-side-effects`, `citizen-fields`, `external-task-commands`) | Zod at filter, delegate, profile, merge, task, and note boundaries. |
+| Presentation / HTTP thin | `(panel)/inbox/**`, `(panel)/citizens/**`, `(panel)/tasks/**`, `(panel)/settings/{lines,quick-replies,hours,external-contacts,knowledge}`, `presentation/{inbox,citizens,tasks,notes,knowledge,whatsapp}/**` | No Supabase imports in presentation. Support renders no mutating controls. |
+| Application / services | `features/{inbox,citizens,tasks,notes,outbound,knowledge}/**`, worker jobs (`bot_reply`, `index_document`, …) | User-scoped RPCs. Composer calls `ensure_owner_for_reply` before persist or Evolution. |
+| Infrastructure / repositories | `infrastructure/repositories/{inbox,citizens,tasks,notes,knowledge}.ts`, `supabase-inbound-store.ts`, migrations | Service role for webhook reopen, external commands, seals, bot_runs insert, and the pet/mesa worker. |
+| Contracts / schemas | `contracts/{inbox,citizens,tasks,notes}.ts`, `packages/shared` (`business-minutes`, `bot-decision`, `inbox-side-effects`, `citizen-fields`, `external-task-commands`) | Zod at filter, delegate, profile, merge, task, note, and job boundaries. |
 
 ## 3. Data & control flow
 
@@ -51,8 +52,9 @@ Citizen (WhatsApp) → Evolution → POST /api/webhooks/evolution
   → upsert citizen stub + conversation (default_area_id)
   → idempotent message upsert (line_id, external_id)
   → if the thread was resolved and the message is from the citizen, service-role reopen_conversation (idempotent per message id)
-  → enqueue process_inbound (+ download_media for media kinds)
+  → enqueue process_inbound + bot_reply (+ download_media / transcribe_audio / summarize_media as needed)
 Worker → pet state machine unchanged; download_media idempotent on storage_path
+Worker → bot_reply silent when kill switch / org pause / human owner / bot_state paused|handoff / open pet session; else privacy → hours → RAG → clarify once → handoff once; always insert bot_runs
 Worker → external_notify → send_outbound protocol text; idle tick may call abandon_stale_tasks
 messages.update → delivery_ack → update outbound delivery_status
 ```
@@ -82,10 +84,11 @@ Admin → /settings/lines → create/update (RLS) + upsert ciphertext secrets (s
 |---|---|
 | `/login` | Email/password operator sign-in |
 | `/inbox` | Queue from `list_inbox_queue` (unowned FIFO, then owned by latest inbound). Filters. |
-| `/inbox/[conversationId]` | Thread, ticks, OSM links, events, claim/delegate/move/resolve, text composer, ficha, create task, notes, case export |
+| `/inbox/[conversationId]` | Thread, ticks, OSM links, events, claim/delegate/move/resolve, text composer, ficha, create task, notes, bot_runs, case export |
 | `/settings/quick-replies` | Admin quick replies |
 | `/settings/hours` | Admin business hours and holidays |
 | `/settings/external-contacts` | Admin external WhatsApp contacts for task delegation |
+| `/settings/knowledge` | Admin knowledge corpus + global bot pause |
 | `/citizens` | Search by name, DNI (`document_id`), or phone. Empty query lists nothing. |
 | `/citizens/[id]` | Ficha, missing fields, register, timeline (messages/events/animals/notes/tasks), merge into this record. A merged row redirects to the keeper. |
 | `/tasks` | Board with status/area filters; overdue first |
